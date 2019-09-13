@@ -1,0 +1,4 @@
+lmdb==0.97
+numpy==1.17.2
+pillow==6.1.0
+torch==1.2.0
