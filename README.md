@@ -1,7 +1,7 @@
-vis-wsl
-=======
+viswsl
+======
 
-Weakly supervised learning for solving multiple vision tasks together.
+Weakly supervised learning to solve multiple vision tasks together.
 
 
 Install Dependencies
@@ -12,13 +12,13 @@ For these steps to install through Anaconda / Miniconda.
 1. Install Anaconda or Miniconda distribution based on Python3+ from their [downloads site](https://conda.io/docs/user-guide/install/download.html).
 
 
-1. Clone the repository first.
+2. Clone the repository first.
 
 ```
 git clone https://www.github.com/kdexd/viswsl
 ```
 
-1. Create a conda environment and install all the dependencies.
+3. Create a conda environment and install all the dependencies.
 
 ```
 cd vision-wsl
@@ -29,7 +29,7 @@ pip install -r requirements.txt
 
 <!-- Mention apt dependency: ZeroMQ (libzmq3-dev) -->
 
-1. Install this codebase as a package in development version.
+4. Install this codebase as a package in development version.
 
 ```
 python setup.py develop
