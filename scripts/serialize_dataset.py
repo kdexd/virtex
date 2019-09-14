@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import sys
 from typing import Any, Dict, List
 
 import dataflow as df
@@ -15,12 +14,12 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "--images",
     default="data/coco/images/train2017",
-    help="Path to a directory containing images of a particular dataset split.",
+    help="Path to a directory containing images of a dataset split.",
 )
 parser.add_argument(
     "--captions",
     default="data/coco/annotations/captions_train2017.json",
-    help="Path to an annotations file containing captions for corresponding images.",
+    help="Path to annotations file with captions for corresponding images.",
 )
 parser.add_argument(
     "--output",
@@ -31,13 +30,19 @@ parser.add_argument(
     "--num-procs",
     type=int,
     default=1,
-    help="Number of processes for parallelization. Note that this may not preserve the order "
-    "of instances as in annotations. Use 1 process to preserve order (might be slow).",
+    help="Number of processes for parallelization. Note that this may not "
+    "preserve the order of instances as in annotations. Use 1 process to "
+    "preserve order (might be slow).",
 )
 
 
 class CocoCaptionsRawDataFlow(df.DataFlow):
-    def __init__(self, images_dirpath: str, captions_filepath: str, dont_read_images: False):
+    def __init__(
+        self,
+        images_dirpath: str,
+        captions_filepath: str,
+        dont_read_images: False,
+    ):
         self._images = images_dirpath
         self._dont_read_images = dont_read_images
 
@@ -60,7 +65,9 @@ class CocoCaptionsRawDataFlow(df.DataFlow):
     def __iter__(self):
 
         for image_id in self._id_to_filename:
-            image_path = os.path.join(self._images, self._id_to_filename[image_id])
+            image_path = os.path.join(
+                self._images, self._id_to_filename[image_id]
+            )
             captions = self._id_to_captions[image_id]
 
             if self._dont_read_images:
@@ -87,7 +94,9 @@ if __name__ == "__main__":
 
     _A = parser.parse_args()
 
-    dflow = CocoCaptionsRawDataFlow(_A.images, _A.captions, dont_read_images=True)
+    dflow = CocoCaptionsRawDataFlow(
+        _A.images, _A.captions, dont_read_images=True
+    )
     dflow = df.MultiProcessMapDataZMQ(
         dflow,
         num_proc=_A.num_procs,
@@ -99,6 +108,6 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(_A.output), exist_ok=True)
     df.LMDBSerializer.save(dflow, _A.output)
 
-    # ``MultiprocessMapDataZMQ`` results in a deadlock sometimes with strict mode.
+    # MultiprocessMapDataZMQ goes to a deadlock sometimes with strict mode.
     # Prompt to exit manually as a workaround.
     raise Exception("Serialization complete! Press Ctrl-C to exit.")
