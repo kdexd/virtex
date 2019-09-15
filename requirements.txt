@@ -1,4 +1,5 @@
 lmdb==0.97
 numpy==1.17.2
 pillow==6.1.0
+sentencepiece==0.1.83
 torch==1.2.0
