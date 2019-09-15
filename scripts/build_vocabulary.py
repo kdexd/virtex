@@ -86,9 +86,9 @@ if __name__ == "__main__":
         caption = caption.lower() if _A.do_lower_case else caption
 
         if not _A.keep_accents:
-            caption = unicodedata.normalize("NFD", caption)
+            caption = unicodedata.normalize("NFKD", caption)
             caption = "".join(
-                [chr for chr in caption if unicodedata.category(chr) != "Mn"]
+                [chr for chr in caption if not unicodedata.combining(chr)]
             )
 
         captions[i] = caption
@@ -105,13 +105,10 @@ if __name__ == "__main__":
         f" --input={os.path.join(tmpdir_path, 'captions.txt')}"
         f" --vocab_size={_A.vocab_size}"
         f" --model_prefix={_A.output_prefix}"
-
         # Use Byte-Pair encoging with full character coverage.
         " --model_type=bpe --character_coverage=1.0"
-
         # Turn off <s> and </s> tokens.
         " --bos_id=-1 --eos_id=-1"
-
         # Add [CLS], [SEP] and [MASK] tokens.
         " --control_symbols=[CLS],[SEP],[MASK]"
     )
