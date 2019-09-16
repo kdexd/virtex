@@ -31,11 +31,8 @@ class SentencePieceVocabulary(object):
                 self._token_to_index["tokens"][row["token"]] = index
                 self._index_to_token["tokens"][index] = row["token"]
 
-        # Short hand notations for convenience.
+        # Short hand name for convenience.
         self._oov_token = "<unk>"
-        self._cls_token = "[CLS]"
-        self._sep_token = "[SEP]"
-        self._mask_token = "[MASK]"
 
     def get_index_to_token_vocabulary(self, namespace: str = "tokens"):
         return self._index_to_token[namespace]
