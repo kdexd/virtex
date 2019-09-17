@@ -8,11 +8,25 @@ import lmdb
 import numpy as np
 from torch.utils.data import get_worker_info, IterableDataset
 
+from viswsl.data.tokenizers import SentencePieceTokenizer
+from viswsl.data.vocabulary import SentencePieceVocabulary
 
+
+# TODO (kd): Write a class for val split with sequential read, no shuffle.
 class CocoCaptionsTrainDataset(IterableDataset):
-    def __init__(self, lmdb_path: str, buffer_size: int = 8):
+    def __init__(
+        self,
+        lmdb_path: str,
+        vocabulary: SentencePieceVocabulary,
+        tokenizer: SentencePieceTokenizer,
+        max_caption_length: int = 25,
+        buffer_size: int = 8,
+    ):
 
         self._lmdb_path = lmdb_path
+        self._vocabulary = vocabulary
+        self._tokenizer = tokenizer
+        self._max_caption_length = max_caption_length
         self._buffer_size = buffer_size
 
         # Get a list of "keys" in the LMDB file so we could shard the dataset
@@ -101,6 +115,26 @@ class CocoCaptionsTrainDataset(IterableDataset):
             image, captions = instance
 
             image = self._image_augmentor.augment(image)
+
+            # Select a caption randomly (during training).
             caption = random.choice(captions)
 
-            yield image  # , caption
+            # Tokenize caption and trim to maximum length.
+            caption_tokens = self._tokenizer.tokenize(caption)
+            caption_tokens = caption_tokens[: self._max_caption_length]
+
+            token_indices = [
+                self._vocabulary.get_token_index(t) for t in caption_tokens
+            ]
+
+            # Pad the sequence of tokens up to maximum length.
+            token_indices.extend(
+                [self._vocabulary.pad_index]
+                * (self._max_caption_length - len(caption_tokens))
+            )
+
+            # Add [CLS] and [SEP] tokens. [SEP] is simply EOS, or </S> token.
+            token_indices.insert(self._vocabulary.cls_index, 0)
+            token_indices.append(self._vocabulary.sep_index)
+
+            yield image, token_indices

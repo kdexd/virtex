@@ -1,5 +1,8 @@
 lmdb==0.97
 numpy==1.17.2
+opencv-python==4.1.0.25
 pillow==6.1.0
 sentencepiece==0.1.83
 torch==1.2.0
+tqdm==4.36.0
+git+git://github.com/tensorpack/dataflow.git#egg=dataflow
