@@ -48,16 +48,16 @@ class CocoCaptionsTrainDataset(IterableDataset):
         # List of augmentations to be applied on each image after reading
         # from LMDB. This follows the standard augmentation steps of
         # (ImageNet pre-trained) ResNet models:
-        #     1. Resize shortest edge to 256.
-        #     2. Random crop a (224, 224) patch.
-        #     3. Convert pixel intensities in [0, 1].
+        #     1. Resize shortest edge to 256. (Already done in LMDB)
+        #     2. Convert pixel intensities in [0, 1].
+        #     3. Random crop a (224, 224) patch.
         #     4. Normalize image by mean pixel intensity and variance.
         #     5. Convert from HWC to CHW format.
         self._image_augmentor = df.imgaug.AugmentorList(
             [
-                df.imgaug.ResizeShortestEdge(256),
                 df.imgaug.RandomCrop(224),
                 df.imgaug.ToFloat32(),
+                df.imgaug.MapImage(lambda image: image / 255.0),
                 df.imgaug.MapImage(
                     lambda image: (image - np.array([0.485, 0.456, 0.406]))
                     / np.array([0.229, 0.224, 0.225])
@@ -98,20 +98,20 @@ class CocoCaptionsTrainDataset(IterableDataset):
 
         # Load examples from serialized LMDB (sharded by number of workers).
         # Read sequentially, random reads on large datasets may be expensive.
-        dflow = df.LMDBData(
+        pipeline = df.LMDBData(
             self._lmdb_path, keys=self._keys[start:end], shuffle=False
         )
 
         # Decode bytes read from LMDB to Python objects.
-        dflow = df.MapData(dflow, df.LMDBSerializer._deserialize_lmdb)
+        pipeline = df.MapData(pipeline, df.LMDBSerializer._deserialize_lmdb)
 
         # Keep a fixed-size buffer: examples will be pushed in this buffer and
         # randomly selected to make batches; a good proxy for random reads.
-        dflow = df.LocallyShuffleData(dflow, self._buffer_size)
-        dflow.reset_state()
+        pipeline = df.LocallyShuffleData(pipeline, self._buffer_size)
+        pipeline.reset_state()
         # ====================================================================
 
-        for instance in dflow:
+        for instance in pipeline:
             image, captions = instance
 
             image = self._image_augmentor.augment(image)
