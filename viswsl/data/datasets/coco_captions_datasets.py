@@ -6,6 +6,7 @@ from typing import List
 import dataflow as df
 import lmdb
 import numpy as np
+import torch
 from torch.utils.data import get_worker_info, IterableDataset
 
 from viswsl.data.tokenizers import SentencePieceTokenizer
@@ -120,9 +121,9 @@ class CocoCaptionsTrainDataset(IterableDataset):
             # Select a caption randomly (during training).
             caption = random.choice(captions)
 
-            # Tokenize caption and trim to maximum length.
+            # Tokenize and trim to max length - 2 (count [CLS] and [SEP]).
             caption_tokens = self._tokenizer.tokenize(caption)
-            caption_tokens = caption_tokens[: self._max_caption_length]
+            caption_tokens = caption_tokens[: self._max_caption_length - 2]
 
             # Add [CLS] and [SEP] tokens. [SEP] is simply EOS, or </S> token.
             caption_tokens.insert(0, self._vocabulary.cls_token)
@@ -153,7 +154,7 @@ class CocoCaptionsTrainDataset(IterableDataset):
             ]
 
             yield {
-                "image": image,
-                "tokens": token_indices,
-                "masked_labels": masked_label_indices,
+                "image": torch.tensor(image),
+                "tokens": torch.tensor(token_indices).long(),
+                "masked_labels": torch.tensor(masked_label_indices).long(),
             }
