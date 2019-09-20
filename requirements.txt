@@ -5,4 +5,5 @@ pillow==6.1.0
 sentencepiece==0.1.83
 torch==1.2.0
 tqdm==4.36.0
+yacs==0.1.6
 git+git://github.com/tensorpack/dataflow.git#egg=dataflow
