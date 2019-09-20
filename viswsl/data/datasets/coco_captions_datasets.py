@@ -10,6 +10,7 @@ from torch.utils.data import get_worker_info, IterableDataset
 
 from viswsl.data.tokenizers import SentencePieceTokenizer
 from viswsl.data.vocabulary import SentencePieceVocabulary
+from viswsl.utils.pretraining import mask_some_tokens_randomly
 
 
 # TODO (kd): Write a class for val split with sequential read, no shuffle.
@@ -123,18 +124,36 @@ class CocoCaptionsTrainDataset(IterableDataset):
             caption_tokens = self._tokenizer.tokenize(caption)
             caption_tokens = caption_tokens[: self._max_caption_length]
 
+            # Add [CLS] and [SEP] tokens. [SEP] is simply EOS, or </S> token.
+            caption_tokens.insert(0, self._vocabulary.cls_token)
+            caption_tokens.append(self._vocabulary.sep_token)
+
+            # Pad the sequence of tokens up to maximum length.
+            # This makes the default ``collate_fn`` of dataloader work.
+            caption_tokens.extend(
+                [self._vocabulary.pad_token]
+                * (self._max_caption_length - len(caption_tokens))
+            )
+            # Mask out few tokens randomly.
+            caption_tokens, masked_labels = mask_some_tokens_randomly(
+                caption_tokens,
+                mask_token=self._vocabulary.mask_token,
+                pad_token=self._vocabulary.pad_token,
+                ignore_tokens=[
+                    self._vocabulary.cls_token,
+                    self._vocabulary.sep_token,
+                ],
+            )
+            # Convert (string) tokens to (integer) token indices.
             token_indices = [
                 self._vocabulary.get_token_index(t) for t in caption_tokens
             ]
+            masked_label_indices = [
+                self._vocabulary.get_token_index(t) for t in masked_labels
+            ]
 
-            # Pad the sequence of tokens up to maximum length.
-            token_indices.extend(
-                [self._vocabulary.pad_index]
-                * (self._max_caption_length - len(caption_tokens))
-            )
-
-            # Add [CLS] and [SEP] tokens. [SEP] is simply EOS, or </S> token.
-            token_indices.insert(self._vocabulary.cls_index, 0)
-            token_indices.append(self._vocabulary.sep_index)
-
-            yield image, token_indices
+            yield {
+                "image": image,
+                "tokens": token_indices,
+                "masked_labels": masked_label_indices,
+            }

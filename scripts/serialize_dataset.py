@@ -49,7 +49,7 @@ class CocoCaptionsRawDataFlow(df.DataFlow):
         self,
         images_dirpath: str,
         captions_filepath: str,
-        dont_read_images: False,
+        dont_read_images: bool = False,
     ):
         self._images = images_dirpath
         self._dont_read_images = dont_read_images

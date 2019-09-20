@@ -28,11 +28,16 @@ class SentencePieceVocabulary(object):
 
         # Short hand names for convenience. These will be accessed from
         # outside the class.
-        self.pad_index = self._token_to_index["<unk>"]
-        self.unk_index = self._token_to_index["<unk>"]
-        self.cls_index = self._token_to_index["[CLS]"]
-        self.sep_index = self._token_to_index["[SEP]"]
-        self.mask_index = self._token_to_index["[MASK]"]
+        self.pad_token = "<unk>"
+        self.pad_index = self._token_to_index[self.pad_token]
+        self.unk_token = "<unk>"
+        self.unk_index = self._token_to_index[self.unk_token]
+        self.cls_token = "[CLS]"
+        self.cls_index = self._token_to_index[self.cls_token]
+        self.sep_token = "[SEP]"
+        self.sep_index = self._token_to_index[self.sep_token]
+        self.mask_token = "[MASK]"
+        self.mask_index = self._token_to_index[self.mask_token]
 
     def get_token_index(self, token: str):
         if token in self._token_to_index:
