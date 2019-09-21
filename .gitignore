@@ -42,3 +42,6 @@ data/
 # virtualenv
 venv/
 ENV/
+
+# Temporary scripts to (smoke) test out bits and pieces of code.
+scripts/test_*
