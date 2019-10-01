@@ -11,6 +11,7 @@ def mask_some_tokens_randomly(
 ) -> Tuple[List[str], List[str]]:
     r"""
     Mask tokens for a single sentence. Tokens are expected to be strings.
+
     Extended Summary
     ----------------
     Tokens are masked as per the ``masking_probability``, which is 15% by
