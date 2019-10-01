@@ -1,4 +1,5 @@
 lmdb==0.97
+mypy_extensions==0.4.1
 numpy==1.17.2
 opencv-python==4.1.0.25
 pillow==6.1.0
