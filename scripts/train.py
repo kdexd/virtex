@@ -1,0 +1,174 @@
+import argparse
+import os
+from typing import Any, Dict, Iterator, List
+import warnings
+
+import numpy as np
+import torch
+from torch import nn, optim
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from viswsl.config import Config
+from viswsl.data.datasets import MaskedLanguageModelingDataset
+from viswsl.data.vocabulary import SentencePieceVocabulary
+from viswsl.data.tokenizers import SentencePieceTokenizer
+from viswsl.modules.linguistic_stream import LinguisticStream
+
+
+parser = argparse.ArgumentParser(
+    description="""Train only the linguistic stream (transformer) on masked
+    language modeling pretext task."""
+)
+parser.add_argument(
+    "--config",
+    required=True,
+    help="Path to a config file with all configuration parameters.",
+)
+parser.add_argument(
+    "--config-override",
+    default=[],
+    nargs="*",
+    help="""A sequence of key-value pairs specifying certain config arguments
+    (with dict-like nesting) using a dot operator. The actual config will be
+    updated and recorded in the serialization directory.""",
+)
+
+parser.add_argument_group("Compute resource management arguments.")
+parser.add_argument(
+    "--gpu-ids",
+    required=True,
+    nargs="+",
+    type=int,
+    help="List of GPU IDs to use (-1 for CPU).",
+)
+parser.add_argument(
+    "--cpu-workers",
+    type=int,
+    default=0,
+    help="Number of CPU workers to use for data loading.",
+)
+
+parser.add_argument_group("Checkpointing related arguments.")
+parser.add_argument(
+    "--serialization-dir",
+    default="checkpoints/experiment",
+    help="""Path to a (non-existent) directory for serializing config, model
+    checkpoints and tensorboard logs.""",
+)
+
+
+if __name__ == "__main__":
+    # -------------------------------------------------------------------------
+    #   INPUT ARGUMENTS AND CONFIG
+    # -------------------------------------------------------------------------
+    _A = parser.parse_args()
+
+    # Create a config with default values, then override from config file, and
+    # _A. This object is immutable, nothing can be changed in this anymore.
+    _C = Config(_A.config, _A.config_override)
+
+    # Print configs and args.
+    print(_C)
+    for arg in vars(_A):
+        print("{:<20}: {}".format(arg, getattr(_A, arg)))
+
+    # Create serialization directory and save config in it.
+    os.makedirs(_A.serialization_dir, exist_ok=True)
+    _C.dump(os.path.join(_A.serialization_dir, "config.yml"))
+
+    # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
+    # These five lines control all the major sources of randomness.
+    np.random.seed(_C.RANDOM_SEED)
+    torch.manual_seed(_C.RANDOM_SEED)
+    torch.cuda.manual_seed_all(_C.RANDOM_SEED)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+    # Set device according to specified GPU ids.
+    device = torch.device(
+        f"cuda:{_A.gpu_ids[0]}" if _A.gpu_ids[0] >= 0 else "cpu"
+    )
+    if len(_A.gpu_ids) > 1:
+        warnings.warn(
+            f"""Multi-GPU execution not supported right now. Using GPU
+        {_A.gpu_ids[0]}"""
+        )
+
+    # --------------------------------------------------------------------------
+    #   INSTANTIATE VOCABULARY, TOKENIZER, DATALOADER, MODEL, OPTIMIZER
+    # --------------------------------------------------------------------------
+
+    vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
+    tokenizer = SentencePieceTokenizer(_C.DATA.TOKENIZER)
+
+    train_dataset = MaskedLanguageModelingDataset(
+        lmdb_path=_C.DATA.TRAIN_LMDB,
+        vocabulary=vocabulary,
+        tokenizer=tokenizer,
+        max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
+    )
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=_C.OPTIM.BATCH_SIZE,
+        num_workers=_A.cpu_workers,
+    )
+
+    # TODO (kd): Use DistributedDataParalell on this one.
+    model = LinguisticStream.from_config(_C).to(device)
+
+    optimizer = optim.AdamW(
+        model.parameters(), lr=_C.OPTIM.LR, weight_decay=_C.OPTIM.WEIGHT_DECAY
+    )
+
+    # Linear LR decay scheduler.
+    # TODO (kd): add warmup for initial x% of training iterations.
+    lr_scheduler = optim.lr_scheduler.LambdaLR(  # type: ignore
+        optimizer,
+        lr_lambda=lambda iteration: 1 - iteration / _C.OPTIM.NUM_ITERATIONS,
+    )
+
+    # --------------------------------------------------------------------------
+    #   TRAINING LOOP
+    # --------------------------------------------------------------------------
+
+    # Create an iterator from dataloader to sample batches perpetually.
+    train_dataloader_iter: Iterator = iter(train_dataloader)
+
+    for iteration in tqdm(range(1, _C.OPTIM.NUM_ITERATIONS + 1)):
+
+        # keys: {"image_id", "image", "caption_tokens", "masked_labels"}
+        batch = next(train_dataloader_iter)
+        for key in batch:
+            batch[key] = batch[key].to(device)
+
+        optimizer.zero_grad()
+        output_dict = model(batch["caption_tokens"], batch["masked_labels"])
+        batch_loss = output_dict["loss"].mean()
+        batch_loss.backward()
+
+        nn.utils.clip_grad_norm_(model.parameters(), _C.OPTIM.CLIP_GRADIENTS)
+        optimizer.step()
+        lr_scheduler.step()
+
+        # ----------------------------------------------------------------------
+        #   PRINT EXAMPLES
+        # ----------------------------------------------------------------------
+        if iteration % 500 == 0:
+            model.eval()
+
+            for labels, predictions in zip(
+                batch["masked_labels"][:10], output_dict["predictions"][:10]
+            ):
+                labels = [
+                    vocabulary.get_token_from_index(l.item()) for l in labels
+                ]
+                predictions = [
+                    vocabulary.get_token_from_index(p.item())
+                    for p in predictions
+                ]
+                print("LABEL: ", " ".join(labels).replace("<unk>", ""))
+                print("PREDS:  ", " ".join(predictions).replace("<unk>", ""))
+                print("\n")
+
+            model.train()
