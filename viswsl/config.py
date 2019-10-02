@@ -92,6 +92,26 @@ class Config(object):
 
     MODEL.LINGUISTIC.NUM_LAYERS: 6
         Number of layers in the transformer encoder.
+    __________
+
+    OPTIM:
+        Optimization hyper-parameters, mostly relevant during training.
+
+    OPTIM.BATCH_SIZE: 64
+        Batch size during training and evaluation.
+
+    OPTIM.NUM_ITERATIONS: 100000
+        Number of iterations to train for, batches are randomly sampled.
+
+    OPTIM.LR: 1e-3
+        Initial learning rate for optimizer. This linearly decays to zero till
+        the end of training.
+
+    OPTIM.WEIGHT_DECAY: 1e-3
+        Weight decay co-efficient for optimizer.
+
+    OPTIM.CLIP_GRADIENTS: 5
+        Gradient clipping threshold to avoid exploding gradients.
     """
 
     def __init__(self, config_yaml: str, config_override: List[Any] = []):
@@ -111,8 +131,15 @@ class Config(object):
 
         self._C.MODEL.LINGUISTIC = CN()
         self._C.MODEL.LINGUISTIC.HIDDEN_SIZE = 512
-        self._C.MODEL.LINGUISTIC.ATTENTION_HEADS = 8
+        self._C.MODEL.LINGUISTIC.NUM_ATTENTION_HEADS = 8
         self._C.MODEL.LINGUISTIC.NUM_LAYERS = 6
+
+        self._C.OPTIM = CN()
+        self._C.OPTIM.BATCH_SIZE = 64
+        self._C.OPTIM.NUM_ITERATIONS = 100000
+        self._C.OPTIM.LR = 1e-3
+        self._C.OPTIM.WEIGHT_DECAY = 1e-3
+        self._C.OPTIM.CLIP_GRADIENTS = 5
 
         # Override parameter values from YAML file first, then from override
         # list.
