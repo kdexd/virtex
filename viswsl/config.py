@@ -78,6 +78,20 @@ class Config(object):
         Maximum length of captions as input to the linguistic stream. Captions
         longer than this will be truncated to maximum length.
     __________
+
+    MODEL:
+
+    MODEL.LINGUISTIC:
+        Parameters defining the architecture of linguistic branch.
+
+    MODEL.LINGUISTIC.HIDDEN_SIZE: 512
+        Size of the hidden state for the transformer.
+
+    MODEL.LINGUISTIC.ATTENTION_HEADS: 8
+        Number of attention heads for multi-headed attention.
+
+    MODEL.LINGUISTIC.NUM_LAYERS: 6
+        Number of layers in the transformer encoder.
     """
 
     def __init__(self, config_yaml: str, config_override: List[Any] = []):
@@ -93,7 +107,15 @@ class Config(object):
         self._C.DATA.VAL_LMDB = "data/serialized/coco_val2017.lmdb"
         self._C.DATA.MAX_CAPTION_LENGTH = 30
 
-        # Override parameter values from YAML file first, then from override list.
+        self._C.MODEL = CN()
+
+        self._C.MODEL.LINGUISTIC = CN()
+        self._C.MODEL.LINGUISTIC.HIDDEN_SIZE = 512
+        self._C.MODEL.LINGUISTIC.ATTENTION_HEADS = 8
+        self._C.MODEL.LINGUISTIC.NUM_LAYERS = 6
+
+        # Override parameter values from YAML file first, then from override
+        # list.
         self._C.merge_from_file(config_yaml)
         self._C.merge_from_list(config_override)
 
@@ -114,8 +136,11 @@ class Config(object):
         return self._C.__getattr__(attr)
 
     def __str__(self):
-        common_string: str = str(CN({"RANDOM_SEED": self._C.RANDOM_SEED})) + "\n"
+        common_string: str = str(
+            CN({"RANDOM_SEED": self._C.RANDOM_SEED})
+        ) + "\n"
         common_string += str(CN({"DATA": self._C.DATA})) + "\n"
+        common_string += str(CN({"MODEL": self._C.DATA})) + "\n"
 
         return common_string
 
