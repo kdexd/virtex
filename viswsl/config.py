@@ -103,14 +103,14 @@ class Config(object):
     OPTIM.NUM_ITERATIONS: 100000
         Number of iterations to train for, batches are randomly sampled.
 
-    OPTIM.LR: 1e-3
+    OPTIM.LR: 1e-5
         Initial learning rate for optimizer. This linearly decays to zero till
         the end of training.
 
     OPTIM.WEIGHT_DECAY: 1e-3
         Weight decay co-efficient for optimizer.
 
-    OPTIM.CLIP_GRADIENTS: 5
+    OPTIM.CLIP_GRADIENTS: 10
         Gradient clipping threshold to avoid exploding gradients.
     """
 
@@ -167,7 +167,8 @@ class Config(object):
             CN({"RANDOM_SEED": self._C.RANDOM_SEED})
         ) + "\n"
         common_string += str(CN({"DATA": self._C.DATA})) + "\n"
-        common_string += str(CN({"MODEL": self._C.DATA})) + "\n"
+        common_string += str(CN({"MODEL": self._C.MODEL})) + "\n"
+        common_string += str(CN({"OPTIM": self._C.OPTIM})) + "\n"
 
         return common_string
 

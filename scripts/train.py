@@ -1,12 +1,13 @@
 import argparse
 import os
-from typing import Any, Dict, Iterator, List
+from typing import Iterator
 import warnings
 
 import numpy as np
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from viswsl.config import Config
@@ -14,6 +15,7 @@ from viswsl.data.datasets import MaskedLanguageModelingDataset
 from viswsl.data.vocabulary import SentencePieceVocabulary
 from viswsl.data.tokenizers import SentencePieceTokenizer
 from viswsl.modules.linguistic_stream import LinguisticStream
+from viswsl.utils.checkpointing import CheckpointManager
 
 
 parser = argparse.ArgumentParser(
@@ -55,6 +57,12 @@ parser.add_argument(
     default="checkpoints/experiment",
     help="""Path to a (non-existent) directory for serializing config, model
     checkpoints and tensorboard logs.""",
+)
+parser.add_argument(
+    "--checkpoint-every",
+    default=1000,
+    type=int,
+    help="Serialize model to a checkpoint after every these many iterations.",
 )
 
 
@@ -113,14 +121,12 @@ if __name__ == "__main__":
         batch_size=_C.OPTIM.BATCH_SIZE,
         num_workers=_A.cpu_workers,
     )
-
     # TODO (kd): Use DistributedDataParalell on this one.
     model = LinguisticStream.from_config(_C).to(device)
 
     optimizer = optim.AdamW(
         model.parameters(), lr=_C.OPTIM.LR, weight_decay=_C.OPTIM.WEIGHT_DECAY
     )
-
     # Linear LR decay scheduler.
     # TODO (kd): add warmup for initial x% of training iterations.
     lr_scheduler = optim.lr_scheduler.LambdaLR(  # type: ignore
@@ -129,12 +135,23 @@ if __name__ == "__main__":
     )
 
     # --------------------------------------------------------------------------
-    #   TRAINING LOOP
+    #  BEFORE TRAINING STARTS
     # --------------------------------------------------------------------------
 
+    # Tensorboard summary writer for logging losses and metrics.
+    tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
+
+    # Checkpoint manager to serialize checkpoints periodically while training
+    # There is no notion of "best" checkpoint right now.
+    checkpoint_manager = CheckpointManager(
+        model, optimizer, _A.serialization_dir
+    )
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter: Iterator = iter(train_dataloader)
 
+    # --------------------------------------------------------------------------
+    #   TRAINING LOOP
+    # --------------------------------------------------------------------------
     for iteration in tqdm(range(1, _C.OPTIM.NUM_ITERATIONS + 1)):
 
         # keys: {"image_id", "image", "caption_tokens", "masked_labels"}
@@ -151,15 +168,29 @@ if __name__ == "__main__":
         optimizer.step()
         lr_scheduler.step()
 
+        # Log loss and learning rate to tensorboard.
+        tensorboard_writer.add_scalar("loss", batch_loss, iteration)
+        tensorboard_writer.add_scalar(
+            "learning_rate", optimizer.param_groups[0]["lr"], iteration
+        )
+
         # ----------------------------------------------------------------------
         #   PRINT EXAMPLES
         # ----------------------------------------------------------------------
-        if iteration % 500 == 0:
+        if iteration % _A.checkpoint_every == 0:
             model.eval()
 
-            for labels, predictions in zip(
-                batch["masked_labels"][:10], output_dict["predictions"][:10]
+            # We will add qualitative examples directive to tensorboard.
+            tensorboard_examples_text = ""
+
+            for tokens, labels, predictions in zip(
+                batch["caption_tokens"][:10],
+                batch["masked_labels"][:10],
+                output_dict["predictions"][:10],
             ):
+                tokens = [
+                    vocabulary.get_token_from_index(t.item()) for t in tokens
+                ]
                 labels = [
                     vocabulary.get_token_from_index(l.item()) for l in labels
                 ]
@@ -167,8 +198,15 @@ if __name__ == "__main__":
                     vocabulary.get_token_from_index(p.item())
                     for p in predictions
                 ]
-                print("LABEL: ", " ".join(labels).replace("<unk>", ""))
-                print("PREDS:  ", " ".join(predictions).replace("<unk>", ""))
-                print("\n")
 
+                tensorboard_examples_text += f"""
+                    Caption tokens: {tokenizer.detokenize(tokens).replace("<unk>", "")}
+                    Masked Labels: {" ".join(labels).replace("<unk>", "")}
+                    Predictions: {" ".join(predictions).replace("<unk>", "")}
+
+                    """
+            tensorboard_writer.add_text(
+                "qualitative", tensorboard_examples_text, iteration
+            )
+            checkpoint_manager.step(iteration)
             model.train()
