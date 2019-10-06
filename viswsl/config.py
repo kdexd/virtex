@@ -107,6 +107,11 @@ class Config(object):
         Initial learning rate for optimizer. This linearly decays to zero till
         the end of training.
 
+    OPTIM.WARMUP_PROPORTION: 0.1
+        Proportion of total number of training iterations to perform learning
+        rate warmup. Learning rate goes linearly from 0 to ``OPTIM.LR`` for
+        ``OPTIM.WARMUP_PROPORTION * OPTIM.NUM_ITERATIONS`` steps.
+
     OPTIM.WEIGHT_DECAY: 1e-3
         Weight decay co-efficient for optimizer.
 
@@ -138,6 +143,7 @@ class Config(object):
         self._C.OPTIM.BATCH_SIZE = 64
         self._C.OPTIM.NUM_ITERATIONS = 100000
         self._C.OPTIM.LR = 1e-3
+        self._C.OPTIM.WARMUP_PROPORTION = 0.1
         self._C.OPTIM.WEIGHT_DECAY = 1e-3
         self._C.OPTIM.CLIP_GRADIENTS = 5
 

@@ -15,6 +15,7 @@ from viswsl.data.datasets import MaskedLanguageModelingDataset
 from viswsl.data.vocabulary import SentencePieceVocabulary
 from viswsl.data.tokenizers import SentencePieceTokenizer
 from viswsl.modules.linguistic_stream import LinguisticStream
+from viswsl.optim.lr_scheduler import LinearWarmupLinearDecayLR
 from viswsl.utils.checkpointing import CheckpointManager
 
 
@@ -127,11 +128,10 @@ if __name__ == "__main__":
     optimizer = optim.AdamW(
         model.parameters(), lr=_C.OPTIM.LR, weight_decay=_C.OPTIM.WEIGHT_DECAY
     )
-    # Linear LR decay scheduler.
-    # TODO (kd): add warmup for initial x% of training iterations.
-    lr_scheduler = optim.lr_scheduler.LambdaLR(  # type: ignore
+    lr_scheduler = LinearWarmupLinearDecayLR(  # type: ignore
         optimizer,
-        lr_lambda=lambda iteration: 1 - iteration / _C.OPTIM.NUM_ITERATIONS,
+        total_epochs=_C.OPTIM.NUM_ITERATIONS,
+        warmup_proportion=_C.OPTIM.WARMUP_PROPORTION,
     )
 
     # --------------------------------------------------------------------------
