@@ -45,3 +45,6 @@ ENV/
 
 # Temporary scripts to (smoke) test out bits and pieces of code.
 scripts/test_*
+
+# Model checkpoints, tensorboard logs etc.
+checkpoints/

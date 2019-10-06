@@ -78,6 +78,45 @@ class Config(object):
         Maximum length of captions as input to the linguistic stream. Captions
         longer than this will be truncated to maximum length.
     __________
+
+    MODEL:
+
+    MODEL.LINGUISTIC:
+        Parameters defining the architecture of linguistic branch.
+
+    MODEL.LINGUISTIC.HIDDEN_SIZE: 512
+        Size of the hidden state for the transformer.
+
+    MODEL.LINGUISTIC.ATTENTION_HEADS: 8
+        Number of attention heads for multi-headed attention.
+
+    MODEL.LINGUISTIC.NUM_LAYERS: 6
+        Number of layers in the transformer encoder.
+    __________
+
+    OPTIM:
+        Optimization hyper-parameters, mostly relevant during training.
+
+    OPTIM.BATCH_SIZE: 64
+        Batch size during training and evaluation.
+
+    OPTIM.NUM_ITERATIONS: 100000
+        Number of iterations to train for, batches are randomly sampled.
+
+    OPTIM.LR: 1e-5
+        Initial learning rate for optimizer. This linearly decays to zero till
+        the end of training.
+
+    OPTIM.WARMUP_PROPORTION: 0.1
+        Proportion of total number of training iterations to perform learning
+        rate warmup. Learning rate goes linearly from 0 to ``OPTIM.LR`` for
+        ``OPTIM.WARMUP_PROPORTION * OPTIM.NUM_ITERATIONS`` steps.
+
+    OPTIM.WEIGHT_DECAY: 1e-3
+        Weight decay co-efficient for optimizer.
+
+    OPTIM.CLIP_GRADIENTS: 10
+        Gradient clipping threshold to avoid exploding gradients.
     """
 
     def __init__(self, config_yaml: str, config_override: List[Any] = []):
@@ -93,7 +132,23 @@ class Config(object):
         self._C.DATA.VAL_LMDB = "data/serialized/coco_val2017.lmdb"
         self._C.DATA.MAX_CAPTION_LENGTH = 30
 
-        # Override parameter values from YAML file first, then from override list.
+        self._C.MODEL = CN()
+
+        self._C.MODEL.LINGUISTIC = CN()
+        self._C.MODEL.LINGUISTIC.HIDDEN_SIZE = 512
+        self._C.MODEL.LINGUISTIC.NUM_ATTENTION_HEADS = 8
+        self._C.MODEL.LINGUISTIC.NUM_LAYERS = 6
+
+        self._C.OPTIM = CN()
+        self._C.OPTIM.BATCH_SIZE = 64
+        self._C.OPTIM.NUM_ITERATIONS = 100000
+        self._C.OPTIM.LR = 1e-3
+        self._C.OPTIM.WARMUP_PROPORTION = 0.1
+        self._C.OPTIM.WEIGHT_DECAY = 1e-3
+        self._C.OPTIM.CLIP_GRADIENTS = 5
+
+        # Override parameter values from YAML file first, then from override
+        # list.
         self._C.merge_from_file(config_yaml)
         self._C.merge_from_list(config_override)
 
@@ -114,8 +169,12 @@ class Config(object):
         return self._C.__getattr__(attr)
 
     def __str__(self):
-        common_string: str = str(CN({"RANDOM_SEED": self._C.RANDOM_SEED})) + "\n"
+        common_string: str = str(
+            CN({"RANDOM_SEED": self._C.RANDOM_SEED})
+        ) + "\n"
         common_string += str(CN({"DATA": self._C.DATA})) + "\n"
+        common_string += str(CN({"MODEL": self._C.MODEL})) + "\n"
+        common_string += str(CN({"OPTIM": self._C.OPTIM})) + "\n"
 
         return common_string
 

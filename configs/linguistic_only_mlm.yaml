@@ -1,0 +1,23 @@
+RANDOM_SEED: 0
+
+DATA:
+  VOCABULARY: data/coco_vocabulary.vocab
+  TOKENIZER: data/coco_vocabulary.model
+
+  TRAIN_LMDB: data/serialized/coco_train2017.lmdb
+  VAL_LMDB: data/serialized/coco_val2017.lmdb
+  MAX_CAPTION_LENGTH: 30
+
+MODEL:
+  LINGUISTIC:
+    HIDDEN_SIZE: 512
+    NUM_ATTENTION_HEADS: 8
+    NUM_LAYERS: 6
+
+OPTIM:
+  BATCH_SIZE: 32
+  NUM_ITERATIONS: 20000
+  LR: 1e-3
+  WARMUP_PROPORTION: 0.1
+  WEIGHT_DECAY: 1e-3
+  CLIP_GRADIENTS: 10
