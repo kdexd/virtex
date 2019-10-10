@@ -14,7 +14,9 @@ from viswsl.config import Config
 from viswsl.data.datasets import MaskedLanguageModelingDataset
 from viswsl.data.vocabulary import SentencePieceVocabulary
 from viswsl.data.tokenizers import SentencePieceTokenizer
+from viswsl.model import ViswslModel
 from viswsl.modules.linguistic_stream import LinguisticStream
+from viswsl.modules.visual_stream import VisualStream
 from viswsl.optim.lr_scheduler import LinearWarmupLinearDecayLR
 from viswsl.utils.checkpointing import CheckpointManager
 
@@ -122,8 +124,10 @@ if __name__ == "__main__":
         batch_size=_C.OPTIM.BATCH_SIZE,
         num_workers=_A.cpu_workers,
     )
-    # TODO (kd): Use DistributedDataParalell on this one.
-    model = LinguisticStream.from_config(_C).to(device)
+    # TODO (kd): Use DistributedDataParalell on this ones.
+    visual_module = VisualStream()
+    linguistic_module = LinguisticStream.from_config(_C)
+    model = ViswslModel(visual_module, linguistic_module).to(device)
 
     optimizer = optim.AdamW(
         model.parameters(), lr=_C.OPTIM.LR, weight_decay=_C.OPTIM.WEIGHT_DECAY
@@ -160,7 +164,9 @@ if __name__ == "__main__":
             batch[key] = batch[key].to(device)
 
         optimizer.zero_grad()
-        output_dict = model(batch["caption_tokens"], batch["masked_labels"])
+        output_dict = model(
+            batch["image"], batch["caption_tokens"], batch["masked_labels"]
+        )
         batch_loss = output_dict["loss"].mean()
         batch_loss.backward()
 

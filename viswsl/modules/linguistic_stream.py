@@ -1,5 +1,3 @@
-from typing import Dict
-
 import torch
 from torch import nn
 
@@ -36,15 +34,10 @@ class LinguisticStream(nn.Module):
         self._transformer_encoder = nn.TransformerEncoder(
             _transformer_encoder_layer, self.num_layers
         )
-        self._linear = nn.Linear(self.hidden_size, self.vocab_size)
-
-        self._loss = nn.CrossEntropyLoss(
-            ignore_index=self._vocabulary.pad_index
-        )
 
     def forward(
         self, caption_tokens: torch.LongTensor, masked_labels: torch.Tensor
-    ) -> Dict[str, torch.Tensor]:
+    ) -> torch.Tensor:
 
         # Form a mask, it is True for positions with padding token.
         # Transformer will ignore these positions for multi-headed attention.
@@ -66,26 +59,7 @@ class LinguisticStream(nn.Module):
         # shape: (batch_size, max_caption_length, hidden_size)
         output_hidden = output_hidden.transpose(0, 1)
 
-        # shape: (batch_size, max_caption_length, vocab_size)
-        output_logits = self._linear(output_hidden)
-
-        # Get the predictions from logits. Fill predictions to be the padding
-        # token wherever there wasn't a [MASK].
-        predictions = torch.argmax(output_logits, dim=-1)
-        predictions = predictions.masked_fill(
-            caption_tokens != self._vocabulary.mask_index,
-            self._vocabulary.pad_index,
-        )
-
-        output_dict = {"predictions": predictions}
-        if self.training:
-            # Collapse dimensions: convert logits to (N, C), targets to (N,).
-            output_dict["loss"] = self._loss(
-                output_logits.view(-1, output_logits.size(-1)),
-                masked_labels.view(-1),
-            )
-
-        return output_dict
+        return output_hidden
 
     @classmethod
     def from_config(cls, config: Config):

@@ -21,8 +21,8 @@ git clone https://www.github.com/kdexd/viswsl
 3. Create a conda environment and install all the dependencies.
 
 ```
-cd vision-wsl
-conda create -n viswsl python=3.6
+cd viswsl
+conda create -n viswsl python=3.7
 conda activate viswsl
 pip install -r requirements.txt
 ```
