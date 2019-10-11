@@ -14,6 +14,7 @@ from viswsl.config import Config
 from viswsl.data.datasets import MaskedLanguageModelingDataset
 from viswsl.data.vocabulary import SentencePieceVocabulary
 from viswsl.data.tokenizers import SentencePieceTokenizer
+from viswsl.factories import OptimizerFactory
 from viswsl.model import ViswslModel
 from viswsl.modules.linguistic_stream import LinguisticStream
 from viswsl.modules.visual_stream import VisualStream
@@ -129,10 +130,8 @@ if __name__ == "__main__":
     linguistic_module = LinguisticStream.from_config(_C)
     model = ViswslModel(visual_module, linguistic_module).to(device)
 
-    optimizer = optim.AdamW(
-        model.parameters(), lr=_C.OPTIM.LR, weight_decay=_C.OPTIM.WEIGHT_DECAY
-    )
-    lr_scheduler = LinearWarmupLinearDecayLR(  # type: ignore
+    optimizer = OptimizerFactory.from_config(_C, model.parameters())
+    lr_scheduler = LinearWarmupLinearDecayLR(
         optimizer,
         total_epochs=_C.OPTIM.NUM_ITERATIONS,
         warmup_proportion=_C.OPTIM.WARMUP_PROPORTION,

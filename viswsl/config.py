@@ -1,11 +1,11 @@
 r"""
 This module provides package-wide configuration management.
-File adopted from several of my past projects:
+Parts of this class are adopted from several of my past projects:
 
 - `https://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py`_
 - `https://github.com/nocaps-org/updown-baseline/blob/master/updown/config.py`_
 """
-from typing import Any, List
+from typing import Any, List, Optional
 
 from yacs.config import CfgNode as CN
 
@@ -13,22 +13,21 @@ from yacs.config import CfgNode as CN
 class Config(object):
     r"""
     A collection of all the required configuration parameters. This class is a
-    nested dict-like structure, with nested keys accessible as attributes. It
-    contains sensible default values for all the parameters, which may be
-    overriden by (first) through a YAML file and (second) through a list of
-    attributes and values.
+    nested dict-like structure, with keys accessible as attributes. It contains
+    sensible default values for all the parameters, which one may override by
+    (first) through a YAML file and further through a list of attributes-values.
 
-    Extended Summary
-    ----------------
-    Modification of any parameter after instantiating an object of this class
-    is not possible, so you must override required parameter values in either
-    through ``config_yaml`` or ``config_override``.
+    Note
+    ----
+    The instantiated object is "immutable" - any modification is prohibited.
+    You must override required parameter values either through ``config_file``
+    or ``override_list``.
 
     Parameters
     ----------
-    config_yaml: str
+    config_file: str
         Path to a YAML file containing configuration parameters to override.
-    config_override: List[Any], optional (default= [])
+    override_list: List[Any], optional (default= [])
         A list of sequential attributes and values of parameters to override.
         This happens after overriding from YAML file.
 
@@ -38,13 +37,13 @@ class Config(object):
 
         RANDOM_SEED: 42
         OPTIM:
-          BATCH_SIZE: 512
+          WEIGHT_DECAY: 1e-2
 
-    >>> _C = Config("config.yaml", ["OPTIM.BATCH_SIZE", 2048])
+    >>> _C = Config("config.yaml", ["OPTIM.WEIGHT_DECAY", 1e-4])
     >>> _C.RANDOM_SEED  # default: 0
     42
-    >>> _C.OPTIM.BATCH_SIZE  # default: 150
-    2048
+    >>> _C.OPTIM.WEIGHT_DECAY  # default: 1e-3
+    1e-4
 
     Attributes
     ----------
@@ -119,7 +118,7 @@ class Config(object):
         Gradient clipping threshold to avoid exploding gradients.
     """
 
-    def __init__(self, config_yaml: str, config_override: List[Any] = []):
+    def __init__(self, config_file: Optional[str] = None, override_list: List[Any] = []):
 
         self._C = CN()
         self._C.RANDOM_SEED = 0
@@ -140,6 +139,7 @@ class Config(object):
         self._C.MODEL.LINGUISTIC.NUM_LAYERS = 6
 
         self._C.OPTIM = CN()
+        self._C.OPTIM.OPTIMIZER_NAME = "adamw"
         self._C.OPTIM.BATCH_SIZE = 64
         self._C.OPTIM.NUM_ITERATIONS = 100000
         self._C.OPTIM.LR = 1e-3
@@ -149,8 +149,9 @@ class Config(object):
 
         # Override parameter values from YAML file first, then from override
         # list.
-        self._C.merge_from_file(config_yaml)
-        self._C.merge_from_list(config_override)
+        if config_file is not None:
+            self._C.merge_from_file(config_file)
+        self._C.merge_from_list(override_list)
 
         # Make an instantiated object of this class immutable.
         self._C.freeze()
