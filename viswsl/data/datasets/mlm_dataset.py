@@ -56,7 +56,7 @@ class MaskedLanguageModelingDataset(IterableDataset):
             )
 
             image_id = torch.tensor(datapoint["image_id"]).long()
-            image = torch.tensor(datapoint["image"])
+            image = torch.tensor(datapoint["image"]).float()
             caption_tokens = torch.tensor(datapoint["caption_tokens"]).long()
             masked_labels = torch.tensor(masked_labels).long()
 

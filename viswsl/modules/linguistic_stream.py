@@ -29,7 +29,7 @@ class LinguisticStream(nn.Module):
         )
 
         _transformer_encoder_layer = nn.TransformerEncoderLayer(
-            self.hidden_size, self.num_attention_heads
+            self.hidden_size, self.num_attention_heads, activation="gelu"
         )
         self._transformer_encoder = nn.TransformerEncoder(
             _transformer_encoder_layer, self.num_layers

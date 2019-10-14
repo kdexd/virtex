@@ -73,6 +73,9 @@ class Config(object):
         Path to an LMDB file containing validation examples serialized as
         ``(image: np.ndarray, captions: List[str])``.
 
+    DATA.NORMALIZE_IMAGE: True
+        Whether to normalize the image by RGB color mean and variance.
+
     DATA.MAX_CAPTION_LENGTH: 30
         Maximum length of captions as input to the linguistic stream. Captions
         longer than this will be truncated to maximum length.
@@ -129,6 +132,7 @@ class Config(object):
 
         self._C.DATA.TRAIN_LMDB = "data/serialized/coco_train2017.lmdb"
         self._C.DATA.VAL_LMDB = "data/serialized/coco_val2017.lmdb"
+        self._C.DATA.NORMALIZE_IMAGE = True
         self._C.DATA.MAX_CAPTION_LENGTH = 30
 
         self._C.MODEL = CN()

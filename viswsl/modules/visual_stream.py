@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torchvision.models import resnext50_32x4d
+from torchvision.models import resnext101_32x8d
 
 
 class VisualStream(nn.Module):
@@ -10,7 +10,7 @@ class VisualStream(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self._cnn = resnext50_32x4d(pretrained=False)
+        self._cnn = resnext101_32x8d(pretrained=False)
 
         # Set the global average pooling and FC layers as identity.
         # self._cnn.avgpool = nn.Identity()

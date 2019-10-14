@@ -118,6 +118,7 @@ if __name__ == "__main__":
         lmdb_path=_C.DATA.TRAIN_LMDB,
         vocabulary=vocabulary,
         tokenizer=tokenizer,
+        normalize_image=_C.DATA.NORMALIZE_IMAGE,
         max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
     )
     train_dataloader = DataLoader(
@@ -125,10 +126,14 @@ if __name__ == "__main__":
         batch_size=_C.OPTIM.BATCH_SIZE,
         num_workers=_A.cpu_workers,
     )
-    # TODO (kd): Use DistributedDataParalell on this ones.
+
     visual_module = VisualStream()
     linguistic_module = LinguisticStream.from_config(_C)
     model = ViswslModel(visual_module, linguistic_module).to(device)
+
+    # TODO (kd): Use DistributedDataParallel.
+    if len(_A.gpu_ids) > 0:
+        model = nn.DataParallel(model, _A.gpu_ids)
 
     optimizer = OptimizerFactory.from_config(_C, model.parameters())
     lr_scheduler = LinearWarmupLinearDecayLR(
