@@ -20,8 +20,10 @@ class CheckpointManager(object):
 
     .. note::
 
-        For :class:`~torch.nn.DataParallel` objects, ``.module.state_dict()``
-        is called instead of ``.state_dict()`` in :meth:`step`.
+        For :class:`~torch.nn.DataParallel` and
+        :class:`~torch.nn.parallel.DistributedDataParallel` objects,
+        ``.module.state_dict()`` is called instead of ``.state_dict()``
+        in :meth:`step`.
 
     Parameters
     ----------
@@ -87,9 +89,7 @@ class CheckpointManager(object):
         self._best_metric: Optional[Union[float, torch.Tensor]] = None
         self._best_ckpt: Dict[str, Any] = {}
 
-    def step(
-        self, epoch_or_iteration: int, metric: Optional[float] = None
-    ):
+    def step(self, epoch_or_iteration: int, metric: Optional[float] = None):
         r"""
         Serialize checkpoint and update best checkpoint based on metric and
         mode.
@@ -101,7 +101,9 @@ class CheckpointManager(object):
 
         model_state_dict: Dict[str, Any] = {}
         for key in self._model:
-            if isinstance(self._model[key], nn.DataParallel):
+            if isinstance(self._model[key], nn.DataParallel) or isinstance(
+                self._model[key], nn.parallel.DistributedDataParallel
+            ):
                 model_state_dict[key] = self._model[key].module.state_dict()
             else:
                 model_state_dict[key] = self._model[key].state_dict()
@@ -125,6 +127,7 @@ class CheckpointManager(object):
             torch.save(
                 self._best_ckpt,
                 os.path.join(
-                    self._serialization_dir, f"{self._filename_prefix}_best.pth"
+                    self._serialization_dir,
+                    f"{self._filename_prefix}_best.pth",
                 ),
             )

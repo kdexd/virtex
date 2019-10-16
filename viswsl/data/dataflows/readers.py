@@ -4,6 +4,7 @@ from typing import Any, Iterator, List, Tuple
 
 import dataflow as df
 import lmdb
+from torch import distributed as dist
 from torch.utils.data import get_worker_info
 
 from viswsl.types import LmdbDatapoint
@@ -33,8 +34,7 @@ class ReadDatapointsFromLmdb(df.DataFlow):
         assert buffer_size > 0, "Buffer size cannot be zero or negative."
         self._buffer_size = buffer_size
 
-        # Get a list of "keys" in the LMDB file so we could shard the dataset
-        # according to the number of worker processes.
+        # Get a list of "keys" in the LMDB file so we could shard the dataset.
         with lmdb.open(
             self._lmdb_path,
             subdir=os.path.isdir(self._lmdb_path),
@@ -57,26 +57,39 @@ class ReadDatapointsFromLmdb(df.DataFlow):
         # This code block will be executed just once, when an iterator of this
         # dataflow is intialized: ``iter(df)`` or ``enumerate(df)``.
         # --------------------------------------------------------------------
-        # Shard the LMDB file according to the number of workers.
+        # If we are doing distributed training, then first shard the LMDB
+        # according to the number of GPU processes.
+        world_size: int = dist.get_world_size() if dist.is_initialized() else 1
+        world_rank: int = dist.get_rank() if dist.is_initialized() else 0
+
+        # If not doing distributed training, this would be `len(self._keys)`.
+        samples_per_gpu_process = int(math.ceil(len(self._keys) / world_size))
+
+        # Further, shard the LMDB file according to the number of workers.
         # Two members of interest:
         #     1. ``id: int = [0, n-1]``
         #     2. ``num_workers: int = n``.
         worker_info = get_worker_info()
 
         if worker_info is not None:
-            _per_worker = int(
-                math.ceil(len(self._keys) / worker_info.num_workers)
+            samples_per_worker = int(
+                math.ceil(
+                    len(self._keys) / (worker_info.num_workers * world_size)
+                )
             )
-            start = _per_worker * worker_info.id
+            start = (
+                world_rank * samples_per_gpu_process
+                + worker_info.id * samples_per_worker
+            )
 
             # Last worker may get less than ``_per_worker`` examples.
-            end = min(len(self._keys), _per_worker * (worker_info.id + 1))
+            end = min(len(self._keys), start + samples_per_worker)
         else:
-            # Single process data-loading, don't shard the file.
-            start = 0
-            end = len(self._keys)
+            # Using single worker in dataloader, don't shard further.
+            start = world_rank * samples_per_gpu_process
+            end = min(len(self._keys), start + samples_per_gpu_process)
 
-        # Load examples from serialized LMDB (sharded by number of workers).
+        print(f"Total length: {len(self._keys)}, rank: {world_rank}, id: {worker_info.id}, start: {start}, end: {end}")
         # Read sequentially, random reads from large files may be expensive.
         pipeline = df.LMDBData(
             self._lmdb_path, keys=self._keys[start:end], shuffle=False
