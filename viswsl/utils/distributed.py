@@ -64,6 +64,7 @@ def init_distributed_for_slurm(
 
     """
     os.environ["NCCL_SOCKET_IFNAME"] = ifcfg.default_interface()["device"]
+    os.environ["GLOO_SOCKET_IFNAME"] = ifcfg.default_interface()["device"]
 
     # Rank of the process in our torch.distributed process group.
     # For SLURM, it is lies in [0, `nodes * gres`).

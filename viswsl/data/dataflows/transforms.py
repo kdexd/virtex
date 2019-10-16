@@ -28,27 +28,25 @@ class TransformImageForResNetLikeModels(df.ProxyDataFlow):
         index_or_key: Union[int, str] = "image",
     ):
         self.ds = ds
+        self._normalize = normalize
         self._x = index_or_key
-
-        if normalize:
-            normalizer = df.imgaug.MapImage(
-                lambda image: (image - np.array([0.485, 0.456, 0.406]))
-                / np.array([0.229, 0.224, 0.225])
-            )
-        else:
-            normalizer = df.imgaug.Identity()
 
         # fmt: off
         self._augmentor = df.imgaug.AugmentorList([
             df.imgaug.RandomCrop(224),
             df.imgaug.ToFloat32(),
-            df.imgaug.MapImage(lambda image: image / 255.0),
-            normalizer,
-            df.imgaug.MapImage(
-                lambda image: np.transpose(image, (2, 0, 1))
-            ),
+            df.imgaug.MapImage(self._transform_image),
         ])
         # fmt: on
+
+    def _transform_image(self, image: np.ndarray) -> np.ndarray:
+        image = image / 255.0
+        if self._normalize:
+            image = (image - np.array([0.485, 0.456, 0.406])) / np.array(
+                [0.229, 0.224, 0.225]
+            )
+        image = np.transpose(image, (2, 0, 1))
+        return image
 
     def __iter__(self) -> Iterator[LmdbDatapoint]:
 
