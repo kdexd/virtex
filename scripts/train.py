@@ -172,14 +172,15 @@ if __name__ == "__main__":
     #  BEFORE TRAINING STARTS
     # --------------------------------------------------------------------------
 
-    # Tensorboard summary writer for logging losses and metrics.
-    tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
+    # For distributed training, only the master process would log to tensorboard
+    # and serialize checkpoints.
+    # This condition should always be True without distributed training.
+    if WORLD_RANK == 0:
+        tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
+        checkpoint_manager = CheckpointManager(
+            model, optimizer, _A.serialization_dir
+        )
 
-    # Checkpoint manager to serialize checkpoints periodically while training
-    # There is no notion of "best" checkpoint right now.
-    checkpoint_manager = CheckpointManager(
-        model, optimizer, _A.serialization_dir
-    )
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter: Iterator = iter(train_dataloader)
 
@@ -204,10 +205,10 @@ if __name__ == "__main__":
         optimizer.step()
         lr_scheduler.step()
 
-        # Average out loss from all processes to master process (for tensorboard
-        # logging).
-        if _A.distributed and WORLD_RANK == 0:
-            dist.reduce(batch_loss, dst=WORLD_RANK, op=dist.ReduceOp.SUM)
+        # For distributed training, average out loss from all processes and log
+        # to tensorboard.
+        if _A.distributed:
+            dist.all_reduce(batch_loss, op=dist.ReduceOp.SUM)
             batch_loss /= WORLD_SIZE
 
         # Make the master process log loss and learning rate to tensorboard.

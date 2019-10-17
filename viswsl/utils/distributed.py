@@ -1,7 +1,6 @@
 import os
 import signal
 import threading
-from typing import Optional
 
 import ifcfg
 import torch
@@ -13,6 +12,7 @@ EXIT.clear()
 
 
 def _clean_exit_handler(signum, frame):
+    r"""Utility to cleanly exit from distributed training."""
     EXIT.set()
     print("Exiting cleanly.", flush=True)
 
@@ -23,8 +23,8 @@ signal.signal(signal.SIGUSR2, _clean_exit_handler)
 
 
 def init_distributed_for_slurm(
-    master_address: Optional[str] = "127.0.0.1",
-    master_port: Optional[int] = 8989,
+    master_address: str = "127.0.0.1",
+    master_port: int = 8989,
     backend: str = "nccl",
 ) -> torch.device:
     r"""
@@ -83,6 +83,5 @@ def init_distributed_for_slurm(
     local_rank = int(
         os.environ.get("LOCAL_RANK", os.environ.get("SLURM_LOCALID", 0))
     )
-
     device = torch.device(f"cuda:{local_rank}")
     return device
