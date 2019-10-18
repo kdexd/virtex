@@ -1,5 +1,4 @@
 r"""
-This module provides package-wide configuration management.
 Parts of this class are adopted from several of my past projects:
 
 - `https://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py`_
@@ -12,10 +11,10 @@ from yacs.config import CfgNode as CN
 
 class Config(object):
     r"""
-    A collection of all the required configuration parameters. This class is a
-    nested dict-like structure, with keys accessible as attributes. It contains
-    sensible default values for all the parameters, which one may override by
-    (first) through a YAML file and further through a list of attributes-values.
+    This class provides package-wide configuration management. It is a
+    nested dict-like structure with nested keys accessible as attributes. It
+    contains sensible default values, which can be modified by (first) a YAML
+    file and (second) a list of attributes and values.
 
     Note
     ----
@@ -27,7 +26,7 @@ class Config(object):
     ----------
     config_file: str
         Path to a YAML file containing configuration parameters to override.
-    override_list: List[Any], optional (default= [])
+    config_override: List[Any], optional (default= [])
         A list of sequential attributes and values of parameters to override.
         This happens after overriding from YAML file.
 
@@ -59,23 +58,18 @@ class Config(object):
     DATA.VOCABULARY: "data/coco_vocabulary.vocab"
         Path to a ``**.vocab`` file containing tokens. This file is used to
         instantiate :class:`~viswsl.data.vocabulary.SentencePieceVocabulary`.
-
     DATA.TOKENIZER: "data/coco_vocabulary.model"
         Path to a ``**.model`` file containing tokenizer model trained by
         `sentencepiece <https://www.github.com/google/sentencepiece>`_, used
         to instantiate :class:`~viswsl.data.tokenizer.SentencePieceTokenizer`.
-
     DATA.TRAIN_LMDB: data/serialized/coco_train2017.lmdb
         Path to an LMDB file containing training examples serialized as
         ``(image: np.ndarray, captions: List[str])``.
-
     DATA.VAL_LMDB: data/serialized/coco_val2017.lmdb
         Path to an LMDB file containing validation examples serialized as
         ``(image: np.ndarray, captions: List[str])``.
-
     DATA.NORMALIZE_IMAGE: True
         Whether to normalize the image by RGB color mean and variance.
-
     DATA.MAX_CAPTION_LENGTH: 30
         Maximum length of captions as input to the linguistic stream. Captions
         longer than this will be truncated to maximum length.
@@ -85,13 +79,10 @@ class Config(object):
 
     MODEL.LINGUISTIC:
         Parameters defining the architecture of linguistic branch.
-
     MODEL.LINGUISTIC.HIDDEN_SIZE: 512
         Size of the hidden state for the transformer.
-
     MODEL.LINGUISTIC.ATTENTION_HEADS: 8
         Number of attention heads for multi-headed attention.
-
     MODEL.LINGUISTIC.NUM_LAYERS: 6
         Number of layers in the transformer encoder.
     __________
@@ -101,65 +92,57 @@ class Config(object):
 
     OPTIM.BATCH_SIZE: 64
         Batch size during training and evaluation.
-
     OPTIM.GRAD_ACCUMULATION_STEPS: 1
         Number of steps to acccumulate gradients before updating model
-        parameters. This is useful to simulate larger batch sizes with less
-        GPUs - effective batch size is ``BATCH_SIZE * GRAD_ACCUMULATION_STEPS``.
-        Make sure to scale the learning rate for a larger batch size.
-
+        parameters. This is useful for simulating large batch sizes.
     OPTIM.NUM_ITERATIONS: 100000
         Number of iterations to train for, batches are randomly sampled.
-
     OPTIM.LR: 1e-5
         Initial learning rate for optimizer. This linearly decays to zero till
         the end of training.
-
     OPTIM.WARMUP_PROPORTION: 0.1
         Proportion of total number of training iterations to perform learning
         rate warmup. Learning rate goes linearly from 0 to ``OPTIM.LR`` for
         ``OPTIM.WARMUP_PROPORTION * OPTIM.NUM_ITERATIONS`` steps.
-
     OPTIM.WEIGHT_DECAY: 1e-3
         Weight decay co-efficient for optimizer.
-
     OPTIM.CLIP_GRADIENTS: 10
         Gradient clipping threshold to avoid exploding gradients.
     """
 
-    def __init__(self, config_file: Optional[str] = None, override_list: List[Any] = []):
+    def __init__(
+        self, config_file: Optional[str] = None, override_list: List[Any] = []
+    ):
+        _C = CN()
+        _C.RANDOM_SEED = 0
 
-        self._C = CN()
-        self._C.RANDOM_SEED = 0
+        _C.DATA = CN()
+        _C.DATA.VOCABULARY = "data/coco_vocabulary.vocab"
+        _C.DATA.TOKENIZER = "data/coco_vocabulary.model"
+        _C.DATA.TRAIN_LMDB = "data/serialized/coco_train2017.lmdb"
+        _C.DATA.VAL_LMDB = "data/serialized/coco_val2017.lmdb"
+        _C.DATA.NORMALIZE_IMAGE = True
+        _C.DATA.MAX_CAPTION_LENGTH = 30
 
-        self._C.DATA = CN()
-        self._C.DATA.VOCABULARY = "data/coco_vocabulary.vocab"
-        self._C.DATA.TOKENIZER = "data/coco_vocabulary.model"
+        _C.MODEL = CN()
+        _C.MODEL.LINGUISTIC = CN()
+        _C.MODEL.LINGUISTIC.HIDDEN_SIZE = 512
+        _C.MODEL.LINGUISTIC.NUM_ATTENTION_HEADS = 8
+        _C.MODEL.LINGUISTIC.NUM_LAYERS = 6
 
-        self._C.DATA.TRAIN_LMDB = "data/serialized/coco_train2017.lmdb"
-        self._C.DATA.VAL_LMDB = "data/serialized/coco_val2017.lmdb"
-        self._C.DATA.NORMALIZE_IMAGE = True
-        self._C.DATA.MAX_CAPTION_LENGTH = 30
-
-        self._C.MODEL = CN()
-
-        self._C.MODEL.LINGUISTIC = CN()
-        self._C.MODEL.LINGUISTIC.HIDDEN_SIZE = 512
-        self._C.MODEL.LINGUISTIC.NUM_ATTENTION_HEADS = 8
-        self._C.MODEL.LINGUISTIC.NUM_LAYERS = 6
-
-        self._C.OPTIM = CN()
-        self._C.OPTIM.OPTIMIZER_NAME = "adamw"
-        self._C.OPTIM.BATCH_SIZE = 64
-        self._C.OPTIM.GRAD_ACCUMULATION_STEPS = 1
-        self._C.OPTIM.NUM_ITERATIONS = 100000
-        self._C.OPTIM.LR = 1e-3
-        self._C.OPTIM.WARMUP_PROPORTION = 0.1
-        self._C.OPTIM.WEIGHT_DECAY = 1e-3
-        self._C.OPTIM.CLIP_GRADIENTS = 10
+        _C.OPTIM = CN()
+        _C.OPTIM.OPTIMIZER_NAME = "adamw"
+        _C.OPTIM.BATCH_SIZE = 64
+        _C.OPTIM.GRAD_ACCUMULATION_STEPS = 1
+        _C.OPTIM.NUM_ITERATIONS = 100000
+        _C.OPTIM.LR = 1e-3
+        _C.OPTIM.WARMUP_PROPORTION = 0.1
+        _C.OPTIM.WEIGHT_DECAY = 1e-3
+        _C.OPTIM.CLIP_GRADIENTS = 10
 
         # Override parameter values from YAML file first, then from override
         # list.
+        self._C = _C
         if config_file is not None:
             self._C.merge_from_file(config_file)
         self._C.merge_from_list(override_list)
