@@ -102,6 +102,12 @@ class Config(object):
     OPTIM.BATCH_SIZE: 64
         Batch size during training and evaluation.
 
+    OPTIM.GRAD_ACCUMULATION_STEPS: 1
+        Number of steps to acccumulate gradients before updating model
+        parameters. This is useful to simulate larger batch sizes with less
+        GPUs - effective batch size is ``BATCH_SIZE * GRAD_ACCUMULATION_STEPS``.
+        Make sure to scale the learning rate for a larger batch size.
+
     OPTIM.NUM_ITERATIONS: 100000
         Number of iterations to train for, batches are randomly sampled.
 
@@ -145,11 +151,12 @@ class Config(object):
         self._C.OPTIM = CN()
         self._C.OPTIM.OPTIMIZER_NAME = "adamw"
         self._C.OPTIM.BATCH_SIZE = 64
+        self._C.OPTIM.GRAD_ACCUMULATION_STEPS = 1
         self._C.OPTIM.NUM_ITERATIONS = 100000
         self._C.OPTIM.LR = 1e-3
         self._C.OPTIM.WARMUP_PROPORTION = 0.1
         self._C.OPTIM.WEIGHT_DECAY = 1e-3
-        self._C.OPTIM.CLIP_GRADIENTS = 5
+        self._C.OPTIM.CLIP_GRADIENTS = 10
 
         # Override parameter values from YAML file first, then from override
         # list.

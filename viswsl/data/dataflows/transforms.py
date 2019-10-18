@@ -35,16 +35,15 @@ class TransformImageForResNetLikeModels(df.ProxyDataFlow):
         self._augmentor = df.imgaug.AugmentorList([
             df.imgaug.RandomCrop(224),
             df.imgaug.ToFloat32(),
-            df.imgaug.MapImage(self._transform_image),
+            df.imgaug.MapImage(self._transform),
         ])
         # fmt: on
 
-    def _transform_image(self, image: np.ndarray) -> np.ndarray:
+    def _transform(self, image: np.ndarray) -> np.ndarray:
         image = image / 255.0
         if self._normalize:
-            image = (image - np.array([0.485, 0.456, 0.406])) / np.array(
-                [0.229, 0.224, 0.225]
-            )
+            image -= np.array([0.485, 0.456, 0.406])
+            image /= np.array([0.229, 0.224, 0.225])
         image = np.transpose(image, (2, 0, 1))
         return image
 

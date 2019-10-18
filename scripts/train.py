@@ -119,6 +119,7 @@ if __name__ == "__main__":
         device = init_distributed_for_slurm(
             _A.master_address, _A.master_port, _A.distributed
         )
+        dist.barrier()
     else:
         device = torch.device(
             f"cuda:{_A.gpu_ids[0]}" if _A.gpu_ids[0] >= 0 else "cpu"
@@ -187,34 +188,42 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
     #   TRAINING LOOP
     # --------------------------------------------------------------------------
-    for iteration in tqdm(range(1, _C.OPTIM.NUM_ITERATIONS + 1)):
-
+    for iteration in tqdm(
+        range(1, _C.OPTIM.NUM_ITERATIONS + 1), disable=WORLD_RANK != 0
+    ):
         # keys: {"image_id", "image", "caption_tokens", "masked_labels"}
         batch = next(train_dataloader_iter)
         for key in batch:
             batch[key] = batch[key].to(device)
 
-        optimizer.zero_grad()
+        # keys; {"predictions", "loss"}
         output_dict = model(
             batch["image"], batch["caption_tokens"], batch["masked_labels"]
         )
-        batch_loss = output_dict["loss"].mean()
-        batch_loss.backward()
+        # Normalize the loss, because gradients are being "accumulated" (summed)
+        # while the loss is averaged across training instances.
+        loss = output_dict["loss"].mean() / _C.OPTIM.GRAD_ACCUMULATION_STEPS
+        loss.backward()
 
-        nn.utils.clip_grad_norm_(model.parameters(), _C.OPTIM.CLIP_GRADIENTS)
-        optimizer.step()
+        if iteration % _C.OPTIM.GRAD_ACCUMULATION_STEPS == 0:
+            nn.utils.clip_grad_norm_(
+                model.parameters(), _C.OPTIM.CLIP_GRADIENTS
+            )
+            optimizer.step()
+            optimizer.zero_grad()
+
         lr_scheduler.step()
 
         # For distributed training, average out loss from all processes and log
         # to tensorboard.
         if _A.distributed:
-            dist.all_reduce(batch_loss, op=dist.ReduceOp.SUM)
-            batch_loss /= WORLD_SIZE
+            dist.all_reduce(loss, op=dist.ReduceOp.SUM)
+            loss /= WORLD_SIZE
 
         # Make the master process log loss and learning rate to tensorboard.
         # This condition should always be True without distributed training.
         if WORLD_RANK == 0:
-            tensorboard_writer.add_scalar("loss", batch_loss, iteration)
+            tensorboard_writer.add_scalar("loss", loss, iteration)
             tensorboard_writer.add_scalar(
                 "learning_rate", optimizer.param_groups[0]["lr"], iteration
             )
@@ -223,40 +232,47 @@ if __name__ == "__main__":
         #   PRINT EXAMPLES
         # ----------------------------------------------------------------------
         if iteration % _A.checkpoint_every == 0:
+            # Remove all accumulated gradients before evaluation.
+            optimizer.zero_grad()
+
             model.eval()
 
             # Make the master process log examples to tensorboard, and save
             # the model checkpoint.
             # This condition should always be True without distributed training.
             if WORLD_RANK == 0:
-                # We will add qualitative examples directive to tensorboard.
-                tensorboard_examples_text = ""
+                with torch.no_grad():
+                    # We will add qualitative examples directive to tensorboard.
+                    tensorboard_examples_text = ""
 
-                # Each process would gather some examples.
-                examples_per_rank = max(10 // WORLD_SIZE, 1)
-                for tokens, labels, predictions in zip(
-                    batch["caption_tokens"][:examples_per_rank],
-                    batch["masked_labels"][:examples_per_rank],
-                    output_dict["predictions"][:examples_per_rank],
-                ):
-                    tokens = [
-                        vocabulary.get_token_from_index(t.item())
-                        for t in tokens if t.item() != vocabulary.unk_index
-                    ]
-                    labels = [
-                        vocabulary.get_token_from_index(l.item())
-                        for l in labels if l.item() != vocabulary.unk_index
-                    ]
-                    predictions = [
-                        vocabulary.get_token_from_index(p.item())
-                        for p in predictions if p.item() != vocabulary.unk_index
-                    ]
-                    tensorboard_examples_text += f"""
-                        Caption tokens: {tokenizer.detokenize(tokens)}
-                        Masked Labels: {" ".join(labels)}
-                        Predictions: {" ".join(predictions)}
+                    # Each process would gather some examples.
+                    examples_per_rank = max(10 // WORLD_SIZE, 1)
+                    for tokens, labels, predictions in zip(
+                        batch["caption_tokens"][:examples_per_rank],
+                        batch["masked_labels"][:examples_per_rank],
+                        output_dict["predictions"][:examples_per_rank],
+                    ):
+                        tokens = [
+                            vocabulary.get_token_from_index(t.item())
+                            for t in tokens
+                            if t.item() != vocabulary.unk_index
+                        ]
+                        labels = [
+                            vocabulary.get_token_from_index(l.item())
+                            for l in labels
+                            if l.item() != vocabulary.unk_index
+                        ]
+                        predictions = [
+                            vocabulary.get_token_from_index(p.item())
+                            for p in predictions
+                            if p.item() != vocabulary.unk_index
+                        ]
+                        tensorboard_examples_text += f"""
+                            Caption tokens: {tokenizer.detokenize(tokens)}
+                            Masked Labels: {" ".join(labels)}
+                            Predictions: {" ".join(predictions)}
 
-                        """
+                            """
 
                 tensorboard_writer.add_text(
                     "qualitative", tensorboard_examples_text, iteration

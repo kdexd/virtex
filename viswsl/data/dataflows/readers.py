@@ -17,22 +17,16 @@ class ReadDatapointsFromLmdb(df.DataFlow):
     into multiple shards according to the number of parallel worker processes
     reading from it, in order to avoid duplicate datapoints in a batch.
 
-    Extended Summary
-    ----------------
     The dataset used (or any source of image-text pairs) does not matter. We
     serialize all of them using class:`~dataflow.serializers.LMDBSerializer`.
 
     Parameters
     ----------
     lmdb_path: str
-    buffer_size: int, optional (default = 8)
     """
 
-    def __init__(self, lmdb_path: str, buffer_size: int = 8):
+    def __init__(self, lmdb_path: str):
         self._lmdb_path = lmdb_path
-
-        assert buffer_size > 0, "Buffer size cannot be zero or negative."
-        self._buffer_size = buffer_size
 
         # Get a list of "keys" in the LMDB file so we could shard the dataset.
         with lmdb.open(
@@ -81,7 +75,6 @@ class ReadDatapointsFromLmdb(df.DataFlow):
                 world_rank * samples_per_gpu_process
                 + worker_info.id * samples_per_worker
             )
-
             # Last worker may get less than ``_per_worker`` examples.
             end = min(len(self._keys), start + samples_per_worker)
         else:
@@ -89,17 +82,12 @@ class ReadDatapointsFromLmdb(df.DataFlow):
             start = world_rank * samples_per_gpu_process
             end = min(len(self._keys), start + samples_per_gpu_process)
 
-        print(f"Total length: {len(self._keys)}, rank: {world_rank}, id: {worker_info.id}, start: {start}, end: {end}")
         # Read sequentially, random reads from large files may be expensive.
         pipeline = df.LMDBData(
             self._lmdb_path, keys=self._keys[start:end], shuffle=False
         )
         # Decode bytes read from LMDB to Python objects.
         pipeline = df.MapData(pipeline, self._deserialize)
-
-        # Keep a fixed-size buffer: examples will be pushed in this buffer and
-        # randomly selected to make batches; a good proxy for random reads.
-        pipeline = df.LocallyShuffleData(pipeline, self._buffer_size)
         pipeline.reset_state()
         # ====================================================================
 

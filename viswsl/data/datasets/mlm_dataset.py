@@ -1,3 +1,4 @@
+import dataflow as df
 import torch
 from torch.utils.data import IterableDataset
 
@@ -20,13 +21,12 @@ class MaskedLanguageModelingDataset(IterableDataset):
         tokenizer: SentencePieceTokenizer,
         normalize_image: bool = False,
         max_caption_length: int = 25,
-        buffer_size: int = 8,
+        buffer_size: int = 64,
     ):
+        assert buffer_size > 0, "Buffer size must be non-negative."
         self._vocabulary = vocabulary
 
-        self._pipeline = ReadDatapointsFromLmdb(
-            lmdb_path, buffer_size=buffer_size
-        )
+        self._pipeline = ReadDatapointsFromLmdb(lmdb_path)
         self._pipeline = TransformImageForResNetLikeModels(
             self._pipeline, normalize=normalize_image
         )
@@ -36,9 +36,12 @@ class MaskedLanguageModelingDataset(IterableDataset):
             tokenizer,
             max_caption_length=max_caption_length,
         )
+        # Keep a fixed-size buffer: examples will be pushed in this buffer and
+        # randomly selected to make batches; a good proxy for random reads.
+        self._pipeline = df.LocallyShuffleData(self._pipeline, buffer_size)
 
     def __len__(self):
-        return len(self._dflow)
+        return len(self._pipeline)
 
     def __iter__(self):
         self._pipeline.reset_state()
