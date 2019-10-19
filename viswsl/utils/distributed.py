@@ -1,87 +1,138 @@
+import logging
 import os
-import signal
-import threading
 
-import ifcfg
 import torch
 from torch import distributed as dist
 
 
-EXIT = threading.Event()
-EXIT.clear()
-
-
-def _clean_exit_handler(signum, frame):
-    r"""Utility to cleanly exit from distributed training."""
-    EXIT.set()
-    print("Exiting cleanly.", flush=True)
-
-
-signal.signal(signal.SIGINT, _clean_exit_handler)
-signal.signal(signal.SIGTERM, _clean_exit_handler)
-signal.signal(signal.SIGUSR2, _clean_exit_handler)
-
-
-def init_distributed_for_slurm(
-    master_address: str = "127.0.0.1",
-    master_port: int = 8989,
-    backend: str = "nccl",
-) -> torch.device:
+def init_distributed_env(backend: str = "nccl") -> int:
     r"""
-    Initialize :mod:`torch.distributed` for SLURM processes. This method picks
-    up relevant environment variables set by SLURM controller and uses them to
-    initialize the process group.
+    Initialize distributed process group from five environment variables:
+    ``$MASTER_ADDR, $MASTER_PORT, $WORLD_SIZE, $RANK, $LOCAL_RANK``. Suitable
+    and recommended if you are using SLURM.
 
-    Specifically, it looks for the following environment variables:
-
-    1. ``$WORLD_SIZE``: Total number of processes. It is set by SLURM as
-       ``$SLURM_NTASKS``. The value is ``nodes * gres``.
-
-    2. ``$WORLD_RANK``: Rank of the process, lies in ``[0, $WORLD_SIZE)``. It is
-       set by SLURM as ``$SLURM_PROCID``.
-
-    3. ``$LOCAL_RANK``: If we are using multi-node multi-GPU, then this will be
-       the GPU ID on the current node (on which the ``$WORLD_RANK`` process is
-       initialized). For example: ``--nodes 2 --gres gpu:2`` would initialize
-       four processes on two nodes, each with ``$WORLD_RANK: 0, 1, 2, 3`` and
-       ``$LOCAL_RANK: 0, 1, 0, 1``.
+    ``$LOCAL_RANK`` will be equal to ``$RANK`` for single machine multi-GPU
+    training. If we are using multi-node multi-GPU, for example: two machines
+    with 2 GPUs each. The process group woud have four processes with ``$RANK``s
+    (0, 1, 2, 3) and ``$LOCAL_RANK``s (0, 1, 0, 1).
 
     Note
     ----
-    Use NCCL Backend for GPU training, GLOO backend for debugging.
+    If you are using SLURM, you only need to set ``$MASTER_PORT`` -- this method
+    would take the rest from env variables set by SLURM.
+
+    Note
+    ----
+    Use NCCL Backend for training, GLOO backend for debugging.
 
     Parameters
     ----------
-    master_address: str, optional (default = "127.0.0.1")
-        IP Address of the master node for distributed training. For single-node
-        multi-GPU training, this can be ``"localhost"`` or ``"127.0.0.1"``.
-    master_port: int, optional (default = 8989)
-        A port on the master node for communication between processes. Make
-        sure this port is free, and does not conflict with anything (such as
-        Tensorboard).
     backend: str, optional (default = "nccl")
         Backend for :mod:`torch.distributed`, either "gloo" or "nccl".
 
+    Returns
+    -------
+    int
+        Device ID of the GPU used by current process.
     """
-    os.environ["NCCL_SOCKET_IFNAME"] = ifcfg.default_interface()["device"]
-    os.environ["GLOO_SOCKET_IFNAME"] = ifcfg.default_interface()["device"]
+    assert torch.cuda.is_available(), "Cannot use GPU, CUDA not found!"
 
-    # Rank of the process in our torch.distributed process group.
-    # For SLURM, it is lies in [0, `nodes * gres`).
-    world_rank = int(os.environ.get("RANK", os.environ.get("SLURM_PROCID", 0)))
+    # Set env variables required to initialize distributed process group.
+    # If using SLURM, these may have been set as some other name.
+    os.environ["MASTER_ADDR"] = os.environ.get(
+        "MASTER_ADDR",
+        os.environ.get("SLURM_NODELIST", "localhost").split(",")[-1],
+    )
+    os.environ["RANK"] = os.environ.get(
+        "RANK", os.environ.get("SLURM_PROCID", "0")
+    )
+    os.environ["WORLD_SIZE"] = os.environ.get(
+        "WORLD_SIZE", os.environ.get("SLURM_NTASKS", "1")
+    )
+    try:
+        if int(os.environ["WORLD_SIZE"]) > 1:
+            dist.init_process_group(backend, init_method="env://")
+            # Wait for all processes to initialize, necessary to avoid timeout.
+            synchronize()
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(
+            f"Dist URL: {os.environ['MASTER_ADDR']}:{os.environ['MASTER_PORT']}"
+        )
+        raise e
 
-    world_size = int(
-        os.environ.get("WORLD_SIZE", os.environ.get("SLURM_NTASKS", 1))
-    )
-
-    tcp_store = dist.TCPStore(
-        master_address, master_port, world_size, world_rank == 0
-    )
-    dist.init_process_group(
-        backend, store=tcp_store, rank=world_rank, world_size=world_size
-    )
     local_rank = int(
-        os.environ.get("LOCAL_RANK", os.environ.get("SLURM_LOCALID", 0))
+        os.environ.get("LOCAL_RANK", os.environ.get("SLURM_LOCALID", "0"))
     )
-    device = torch.device(f"cuda:{local_rank}")
-    return device
+    # Current process only accesses this single GPU exclusive of other processes
+    # in the process group.
+    torch.cuda.set_device(local_rank)
+    return local_rank
+
+
+def init_distributed_tcp(
+    local_rank: int,
+    machine_rank: int,
+    num_gpus_per_machine: int,
+    num_machines: int,
+    dist_url: str = "tcp://127.0.0.1:23456",
+    backend: str = "nccl",
+) -> int:
+    assert torch.cuda.is_available(), "Cannot use GPU, CUDA not found!"
+    world_size = num_machines * num_gpus_per_machine
+    world_rank = machine_rank * num_gpus_per_machine + local_rank
+
+    try:
+        if world_size > 1:
+            dist.init_process_group(
+                backend=backend,
+                init_method=dist_url,
+                world_size=world_size,
+                rank=world_rank,
+            )
+        # Wait for all processes to initialize, necessary to avoid timeout.
+        synchronize()
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Dist URL: {dist_url}")
+        raise e
+
+    # Current process only accesses this single GPU exclusive of other processes
+    # in the process group.
+    torch.cuda.set_device(local_rank)
+    return local_rank
+
+
+def synchronize() -> None:
+    r"""Synchronize (barrier) processes in a process group."""
+    if dist.is_initialized():
+        dist.barrier()
+
+
+def get_world_size() -> int:
+    r"""Return number of processes in the process group, each uses 1 GPU."""
+    return dist.get_world_size() if dist.is_initialized() else 1
+
+
+def get_rank() -> int:
+    r"""Return rank of current process in the process group."""
+    return dist.get_rank() if dist.is_initialized() else 0
+
+
+def is_master_process() -> bool:
+    r"""
+    Check if current process is the master process in distributed training
+    process group. useful to make checks while tensorboard logging and
+    serializing checkpoints. Always ``True`` for single-GPU single-machine.
+    """
+    return get_rank() == 0
+
+def average_across_processes(t: torch.Tensor) -> torch.Tensor:
+    r"""
+    Averages out a tensor across all processes in a process group. All processes
+    finally have the same mean value.
+    """
+    if dist.is_initialized():
+        dist.all_reduce(t, op=dist.ReduceOp.SUM)
+        t /= get_world_size()
+    return t
