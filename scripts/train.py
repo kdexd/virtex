@@ -27,8 +27,7 @@ from viswsl.utils.logging import Timer
 
 # fmt: off
 parser = argparse.ArgumentParser(
-    description="""Train only the linguistic stream (transformer) on masked
-    language modeling pretext task."""
+    description="Train a CNN+Transformer model on masked language modeling."
 )
 parser.add_argument(
     "--config", help="Path to a config file with all configuration parameters."
@@ -118,7 +117,9 @@ if __name__ == "__main__":
     # Disable the logger for all processes except master process to avoid
     # clutter in stdout / stderr / logfile.
     logger.remove(0)
-    logger.add(sys.stdout, format="<level>{message}</level>", colorize=True)
+    logger.add(
+        sys.stdout, format="<g>{time}</g>: <lvl>{message}</lvl>", colorize=True
+    )
     logger.disable(__name__) if not dist.is_master_process() else None
 
     # Print config and args.
