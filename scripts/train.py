@@ -1,7 +1,10 @@
 import argparse
 import os
+import random
+import sys
 from typing import Iterator
 
+from loguru import logger
 import numpy as np
 import torch
 from torch import nn
@@ -98,30 +101,34 @@ if __name__ == "__main__":
     # _A. This object is immutable, nothing can be changed in this anymore.
     _C = Config(_A.config, _A.config_override)
 
-    # Print configs and args.
-    print(_C)
-    for arg in vars(_A):
-        print("{:<20}: {}".format(arg, getattr(_A, arg)))
-
-    # Create serialization directory and save config in it.
-    os.makedirs(_A.serialization_dir, exist_ok=True)
-    _C.dump(os.path.join(_A.serialization_dir, "config.yml"))
-
     # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
-    # These five lines control all the major sources of randomness.
+    random.seed(_C.RANDOM_SEED)
     np.random.seed(_C.RANDOM_SEED)
     torch.manual_seed(_C.RANDOM_SEED)
-    torch.cuda.manual_seed_all(_C.RANDOM_SEED)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
     device_id = dist.init_distributed_env(_A.dist_backend) if _A.slurm else 0
     device = torch.device("cuda", device_id)
 
+    # Create serialization directory and save config in it.
+    os.makedirs(_A.serialization_dir, exist_ok=True)
+    _C.dump(os.path.join(_A.serialization_dir, "config.yml"))
+
+    # Disable the logger for all processes except master process to avoid
+    # clutter in stdout / stderr / logfile.
+    logger.remove(0)
+    logger.add(sys.stdout, format="<level>{message}</level>", colorize=True)
+    logger.disable(__name__) if not dist.is_master_process() else None
+
+    # Print config and args.
+    logger.info(str(_C))
+    for arg in vars(_A):
+        logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))
+
     # -------------------------------------------------------------------------
     #   INSTANTIATE VOCABULARY, TOKENIZER, DATALOADER, MODEL, OPTIMIZER
     # -------------------------------------------------------------------------
-
     vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
     tokenizer = SentencePieceTokenizer(_C.DATA.TOKENIZER)
 
@@ -158,13 +165,15 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     #  BEFORE TRAINING STARTS
     # -------------------------------------------------------------------------
-
-    # Only the master process would log and serialize checkpoints.
     if dist.is_master_process():
-        tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
+        # Only the master process would serialize checkpoints.
         checkpoint_manager = CheckpointManager(
             model, optimizer, _A.serialization_dir
         )
+        # Tensorboard writer for logging training curves. Only the master
+        # process will log events to tensorboard to avoid clutter.
+        tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
+        tensorboard_writer.add_text("config", str(_C))
 
     # Keep track of (moving) average time per iteration and ETA.
     timer = Timer(
@@ -176,7 +185,6 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     #   TRAINING LOOP
     # -------------------------------------------------------------------------
-
     for iteration in range(1, _C.OPTIM.NUM_ITERATIONS + 1):
         timer.tic()
         # keys: {"image_id", "image", "caption_tokens", "masked_labels"}
@@ -204,73 +212,61 @@ if __name__ == "__main__":
         timer.toc()
 
         # Make the master process log loss, lr, time to tensorboard.
-        if iteration % _A.log_every == 0:
+        if iteration % _A.log_every == 0 and dist.is_master_process():
             loss = dist.average_across_processes(loss)
-            if dist.is_master_process():
-                # Print avg time and ETA for debugging: replacement of tqdm.
-                print(timer.stats)
 
-                tensorboard_writer.add_scalar("loss", loss, iteration)
-                tensorboard_writer.add_scalar(
-                    "learning_rate", optimizer.param_groups[0]["lr"], iteration
-                )
-                tensorboard_writer.add_scalar("avg_time", timer.avg, iteration)
-                tensorboard_writer.add_scalar(
-                    "eta_hours", timer.eta_sec / 3600, iteration
-                )
+            logger.info(timer.stats)
+            tensorboard_writer.add_scalar("loss", loss, iteration)
+            tensorboard_writer.add_scalar(
+                "learning_rate", optimizer.param_groups[0]["lr"], iteration
+            )
+            tensorboard_writer.add_scalar("avg_time", timer.avg, iteration)
+            tensorboard_writer.add_scalar(
+                "eta_hours", timer.eta_sec / 3600, iteration
+            )
             dist.synchronize()
 
-        # ----------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         #   PRINT EXAMPLES
-        # ----------------------------------------------------------------------
-        if iteration % _A.checkpoint_every == 0:
+        # ---------------------------------------------------------------------
+        if iteration % _A.checkpoint_every == 0 and dist.is_master_process():
             # Remove all accumulated gradients before evaluation.
-            optimizer.zero_grad()
-
+            torch.set_grad_enabled(False)
             model.eval()
 
-            # Make the master process log examples to tensorboard, and save
-            # the model checkpoint.
-            # This condition should always be True without distributed training.
-            if dist.is_master_process():
-                with torch.no_grad():
-                    # We will add qualitative examples directive to tensorboard.
-                    tensorboard_examples_text = ""
+            # Each process would gather some examples.
+            tensorboard_examples_text = ""
+            for tokens, labels, predictions in zip(
+                batch["caption_tokens"][:10],
+                batch["masked_labels"][:10],
+                output_dict["predictions"][:10],
+            ):
+                # fmt: off
+                tokens = [
+                    vocabulary.get_token_from_index(t.item())
+                    for t in tokens if t.item() != vocabulary.unk_index
+                ]
+                labels = [
+                    vocabulary.get_token_from_index(l.item())
+                    for l in labels if l.item() != vocabulary.unk_index
+                ]
+                predictions = [
+                    vocabulary.get_token_from_index(p.item())
+                    for p in predictions if p.item() != vocabulary.unk_index
+                ]
+                tensorboard_examples_text += f"""
+                    Caption tokens: {tokenizer.detokenize(tokens)}
+                    Masked Labels: {" ".join(labels)}
+                    Predictions: {" ".join(predictions)}
 
-                    # Each process would gather some examples.
-                    examples_per_rank = max(10 // dist.get_world_size(), 1)
-                    for tokens, labels, predictions in zip(
-                        batch["caption_tokens"][:examples_per_rank],
-                        batch["masked_labels"][:examples_per_rank],
-                        output_dict["predictions"][:examples_per_rank],
-                    ):
-                        tokens = [
-                            vocabulary.get_token_from_index(t.item())
-                            for t in tokens
-                            if t.item() != vocabulary.unk_index
-                        ]
-                        labels = [
-                            vocabulary.get_token_from_index(l.item())
-                            for l in labels
-                            if l.item() != vocabulary.unk_index
-                        ]
-                        predictions = [
-                            vocabulary.get_token_from_index(p.item())
-                            for p in predictions
-                            if p.item() != vocabulary.unk_index
-                        ]
-                        tensorboard_examples_text += f"""
-                            Caption tokens: {tokenizer.detokenize(tokens)}
-                            Masked Labels: {" ".join(labels)}
-                            Predictions: {" ".join(predictions)}
+                    """
+                # fmt: on
 
-                            """
-
-                tensorboard_writer.add_text(
-                    "qualitative", tensorboard_examples_text, iteration
-                )
-                checkpoint_manager.step(iteration)
-
-            # All processes will wait till master process is done logging.
-            dist.synchronize()
+            tensorboard_writer.add_text(
+                "qualitative", tensorboard_examples_text, iteration
+            )
+            checkpoint_manager.step(iteration)
+            torch.set_grad_enabled(True)
             model.train()
+        # All processes will wait till master process is done logging.
+        dist.synchronize()
