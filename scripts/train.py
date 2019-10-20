@@ -7,7 +7,6 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
 
 from viswsl.config import Config
 from viswsl.data.datasets import MaskedLanguageModelingDataset
@@ -20,6 +19,7 @@ from viswsl.modules.visual_stream import VisualStream
 from viswsl.optim.lr_scheduler import LinearWarmupLinearDecayLR
 from viswsl.utils.checkpointing import CheckpointManager
 import viswsl.utils.distributed as dist
+from viswsl.utils.logging import Timer
 
 
 # fmt: off
@@ -77,7 +77,7 @@ parser.add_argument(
     help="Path to a directory to serialize config, checkpoints and logs.",
 )
 parser.add_argument(
-    "--log-every", type=int, default=10,
+    "--log-every", type=int, default=20,
     help="""Log training curves to tensorboard after every these many iterations
     only master process logs averaged loss values across processes.""",
 )
@@ -118,9 +118,9 @@ if __name__ == "__main__":
     device_id = dist.init_distributed_env(_A.dist_backend) if _A.slurm else 0
     device = torch.device("cuda", device_id)
 
-    # --------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     #   INSTANTIATE VOCABULARY, TOKENIZER, DATALOADER, MODEL, OPTIMIZER
-    # --------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
     tokenizer = SentencePieceTokenizer(_C.DATA.TOKENIZER)
@@ -155,34 +155,30 @@ if __name__ == "__main__":
         warmup_proportion=_C.OPTIM.WARMUP_PROPORTION,
     )
 
-    # --------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     #  BEFORE TRAINING STARTS
-    # --------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
-    # For distributed training, only the master process would log to tensorboard
-    # and serialize checkpoints.
-    # This condition should always be True without distributed training.
+    # Only the master process would log and serialize checkpoints.
     if dist.is_master_process():
         tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
         checkpoint_manager = CheckpointManager(
             model, optimizer, _A.serialization_dir
         )
 
+    # Keep track of (moving) average time per iteration and ETA.
+    timer = Timer(
+        window_size=_A.log_every, total_iterations=_C.OPTIM.NUM_ITERATIONS
+    )
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter: Iterator = iter(train_dataloader)
 
-    # --------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     #   TRAINING LOOP
-    # --------------------------------------------------------------------------
-    import time
-    total_time = 0.0
-    calls = 0
+    # -------------------------------------------------------------------------
 
-    for iteration in tqdm(
-        range(1, _C.OPTIM.NUM_ITERATIONS + 1),
-        disable=not dist.is_master_process(),
-    ):
-        start_time = time.time()
+    for iteration in range(1, _C.OPTIM.NUM_ITERATIONS + 1):
+        timer.tic()
         # keys: {"image_id", "image", "caption_tokens", "masked_labels"}
         batch = next(train_dataloader_iter)
         for key in batch:
@@ -192,7 +188,7 @@ if __name__ == "__main__":
         output_dict = model(
             batch["image"], batch["caption_tokens"], batch["masked_labels"]
         )
-        # Normalize the loss, because gradients are being "accumulated" (summed)
+        # Normalize the loss, because gradients are being accumulated (summed)
         # while the loss is averaged across training instances.
         loss = output_dict["loss"].mean() / _C.OPTIM.GRAD_ACCUMULATION_STEPS
         loss.backward()
@@ -205,16 +201,22 @@ if __name__ == "__main__":
             optimizer.zero_grad()
 
         lr_scheduler.step()
-        total_time += time.time() - start_time
-        calls += 1
-        # Make the master process log loss and learning rate to tensorboard.
+        timer.toc()
+
+        # Make the master process log loss, lr, time to tensorboard.
         if iteration % _A.log_every == 0:
             loss = dist.average_across_processes(loss)
             if dist.is_master_process():
-                print("Average time per iteration: ", total_time / calls)
+                # Print avg time and ETA for debugging: replacement of tqdm.
+                print(timer.stats)
+
                 tensorboard_writer.add_scalar("loss", loss, iteration)
                 tensorboard_writer.add_scalar(
                     "learning_rate", optimizer.param_groups[0]["lr"], iteration
+                )
+                tensorboard_writer.add_scalar("avg_time", timer.avg, iteration)
+                tensorboard_writer.add_scalar(
+                    "eta_hours", timer.eta_sec / 3600, iteration
                 )
             dist.synchronize()
 
