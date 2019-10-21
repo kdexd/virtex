@@ -77,8 +77,16 @@ class Config(object):
 
     MODEL:
 
+    MODEL.VISUAL:
+        Parameters defining the architecture of the visual stream.
+    MODEL.VISUAL.NAME: "torchvision::resnext101_32x8d"
+        Name of the visual stream model. Torchvision models supported for now.
+    MODEL.VISUAL.PRETRAINED:
+        Whether to initialize model from ImageNet pre-trained weights.
+    _____
+
     MODEL.LINGUISTIC:
-        Parameters defining the architecture of linguistic branch.
+        Parameters defining the architecture of the linguistic stream.
     MODEL.LINGUISTIC.HIDDEN_SIZE: 512
         Size of the hidden state for the transformer.
     MODEL.LINGUISTIC.ATTENTION_HEADS: 8
@@ -125,6 +133,10 @@ class Config(object):
         _C.DATA.MAX_CAPTION_LENGTH = 30
 
         _C.MODEL = CN()
+        _C.MODEL.VISUAL = CN()
+        _C.MODEL.VISUAL.NAME = "resnext101_32x8d"
+        _C.MODEL.VISUAL.PRETRAINED = False
+
         _C.MODEL.LINGUISTIC = CN()
         _C.MODEL.LINGUISTIC.HIDDEN_SIZE = 512
         _C.MODEL.LINGUISTIC.NUM_ATTENTION_HEADS = 8

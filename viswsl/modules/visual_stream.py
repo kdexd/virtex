@@ -1,19 +1,21 @@
 import torch
 from torch import nn
-from torchvision.models import resnext101_32x8d
+from torchvision import models as tv_models
 
 
-class VisualStream(nn.Module):
-    # It's just a ResNeXt here right now. Making a separate class to make it
-    # more configurable.
-
-    def __init__(self):
+class TorchvisionModelVisualStream(nn.Module):
+    def __init__(self, name: str, pretrained: bool = False, **kwargs):
         super().__init__()
+        try:
+            model_creation_method = getattr(tv_models, name)
+        except AttributeError as err:
+            raise AttributeError(
+                f"{name} if not a torchvision model."
+            ).with_traceback(err.__traceback__)
 
-        self._cnn = resnext101_32x8d(pretrained=False)
+        self._cnn = model_creation_method(pretrained, **kwargs)
 
-        # Set the global average pooling and FC layers as identity.
-        # self._cnn.avgpool = nn.Identity()
+        # Do nothing after the global average pooling layer.
         self._cnn.fc = nn.Identity()
 
     def forward(self, image: torch.Tensor):
