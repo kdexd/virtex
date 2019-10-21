@@ -1,7 +1,8 @@
 from typing import Any, Dict, Iterable, List, Type
-from torch import optim
+from torch import nn, optim
 
 from viswsl.config import Config
+from viswsl.modules.visual_stream import TorchvisionVisualStream
 
 
 class Factory(object):
@@ -29,6 +30,27 @@ class Factory(object):
     @classmethod
     def from_config(cls, config: Config, *args, **kwargs) -> Any:
         raise NotImplementedError
+
+
+class VisualStreamFactory(Factory):
+
+    PRODUCTS: Dict[str, Type[nn.Module]] = {
+        "torchvision": TorchvisionVisualStream,
+    }
+
+    @classmethod
+    def from_config(
+        cls, config: Config
+    ) -> Type[nn.Module]:
+
+        _C = config
+        if "torchvision" in _C.MODEL.VISUAL.NAME:
+            cnn_name = _C.MODEL.VISUAL.NAME.split("::")[-1]
+            kwargs = {"pretrained": _C.MODEL.VISUAL.PRETRAINED}
+            return cls.create("torchvision", cnn_name, **kwargs)
+
+        # Placeholder to raise error if non-torchvision model is provided.
+        return cls.create(_C.MODEL.VISUAL.NAME)
 
 
 class OptimizerFactory(Factory):

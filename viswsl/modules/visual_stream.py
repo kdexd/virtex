@@ -3,7 +3,7 @@ from torch import nn
 from torchvision import models as tv_models
 
 
-class TorchvisionModelVisualStream(nn.Module):
+class TorchvisionVisualStream(nn.Module):
     def __init__(self, name: str, pretrained: bool = False, **kwargs):
         super().__init__()
         try:

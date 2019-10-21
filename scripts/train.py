@@ -15,10 +15,9 @@ from viswsl.config import Config
 from viswsl.data.datasets import MaskedLanguageModelingDataset
 from viswsl.data.vocabulary import SentencePieceVocabulary
 from viswsl.data.tokenizers import SentencePieceTokenizer
-from viswsl.factories import OptimizerFactory
+from viswsl.factories import VisualStreamFactory, OptimizerFactory
 from viswsl.model import ViswslModel
 from viswsl.modules.linguistic_stream import LinguisticStream
-from viswsl.modules.visual_stream import TorchvisionModelVisualStream
 from viswsl.optim.lr_scheduler import LinearWarmupLinearDecayLR
 from viswsl.utils.checkpointing import CheckpointManager
 import viswsl.utils.distributed as dist
@@ -146,9 +145,7 @@ if __name__ == "__main__":
         num_workers=_A.cpu_workers,
     )
 
-    visual_module = TorchvisionModelVisualStream(
-        _C.MODEL.VISUAL.NAME, pretrained=_C.MODEL.VISUAL.PRETRAINED
-    )
+    visual_module = VisualStreamFactory.from_config(_C)
     linguistic_module = LinguisticStream.from_config(_C)
     model = ViswslModel(visual_module, linguistic_module).to(device)
 

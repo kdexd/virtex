@@ -134,7 +134,7 @@ class Config(object):
 
         _C.MODEL = CN()
         _C.MODEL.VISUAL = CN()
-        _C.MODEL.VISUAL.NAME = "resnext101_32x8d"
+        _C.MODEL.VISUAL.NAME = "torchvision::resnext101_32x8d"
         _C.MODEL.VISUAL.PRETRAINED = False
 
         _C.MODEL.LINGUISTIC = CN()

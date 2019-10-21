@@ -11,6 +11,10 @@ DATA:
   MAX_CAPTION_LENGTH: 30
 
 MODEL:
+  VISUAL:
+    NAME: torchvision::resnext101_32x8d
+    PRETRAINED: false
+
   LINGUISTIC:
     HIDDEN_SIZE: 768
     NUM_ATTENTION_HEADS: 12
