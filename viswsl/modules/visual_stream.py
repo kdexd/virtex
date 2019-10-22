@@ -27,3 +27,17 @@ class TorchvisionVisualStream(nn.Module):
         # shape: (batch_size, 7, 7, 2048)
         # spatial_features = flat_spatial_features.view(-1, 7, 7, 2048)
         return flat_spatial_features
+
+
+class BlindVisualStream(nn.Module):
+    r"""A visual stream which cannot see the image."""
+
+    def __init__(self, bias: torch.Tensor = torch.tensor(1)):
+        super().__init__()
+
+        # We never update the bias because a blind model cannot learn anything
+        # about the image.
+        self._bias = nn.Parameter(bias, requires_grad=False)
+
+    def forward(self, *args, **kwargs):
+        return self._bias

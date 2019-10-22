@@ -106,8 +106,14 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-    device_id = dist.init_distributed_env(_A.dist_backend) if _A.slurm else 0
-    device = torch.device("cuda", device_id)
+    if _A.slurm:
+        device_id = dist.init_distributed_env(_A.dist_backend)
+    elif _A.num_gpus_per_machine == 0:
+        device_id = -1
+    else:
+        # TODO (kd): Add an option to use `init_distributed_tcp`.
+        device_id = 0
+    device = torch.device(f"cuda:{device_id}" if device_id != -1 else "cpu")
 
     # Create serialization directory and save config in it.
     os.makedirs(_A.serialization_dir, exist_ok=True)
@@ -234,12 +240,21 @@ if __name__ == "__main__":
             torch.set_grad_enabled(False)
             model.eval()
 
-            # Each process would gather some examples.
+            # Check performance of blind variant of this model too. This is an
+            # unfair evaluation, but we keep it only for debugging.
+            blind_model = ViswslModel(
+                VisualStreamFactory.create("blind"), linguistic_module
+            ).to(device)
+            blind_output_dict = blind_model(
+                batch["image"], batch["caption_tokens"], batch["masked_labels"]
+            )
+
             tensorboard_examples_text = ""
-            for tokens, labels, predictions in zip(
+            for tokens, labels, predictions, blind_predictions in zip(
                 batch["caption_tokens"][:10],
                 batch["masked_labels"][:10],
                 output_dict["predictions"][:10],
+                blind_output_dict["predictions"][:10],
             ):
                 # fmt: off
                 tokens = [
@@ -254,17 +269,25 @@ if __name__ == "__main__":
                     vocabulary.get_token_from_index(p.item())
                     for p in predictions if p.item() != vocabulary.unk_index
                 ]
+                blind_predictions = [
+                    vocabulary.get_token_from_index(p.item())
+                    for p in blind_predictions if p.item() != vocabulary.unk_index
+                ]
                 tensorboard_examples_text += f"""
-                    Caption tokens: {tokenizer.detokenize(tokens)}
-                    Masked Labels: {" ".join(labels)}
-                    Predictions: {" ".join(predictions)}
+                    Caption tokens      : {tokenizer.detokenize(tokens)}
+                    Masked Labels       : {" ".join(labels)}
+                    Predictions (normal): {" ".join(predictions)}
+                    Predictions (blind) : {" ".join(blind_predictions)}
 
                     """
                 # fmt: on
 
             tensorboard_writer.add_text(
-                "qualitative", tensorboard_examples_text, iteration
+                "predictions", tensorboard_examples_text, iteration
             )
+            # Free up memory.
+            del blind_model
+
             checkpoint_manager.step(iteration)
             torch.set_grad_enabled(True)
             model.train()

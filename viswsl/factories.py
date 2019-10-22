@@ -2,7 +2,7 @@ from typing import Any, Dict, Iterable, List, Type
 from torch import nn, optim
 
 from viswsl.config import Config
-from viswsl.modules.visual_stream import TorchvisionVisualStream
+from viswsl.modules import visual_stream as vstream
 
 
 class Factory(object):
@@ -35,13 +35,12 @@ class Factory(object):
 class VisualStreamFactory(Factory):
 
     PRODUCTS: Dict[str, Type[nn.Module]] = {
-        "torchvision": TorchvisionVisualStream,
+        "blind": vstream.BlindVisualStream,
+        "torchvision": vstream.TorchvisionVisualStream,
     }
 
     @classmethod
-    def from_config(
-        cls, config: Config
-    ) -> Type[nn.Module]:
+    def from_config(cls, config: Config) -> Type[nn.Module]:
 
         _C = config
         if "torchvision" in _C.MODEL.VISUAL.NAME:
@@ -49,7 +48,6 @@ class VisualStreamFactory(Factory):
             kwargs = {"pretrained": _C.MODEL.VISUAL.PRETRAINED}
             return cls.create("torchvision", cnn_name, **kwargs)
 
-        # Placeholder to raise error if non-torchvision model is provided.
         return cls.create(_C.MODEL.VISUAL.NAME)
 
 
