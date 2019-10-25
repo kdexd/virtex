@@ -1,12 +1,13 @@
 import random
-from typing import Iterator, Union
+from typing import Iterator
 
 import dataflow as df
+from dataflow import imgaug as aug
 import numpy as np
 
 from viswsl.data.tokenizers import SentencePieceTokenizer
 from viswsl.data.vocabulary import SentencePieceVocabulary
-from viswsl.types import LmdbDatapoint
+from viswsl.types import LmdbDatapoint, MaskedLanguageModelingInstance
 
 
 class TransformImageForResNetLikeModels(df.ProxyDataFlow):
@@ -22,22 +23,15 @@ class TransformImageForResNetLikeModels(df.ProxyDataFlow):
     #     5. Convert from HWC to CHW format.
 
     def __init__(
-        self,
-        ds: df.DataFlow,
-        normalize: bool = False,
-        index_or_key: Union[int, str] = "image",
+        self, ds: df.DataFlow, normalize: bool = False, key: str = "image"
     ):
         self.ds = ds
         self._normalize = normalize
-        self._x = index_or_key
+        self._x = key
 
-        # fmt: off
         self._augmentor = df.imgaug.AugmentorList([
-            df.imgaug.RandomCrop(224),
-            df.imgaug.ToFloat32(),
-            df.imgaug.MapImage(self._transform),
+            aug.RandomCrop(224), aug.ToFloat32(), aug.MapImage(self._transform)
         ])
-        # fmt: on
 
     def _transform(self, image: np.ndarray) -> np.ndarray:
         image = image / 255.0
@@ -48,28 +42,28 @@ class TransformImageForResNetLikeModels(df.ProxyDataFlow):
         return image
 
     def __iter__(self) -> Iterator[LmdbDatapoint]:
-
         for datapoint in self.ds:
             image = self._augmentor.augment(datapoint[self._x])
             datapoint[self._x] = image
-
             yield datapoint
 
 
-class TokenizeAndPadCaption(df.DataFlow):
+class TokenizeAndPadCaption(df.ProxyDataFlow):
     def __init__(
         self,
         ds: df.DataFlow,
         vocabulary: SentencePieceVocabulary,
         tokenizer: SentencePieceTokenizer,
         max_caption_length: int = 25,
-        index_or_key: Union[int, str] = "captions",
+        input_key: str = "captions",
+        output_key: str = "caption_tokens",
     ):
         self.ds = ds
         self._vocabulary = vocabulary
         self._tokenizer = tokenizer
 
-        self._x = index_or_key
+        self._ik = input_key
+        self._ok = output_key
         self._max_caption_length = max_caption_length
 
     def __iter__(self) -> Iterator[LmdbDatapoint]:
@@ -77,7 +71,7 @@ class TokenizeAndPadCaption(df.DataFlow):
         for datapoint in self.ds:
 
             # Select a random caption, usually there may be only one caption.
-            caption = random.choice(datapoint[self._x])
+            caption = random.choice(datapoint[self._ik])
 
             # Tokenize caption (these are still strings).
             caption_tokens = self._tokenizer.tokenize(caption)
@@ -99,9 +93,67 @@ class TokenizeAndPadCaption(df.DataFlow):
             token_indices = [
                 self._vocabulary.get_token_index(t) for t in caption_tokens
             ]
-
-            # We refer "token indices" as "tokens" after this point (in the
-            # model and such), because how could they be string tensors?!
-            datapoint["caption_tokens"] = token_indices
+            datapoint[self._ok] = token_indices
 
             yield datapoint
+
+
+class MaskSomeTokensRandomly(df.ProxyDataFlow):
+    def __init__(
+        self,
+        ds: df.DataFlow,
+        vocabulary: SentencePieceVocabulary,
+        mask_proportion: float = 0.15,
+        mask_probability: float = 0.80,
+        replace_probability: float = 0.10,
+        input_key: str = "caption_tokens",
+        output_key: str = "masked_labels",
+    ):
+        self.ds = ds
+        self._vocabulary = vocabulary
+
+        self._mask_index = vocabulary.mask_index
+        self._pad_index = vocabulary.pad_index
+        self._ignore_indices = [
+            vocabulary.pad_index,
+            vocabulary.unk_index,
+            vocabulary.cls_index,
+            vocabulary.sep_index,
+        ]
+        self._mask_proportion = mask_proportion
+        self._mask_prob = mask_probability
+        self._repl_prob = replace_probability
+        self._ik = input_key
+        self._ok = output_key
+
+    def __iter__(self) -> Iterator[MaskedLanguageModelingInstance]:
+
+        for datapoint in self.ds:
+            caption_tokens = datapoint[self._ik]
+            masked_labels = [self._pad_index] * len(caption_tokens)
+
+            for i, token_index in enumerate(caption_tokens):
+                if token_index not in self._ignore_indices:
+                    # Get float in [0, 1) interval from a uniform distribution.
+                    # The probability of ``mask_flag < k`` is ``k``.
+                    mask_flag: float = random.random()
+                    if mask_flag <= self._mask_proportion:
+
+                        # Whether to replace with [MASK] or random word.
+                        _flag: float = random.random()
+                        if _flag <= self._mask_prob + self._repl_prob:
+                            masked_labels[i] = token_index
+                            if _flag <= self._mask_prob:
+                                caption_tokens[i] = self._mask_index
+                            else:
+                                caption_tokens[i] = self._random_token_index()
+
+            datapoint[self._ik] = caption_tokens
+            datapoint[self._ok] = masked_labels
+            yield datapoint
+
+    def _random_token_index(self) -> int:
+        while True:
+            token_index = random.randint(0, len(self._vocabulary) - 1)
+            if token_index not in self._vocabulary.special_indices:
+                return token_index

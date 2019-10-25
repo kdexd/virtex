@@ -32,7 +32,7 @@ parser.add_argument(
     "--config", help="Path to a config file with all configuration parameters."
 )
 parser.add_argument(
-    "--config-override", nargs="*",
+    "--config-override", nargs="*", default=[],
     help="""A sequence of key-value pairs specifying certain config arguments
     (with dict-like nesting) using a dot operator.""",
 )
@@ -133,24 +133,21 @@ if __name__ == "__main__":
         logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))
 
     # -------------------------------------------------------------------------
-    #   INSTANTIATE VOCABULARY, TOKENIZER, DATALOADER, MODEL, OPTIMIZER
+    #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER
     # -------------------------------------------------------------------------
     vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
     tokenizer = SentencePieceTokenizer(_C.DATA.TOKENIZER)
-
-    train_dataset = MaskedLanguageModelingDataset(
-        lmdb_path=_C.DATA.TRAIN_LMDB,
-        vocabulary=vocabulary,
-        tokenizer=tokenizer,
-        normalize_image=_C.DATA.NORMALIZE_IMAGE,
-        max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
+    train_dataset = MaskedLanguageModelingDataset.from_config(
+        _C, vocabulary=vocabulary, tokenizer=tokenizer
     )
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
         num_workers=_A.cpu_workers,
+        pin_memory=True,
     )
 
+    # TODO: Make a linguistic stream factory.
     visual_module = VisualStreamFactory.from_config(_C)
     linguistic_module = LinguisticStream.from_config(_C)
     model = ViswslModel(visual_module, linguistic_module).to(device)
@@ -221,7 +218,7 @@ if __name__ == "__main__":
         if iteration % _A.log_every == 0 and dist.is_master_process():
             loss = dist.average_across_processes(loss)
 
-            logger.info(timer.stats)
+            logger.info(f"{timer.stats} | Loss: {loss:.3f}")
             tensorboard_writer.add_scalar("loss", loss, iteration)
             tensorboard_writer.add_scalar(
                 "learning_rate", optimizer.param_groups[0]["lr"], iteration

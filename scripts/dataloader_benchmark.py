@@ -90,8 +90,14 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-    device_id = dist.init_distributed_env(_A.dist_backend) if _A.slurm else 0
-    device = torch.device("cuda", device_id)
+    if _A.slurm:
+        device_id = dist.init_distributed_env(_A.dist_backend)
+    elif _A.num_gpus_per_machine == 0:
+        device_id = -1
+    else:
+        # TODO (kd): Add an option to use `init_distributed_tcp`.
+        device_id = 0
+    device = torch.device(f"cuda:{device_id}" if device_id != -1 else "cpu")
 
     # Disable the logger for all processes except master process to avoid
     # clutter in stdout / stderr / logfile.
@@ -111,18 +117,14 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
     tokenizer = SentencePieceTokenizer(_C.DATA.TOKENIZER)
-
-    train_dataset = MaskedLanguageModelingDataset(
-        lmdb_path=_C.DATA.TRAIN_LMDB,
-        vocabulary=vocabulary,
-        tokenizer=tokenizer,
-        normalize_image=_C.DATA.NORMALIZE_IMAGE,
-        max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
+    train_dataset = MaskedLanguageModelingDataset.from_config(
+        _C, vocabulary=vocabulary, tokenizer=tokenizer
     )
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
         num_workers=_A.cpu_workers,
+        pin_memory=True,
     )
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter: Iterator = iter(train_dataloader)

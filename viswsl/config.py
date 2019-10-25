@@ -132,6 +132,12 @@ class Config(object):
         _C.DATA.NORMALIZE_IMAGE = True
         _C.DATA.MAX_CAPTION_LENGTH = 30
 
+        _C.PRETEXT = CN()
+        _C.PRETEXT.MASKED_LM = CN()
+        _C.PRETEXT.MASKED_LM.MASK_PROPORTION = 0.15
+        _C.PRETEXT.MASKED_LM.MASK_PROBABILITY = 0.85
+        _C.PRETEXT.MASKED_LM.REPLACE_PROBABILITY = 0.10
+
         _C.MODEL = CN()
         _C.MODEL.VISUAL = CN()
         _C.MODEL.VISUAL.NAME = "torchvision::resnext101_32x8d"

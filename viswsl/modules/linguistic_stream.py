@@ -11,15 +11,14 @@ class LinguisticStream(nn.Module):
 
     def __init__(
         self,
-        vocabulary: SentencePieceVocabulary,
+        vocab_size: int,
         hidden_size: int,
         num_attention_heads: int,
         num_layers: int,
+        padding_idx: int = 0,
     ):
         super().__init__()
-        self._vocabulary = vocabulary
-
-        self.vocab_size = len(vocabulary)
+        self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.num_attention_heads = num_attention_heads
         self.num_layers = num_layers
@@ -34,6 +33,7 @@ class LinguisticStream(nn.Module):
         self._transformer_encoder = nn.TransformerEncoder(
             _transformer_encoder_layer, self.num_layers
         )
+        self.padding_idx = padding_idx
 
     def forward(
         self, caption_tokens: torch.LongTensor, masked_labels: torch.Tensor
@@ -41,7 +41,7 @@ class LinguisticStream(nn.Module):
 
         # Form a mask, it is True for positions with padding token.
         # Transformer will ignore these positions for multi-headed attention.
-        caption_mask = caption_tokens == self._vocabulary.pad_index
+        caption_mask = caption_tokens == self.padding_idx
 
         # shape: (batch_size, max_caption_length, embedding_size)
         token_embeddings = self._embedding(caption_tokens)
@@ -67,7 +67,7 @@ class LinguisticStream(nn.Module):
 
         vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
         return cls(
-            vocabulary=vocabulary,
+            vocab_size=len(vocabulary),
             hidden_size=_C.MODEL.LINGUISTIC.HIDDEN_SIZE,
             num_attention_heads=_C.MODEL.LINGUISTIC.NUM_ATTENTION_HEADS,
             num_layers=_C.MODEL.LINGUISTIC.NUM_LAYERS,

@@ -9,14 +9,11 @@ class ViswslModel(nn.Module):
         super().__init__()
         self._visual = visual
         self._linguistic = linguistic
-        self._vocabulary = linguistic._vocabulary
 
         self._visual_projection = nn.Linear(2048, linguistic.hidden_size)
         self._linear = nn.Linear(linguistic.hidden_size, linguistic.vocab_size)
 
-        self._loss = nn.CrossEntropyLoss(
-            ignore_index=self._vocabulary.pad_index
-        )
+        self._loss = nn.CrossEntropyLoss(ignore_index=linguistic.padding_idx)
 
     def forward(
         self,
@@ -41,15 +38,11 @@ class ViswslModel(nn.Module):
         # shape: (batch_size, max_caption_length, vocab_size)
         output_logits = self._linear(output_hidden * image_features)
 
-        # Get the predictions from logits. Fill predictions to be the padding
-        # token wherever there wasn't a [MASK].
+        # Get predictions from logits, only the predictions at [MASK]ed
+        # positions would be useful.
         predictions = torch.argmax(output_logits, dim=-1)
-        predictions = predictions.masked_fill(
-            caption_tokens != self._vocabulary.mask_index,
-            self._vocabulary.pad_index,
-        )
-
         output_dict = {"predictions": predictions}
+
         if self.training:
             # Collapse dimensions: convert logits to (N, C), targets to (N,).
             output_dict["loss"] = self._loss(

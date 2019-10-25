@@ -39,6 +39,17 @@ class SentencePieceVocabulary(object):
         self.mask_token = "[MASK]"
         self.mask_index = self._token_to_index[self.mask_token]
 
+    @property
+    def special_tokens(self):
+        return [
+            self.pad_token, self.unk_token, self.cls_token, self.sep_token,
+            self.mask_token
+        ]
+
+    @property
+    def special_indices(self):
+        return [self.get_token_index(t) for t in self.special_tokens]
+
     def get_token_index(self, token: str):
         if token in self._token_to_index:
             return self._token_to_index[token]
