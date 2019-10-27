@@ -86,6 +86,10 @@ parser.add_argument(
     "--checkpoint-every", type=int, default=2000,
     help="Serialize model to a checkpoint after every these many iterations.",
 )
+parser.add_argument(
+    "--val-batches", type=int, default=100,
+    help="Number of batches to perform validation for."
+)
 # fmt: on
 
 
@@ -138,11 +142,20 @@ if __name__ == "__main__":
     vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
     tokenizer = SentencePieceTokenizer(_C.DATA.TOKENIZER)
     train_dataset = MaskedLanguageModelingDataset.from_config(
-        _C, vocabulary=vocabulary, tokenizer=tokenizer
+        _C, vocabulary=vocabulary, tokenizer=tokenizer, split="train"
     )
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
+        num_workers=_A.cpu_workers,
+        pin_memory=True,
+    )
+    val_dataset = MaskedLanguageModelingDataset.from_config(
+        _C, vocabulary=vocabulary, tokenizer=tokenizer, split="val"
+    )
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=_C.OPTIM.BATCH_SIZE,
         num_workers=_A.cpu_workers,
         pin_memory=True,
     )
@@ -230,7 +243,7 @@ if __name__ == "__main__":
             dist.synchronize()
 
         # ---------------------------------------------------------------------
-        #   PRINT EXAMPLES
+        #   VALIDATION
         # ---------------------------------------------------------------------
         if iteration % _A.checkpoint_every == 0 and dist.is_master_process():
             # Remove all accumulated gradients before evaluation.
@@ -242,10 +255,34 @@ if __name__ == "__main__":
             blind_model = ViswslModel(
                 VisualStreamFactory.create("blind"), linguistic_module
             ).to(device)
-            blind_output_dict = blind_model(
-                batch["image"], batch["caption_tokens"], batch["masked_labels"]
+
+            normal_val_loss = 0.0
+            blind_val_loss = 0.0
+            for val_iteration, val_batch in enumerate(val_dataloader):
+                output_dict = model(
+                    batch["image"], batch["caption_tokens"], batch["masked_labels"]
+                )
+                blind_output_dict = blind_model(
+                    batch["image"], batch["caption_tokens"], batch["masked_labels"]
+                )
+                normal_val_loss += output_dict["loss"].sum().item()
+                blind_val_loss += blind_output_dict["loss"].sum().item()
+
+                if val_iteration == _A.val_batches:
+                    normal_val_loss /= _A.val_batches
+                    blind_val_loss /= _A.val_batches
+                    break
+
+            tensorboard_writer.add_scalar(
+                "val/loss_normal", normal_val_loss, iteration
+            )
+            tensorboard_writer.add_scalar(
+                "val/loss_blind", blind_val_loss, iteration
             )
 
+            # -----------------------------------------------------------------
+            #   PRINT EXAMPLES
+            # -----------------------------------------------------------------
             tensorboard_examples_text = ""
             for tokens, labels, predictions, blind_predictions in zip(
                 batch["caption_tokens"][:10],
@@ -253,23 +290,14 @@ if __name__ == "__main__":
                 output_dict["predictions"][:10],
                 blind_output_dict["predictions"][:10],
             ):
-                # fmt: off
-                tokens = [
+                to_strtokens = lambda token_indices: [  # noqa: E731
                     vocabulary.get_token_from_index(t.item())
-                    for t in tokens if t.item() != vocabulary.unk_index
+                    for t in token_indices if t.item() != vocabulary.unk_index
                 ]
-                labels = [
-                    vocabulary.get_token_from_index(l.item())
-                    for l in labels if l.item() != vocabulary.unk_index
-                ]
-                predictions = [
-                    vocabulary.get_token_from_index(p.item())
-                    for p in predictions if p.item() != vocabulary.unk_index
-                ]
-                blind_predictions = [
-                    vocabulary.get_token_from_index(p.item())
-                    for p in blind_predictions if p.item() != vocabulary.unk_index
-                ]
+                tokens = to_strtokens(tokens)
+                labels = to_strtokens(labels)
+                predictions = to_strtokens(predictions)
+                blind_predictions = to_strtokens(blind_predictions)
                 tensorboard_examples_text += f"""
                     Caption tokens      : {tokenizer.detokenize(tokens)}
                     Masked Labels       : {" ".join(labels)}
@@ -277,14 +305,12 @@ if __name__ == "__main__":
                     Predictions (blind) : {" ".join(blind_predictions)}
 
                     """
-                # fmt: on
 
             tensorboard_writer.add_text(
                 "predictions", tensorboard_examples_text, iteration
             )
             # Free up memory.
             del blind_model
-
             checkpoint_manager.step(iteration)
             torch.set_grad_enabled(True)
             model.train()

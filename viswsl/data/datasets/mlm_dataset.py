@@ -51,7 +51,9 @@ class MaskedLanguageModelingDataset(IterableDataset):
         )
         # Keep a fixed-size buffer: examples will be pushed in this buffer and
         # randomly selected to make batches; a good proxy for random reads.
-        self._pipeline = df.LocallyShuffleData(self._pipeline, buffer_size)
+        # Set buffer size=0 to avoid shuffling and have finite length.
+        if buffer_size > 0:
+            self._pipeline = df.LocallyShuffleData(self._pipeline, buffer_size)
 
     @classmethod
     def from_config(
@@ -59,12 +61,14 @@ class MaskedLanguageModelingDataset(IterableDataset):
         config: Config,
         vocabulary: Optional[SentencePieceVocabulary] = None,
         tokenizer: Optional[SentencePieceTokenizer] = None,
+        split: str = "train",  # one of {"train", "val"}
     ):
         _C = config
         vocabulary = vocabulary or SentencePieceVocabulary(_C.DATA.VOCABULARY)
         tokenizer = tokenizer or SentencePieceTokenizer(_C.DATA.TOKENIZER)
+
         return cls(
-            lmdb_path=_C.DATA.TRAIN_LMDB,
+            lmdb_path=_C.DATA.VAL_LMDB if split == "val" else _C.DATA.TRAIN_LMDB,
             vocabulary=vocabulary,
             tokenizer=tokenizer,
             mask_proportion=_C.PRETEXT.MASKED_LM.MASK_PROPORTION,
@@ -72,6 +76,7 @@ class MaskedLanguageModelingDataset(IterableDataset):
             replace_probability=_C.PRETEXT.MASKED_LM.REPLACE_PROBABILITY,
             normalize_image=_C.DATA.NORMALIZE_IMAGE,
             max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
+            buffer_size=0 if split == "val" else 64,
         )
 
     def __len__(self):
