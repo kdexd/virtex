@@ -298,6 +298,16 @@ if __name__ == "__main__":
                 labels = to_strtokens(labels)
                 predictions = to_strtokens(predictions)
                 blind_predictions = to_strtokens(blind_predictions)
+                # fmt: off
+                predictions = [
+                    predictions[i] for i in range(len(predictions))
+                    if labels[i] != vocabulary.unk_token
+                ]
+                blind_predictions = [
+                    blind_predictions[i] for i in range(len(predictions))
+                    if labels[i] != vocabulary.unk_token
+                ]
+                # fmt: on
                 tensorboard_examples_text += f"""
                     Caption tokens      : {tokenizer.detokenize(tokens)}
                     Masked Labels       : {" ".join(labels)}
