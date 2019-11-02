@@ -103,15 +103,15 @@ class Config(object):
     OPTIM.GRAD_ACCUMULATION_STEPS: 1
         Number of steps to acccumulate gradients before updating model
         parameters. This is useful for simulating large batch sizes.
-    OPTIM.NUM_ITERATIONS: 100000
+    OPTIM.NUM_ITERATIONS: 400000
         Number of iterations to train for, batches are randomly sampled.
     OPTIM.LR: 1e-5
         Initial learning rate for optimizer. This linearly decays to zero till
         the end of training.
-    OPTIM.WARMUP_PROPORTION: 0.1
-        Proportion of total number of training iterations to perform learning
-        rate warmup. Learning rate goes linearly from 0 to ``OPTIM.LR`` for
-        ``OPTIM.WARMUP_PROPORTION * OPTIM.NUM_ITERATIONS`` steps.
+    OPTIM.WARMUP_STEPS: 2000
+        Number of steps to perform LR warmup. Learning rate goes linearly from
+        0 to ``OPTIM.LR`` for ``OPTIM.WARMUP_STEPS`` steps. A good rule of
+        thumb is to set it as ``(2 / beta2 - 1)`` for Adam-like optimizers.
     OPTIM.WEIGHT_DECAY: 1e-3
         Weight decay co-efficient for optimizer.
     OPTIM.CLIP_GRADIENTS: 10
@@ -152,9 +152,9 @@ class Config(object):
         _C.OPTIM.OPTIMIZER_NAME = "adamw"
         _C.OPTIM.BATCH_SIZE = 64
         _C.OPTIM.GRAD_ACCUMULATION_STEPS = 1
-        _C.OPTIM.NUM_ITERATIONS = 100000
+        _C.OPTIM.NUM_ITERATIONS = 400000
         _C.OPTIM.LR = 1e-3
-        _C.OPTIM.WARMUP_PROPORTION = 0.1
+        _C.OPTIM.WARMUP_STEPS = 2000
         _C.OPTIM.WEIGHT_DECAY = 1e-3
         _C.OPTIM.CLIP_GRADIENTS = 10
 
@@ -186,6 +186,7 @@ class Config(object):
             CN({"RANDOM_SEED": self._C.RANDOM_SEED})
         ) + "\n"
         common_string += str(CN({"DATA": self._C.DATA})) + "\n"
+        common_string += str(CN({"PRETEXT": self._C.DATA})) + "\n"
         common_string += str(CN({"MODEL": self._C.MODEL})) + "\n"
         common_string += str(CN({"OPTIM": self._C.OPTIM})) + "\n"
 

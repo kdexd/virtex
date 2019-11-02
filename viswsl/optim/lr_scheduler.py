@@ -1,4 +1,4 @@
-from typing import Optional, Type
+from typing import Type
 
 from torch import optim
 from torch.optim.lr_scheduler import LambdaLR
@@ -9,61 +9,54 @@ class LinearWarmupLinearDecayLR(LambdaLR):
     A learning rate scheduler which increases learning rate in a linearly from
     0 to maximum (initial) lr, and decreases it linearly to zero.
 
-    .. note::
-
-        This class closely follows the API of other PyTorch LR schedulers.
-        We use "epoch" in variable names for consistency, however it may refer
-        to iterations. It is just a counter for the number of :meth:`step` calls
-        of this scheduler.
-
     Parameters
     ----------
     optimizer: Type[torch.optim.Optimizer]
         Wrapper optimizer.
-    total_epochs: int
+    total_steps: int
         Total epochs (or iterations) for training.
-    warmup_proportion: float
-        A value in ``[0, 1)``. The warmup happens for first ``total_epochs *
-        warmup_proportion`` steps. Linear decay after that until the end.
+    warmup_steps: int
+        Number of first few steps to do linear warmup.
     last_epoch: int, optional (default = -1)
-        The index of last epoch.
+        The index of last step (epoch or iteration). We named it ``last_epoch``
+        instead of ``last_step`` to keep the naming consistent with other LR
+        schedulers in PyTorch.
     """
 
     def __init__(
         self,
         optimizer: Type[optim.Optimizer],
-        total_epochs: int,
-        warmup_proportion: float,
-        last_epoch: Optional[int] = -1,
+        total_steps: int,
+        warmup_steps: int,
+        last_epoch: int = -1,
     ):
-        assert warmup_proportion < 1, "Warmup proportion should be in [0, 1)."
-        self._total_epochs = total_epochs
-        self._warmup_epochs = int(total_epochs * warmup_proportion)
+        assert warmup_steps < total_steps, "Warmup steps should be less than total steps."
+        self._total_steps = total_steps
+        self._warmup_steps = warmup_steps
         super().__init__(optimizer, self._lr_lambda, last_epoch)
 
-    def _lr_lambda(self, epoch: int) -> float:
+    def _lr_lambda(self, step: int) -> float:
         r"""
         Lambda function for the super class. This returns a multiplier (a value
         in ``[0, 1]`` for the optimizer's lr, depending on the current step.
 
         Parameters
         ----------
-        epoch: int,
-            Current epoch (o iteration). In other words, a counter for number
-            of :meth:`step` calls. This function is used by the super class.
+        step: int,
+            Current step (epoch or iteration). Used by the super class.
 
         Returns
         -------
         float
             A multiplier factor for the optimizer's lr.
         """
-        if epoch < self._warmup_epochs:
+        if step < self._warmup_steps:
             # Linear warmup.
-            multiplier = float(epoch) / float(max(1, self._warmup_epochs))
+            multiplier = float(step) / float(max(1, self._warmup_steps))
         else:
             # Linear decay.
-            multiplier = float(self._total_epochs - epoch) / float(
-                max(1, self._total_epochs - self._warmup_epochs)
+            multiplier = float(self._total_steps - step) / float(
+                max(1, self._total_steps - self._warmup_steps)
             )
         # Avoid negative learning rate.
         return max(0, multiplier)

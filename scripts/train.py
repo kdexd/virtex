@@ -174,8 +174,8 @@ if __name__ == "__main__":
     optimizer = OptimizerFactory.from_config(_C, model.parameters())
     lr_scheduler = LinearWarmupLinearDecayLR(
         optimizer,
-        total_epochs=_C.OPTIM.NUM_ITERATIONS,
-        warmup_proportion=_C.OPTIM.WARMUP_PROPORTION,
+        total_steps=_C.OPTIM.NUM_ITERATIONS,
+        warmup_steps=_C.OPTIM.WARMUP_STEPS,
     )
 
     # -------------------------------------------------------------------------
@@ -223,8 +223,8 @@ if __name__ == "__main__":
             )
             optimizer.step()
             optimizer.zero_grad()
+            lr_scheduler.step()
 
-        lr_scheduler.step()
         timer.toc()
 
         # Make the master process log loss, lr, time to tensorboard.
@@ -283,7 +283,7 @@ if __name__ == "__main__":
             # -----------------------------------------------------------------
             #   PRINT EXAMPLES
             # -----------------------------------------------------------------
-            tensorboard_examples_text = ""
+            examples_str = ""
             for tokens, labels, predictions, blind_predictions in zip(
                 batch["caption_tokens"][:10],
                 batch["masked_labels"][:10],
@@ -308,17 +308,15 @@ if __name__ == "__main__":
                     if labels[i] != vocabulary.unk_token
                 ]
                 # fmt: on
-                tensorboard_examples_text += f"""
+                examples_str += f"""
                     Caption tokens      : {tokenizer.detokenize(tokens)}
                     Masked Labels       : {" ".join(labels)}
                     Predictions (normal): {" ".join(predictions)}
                     Predictions (blind) : {" ".join(blind_predictions)}
 
                     """
+            tensorboard_writer.add_text("predictions", examples_str, iteration)
 
-            tensorboard_writer.add_text(
-                "predictions", tensorboard_examples_text, iteration
-            )
             # Free up memory.
             del blind_model
             checkpoint_manager.step(iteration)

@@ -71,4 +71,5 @@ class LinguisticStream(nn.Module):
             hidden_size=_C.MODEL.LINGUISTIC.HIDDEN_SIZE,
             num_attention_heads=_C.MODEL.LINGUISTIC.NUM_ATTENTION_HEADS,
             num_layers=_C.MODEL.LINGUISTIC.NUM_LAYERS,
+            padding_idx=vocabulary.pad_index,
         )
