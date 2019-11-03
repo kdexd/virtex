@@ -9,9 +9,7 @@ class TorchvisionVisualStream(nn.Module):
         try:
             model_creation_method = getattr(tv_models, name)
         except AttributeError as err:
-            raise AttributeError(
-                f"{name} if not a torchvision model."
-            ).with_traceback(err.__traceback__)
+            raise AttributeError(f"{name} if not a torchvision model.")
 
         self._cnn = model_creation_method(pretrained, **kwargs)
 
@@ -32,12 +30,13 @@ class TorchvisionVisualStream(nn.Module):
 class BlindVisualStream(nn.Module):
     r"""A visual stream which cannot see the image."""
 
-    def __init__(self, bias: torch.Tensor = torch.tensor(1)):
+    def __init__(self, bias: torch.Tensor = torch.ones(2048)):
         super().__init__()
 
         # We never update the bias because a blind model cannot learn anything
         # about the image.
         self._bias = nn.Parameter(bias, requires_grad=False)
 
-    def forward(self, *args, **kwargs):
-        return self._bias
+    def forward(self, image: torch.Tensor):
+        batch_size = image.size(0)
+        return self._bias.unsqueeze(0).repeat(batch_size, 1)

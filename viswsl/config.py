@@ -100,9 +100,9 @@ class Config(object):
 
     OPTIM.BATCH_SIZE: 64
         Batch size during training and evaluation.
-    OPTIM.GRAD_ACCUMULATION_STEPS: 1
-        Number of steps to acccumulate gradients before updating model
-        parameters. This is useful for simulating large batch sizes.
+    OPTIM.BATCH_SIZE_MULTIPLIER: 1
+        Number of batches to use for accumulating gradients before taking
+        optimizer step. Useful to simulate large batch sizes.
     OPTIM.NUM_ITERATIONS: 400000
         Number of iterations to train for, batches are randomly sampled.
     OPTIM.LR: 1e-5
@@ -151,7 +151,7 @@ class Config(object):
         _C.OPTIM = CN()
         _C.OPTIM.OPTIMIZER_NAME = "adamw"
         _C.OPTIM.BATCH_SIZE = 64
-        _C.OPTIM.GRAD_ACCUMULATION_STEPS = 1
+        _C.OPTIM.BATCH_SIZE_MULTIPLIER = 1
         _C.OPTIM.NUM_ITERATIONS = 400000
         _C.OPTIM.LR = 1e-3
         _C.OPTIM.WARMUP_STEPS = 2000

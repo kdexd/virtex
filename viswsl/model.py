@@ -21,7 +21,6 @@ class ViswslModel(nn.Module):
         caption_tokens: torch.Tensor,
         masked_labels: torch.Tensor,
     ):
-
         # shape: (batch_size, 2048)
         image_features = self._visual(image)
 
@@ -43,11 +42,9 @@ class ViswslModel(nn.Module):
         predictions = torch.argmax(output_logits, dim=-1)
         output_dict = {"predictions": predictions}
 
-        if self.training:
-            # Collapse dimensions: convert logits to (N, C), targets to (N,).
-            output_dict["loss"] = self._loss(
-                output_logits.view(-1, output_logits.size(-1)),
-                masked_labels.view(-1),
-            )
-
+        # Collapse dimensions: convert logits to (N, C), targets to (N,).
+        output_dict["loss"] = self._loss(
+            output_logits.view(-1, output_logits.size(-1)),
+            masked_labels.view(-1),
+        )
         return output_dict
