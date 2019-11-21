@@ -16,8 +16,9 @@ class ViswslModel(nn.Module):
         # TODO (kd): Remove hardcoded values once this becomes a dependency
         # injection.
         self._attention = ScaledDotProductAttention(2048, linguistic.hidden_size)
-        self._linear = nn.Linear(2048, linguistic.vocab_size)
-
+        self._linear = nn.Linear(
+            2048 + linguistic.hidden_size, linguistic.vocab_size
+        )
         self._loss = nn.CrossEntropyLoss(ignore_index=linguistic.padding_idx)
 
     def forward(
@@ -36,7 +37,9 @@ class ViswslModel(nn.Module):
         attended_features = self._attention(image_features, output_hidden)
 
         # shape: (batch_size, max_caption_length, vocab_size)
-        output_logits = self._linear(attended_features)
+        output_logits = self._linear(
+            torch.cat((attended_features, output_hidden), dim=-1)
+        )
 
         # Get predictions from logits, only the predictions at [MASK]ed
         # positions would be useful.

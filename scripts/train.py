@@ -223,7 +223,12 @@ if __name__ == "__main__":
             batch_loss += loss.item()
             loss.backward()
 
-        nn.utils.clip_grad_norm_(model.parameters(), _C.OPTIM.CLIP_GRADIENTS)
+        for parameter in model.parameters():
+            if parameter.grad is not None:
+                parameter.grad.clamp_(
+                    min=-_C.OPTIM.CLAMP_GRADIENTS, max=_C.OPTIM.CLAMP_GRADIENTS
+                )
+
         optimizer.step()
         lr_scheduler.step()
         timer.toc()

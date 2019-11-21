@@ -114,8 +114,8 @@ class Config(object):
         thumb is to set it as ``(2 / beta2 - 1)`` for Adam-like optimizers.
     OPTIM.WEIGHT_DECAY: 1e-3
         Weight decay co-efficient for optimizer.
-    OPTIM.CLIP_GRADIENTS: 10
-        Gradient clipping threshold to avoid exploding gradients.
+    OPTIM.CLAMP_GRADIENTS: 10
+        Threshold to clamp gradients for avoiding exploding gradients.
     """
 
     def __init__(
@@ -153,10 +153,10 @@ class Config(object):
         _C.OPTIM.BATCH_SIZE = 64
         _C.OPTIM.BATCH_SIZE_MULTIPLIER = 1
         _C.OPTIM.NUM_ITERATIONS = 400000
-        _C.OPTIM.LR = 1e-3
+        _C.OPTIM.LR = 2e-5
         _C.OPTIM.WARMUP_STEPS = 2000
-        _C.OPTIM.WEIGHT_DECAY = 1e-3
-        _C.OPTIM.CLIP_GRADIENTS = 10
+        _C.OPTIM.WEIGHT_DECAY = 1e-4
+        _C.OPTIM.CLAMP_GRADIENTS = 10
 
         # Override parameter values from YAML file first, then from override
         # list.
