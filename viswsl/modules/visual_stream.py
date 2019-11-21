@@ -13,24 +13,24 @@ class TorchvisionVisualStream(nn.Module):
 
         self._cnn = model_creation_method(pretrained, **kwargs)
 
-        # Do nothing after the global average pooling layer.
+        # Do nothing after the final res stage.
+        self._cnn.avgpool = nn.Identity()
         self._cnn.fc = nn.Identity()
 
     def forward(self, image: torch.Tensor):
         # Get a flat feature vector, view it as spatial features.
         # TODO (kd): Hardcoded values now, deal with them later.
-        # shape: (batch_size, 7 * 7 * 2048)
         flat_spatial_features = self._cnn(image)
 
         # shape: (batch_size, 7, 7, 2048)
-        # spatial_features = flat_spatial_features.view(-1, 7, 7, 2048)
-        return flat_spatial_features
+        spatial_features = flat_spatial_features.view(-1, 49, 2048)
+        return spatial_features
 
 
 class BlindVisualStream(nn.Module):
     r"""A visual stream which cannot see the image."""
 
-    def __init__(self, bias: torch.Tensor = torch.ones(2048)):
+    def __init__(self, bias: torch.Tensor = torch.ones(49, 2048)):
         super().__init__()
 
         # We never update the bias because a blind model cannot learn anything
@@ -39,4 +39,4 @@ class BlindVisualStream(nn.Module):
 
     def forward(self, image: torch.Tensor):
         batch_size = image.size(0)
-        return self._bias.unsqueeze(0).repeat(batch_size, 1)
+        return self._bias.unsqueeze(0).repeat(batch_size, 1, 1)

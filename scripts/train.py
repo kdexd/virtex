@@ -268,8 +268,8 @@ if __name__ == "__main__":
                 blind_val_loss += blind_output_dict["loss"].mean().item()
 
                 if val_iteration == _A.val_batches // dist.get_world_size():
-                    normal_val_loss /= (_A.val_batches // dist.get_world_size())
-                    blind_val_loss /= (_A.val_batches // dist.get_world_size())
+                    normal_val_loss /= _A.val_batches // dist.get_world_size()
+                    blind_val_loss /= _A.val_batches // dist.get_world_size()
                     break
 
             dist.average_across_processes(normal_val_loss)

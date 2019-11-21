@@ -1,6 +1,9 @@
 import torch
 from torch import nn
 
+# TODO (kd): have attention/fusion technique as a dependency injection.
+from viswsl.modules.attention import ScaledDotProductAttention
+
 
 class ViswslModel(nn.Module):
     # TODO (kd): Find a better name maybe?
@@ -10,8 +13,10 @@ class ViswslModel(nn.Module):
         self._visual = visual
         self._linguistic = linguistic
 
-        self._visual_projection = nn.Linear(2048, linguistic.hidden_size)
-        self._linear = nn.Linear(linguistic.hidden_size, linguistic.vocab_size)
+        # TODO (kd): Remove hardcoded values once this becomes a dependency
+        # injection.
+        self._attention = ScaledDotProductAttention(2048, linguistic.hidden_size)
+        self._linear = nn.Linear(2048, linguistic.vocab_size)
 
         self._loss = nn.CrossEntropyLoss(ignore_index=linguistic.padding_idx)
 
@@ -21,21 +26,17 @@ class ViswslModel(nn.Module):
         caption_tokens: torch.Tensor,
         masked_labels: torch.Tensor,
     ):
-        # shape: (batch_size, 2048)
+        # shape: (batch_size, 49, 2048)
         image_features = self._visual(image)
-
-        # shape: (batch_size, hidden_size)
-        image_features = self._visual_projection(image_features)
 
         # shape: (batch_size, max_caption_length, hidden_size)
         output_hidden = self._linguistic(caption_tokens, masked_labels)
 
-        image_features = image_features.unsqueeze(1).repeat(
-            1, output_hidden.size(1), 1
-        )
+        # shape: (batch_size, max_caption_length, 2048)
+        attended_features = self._attention(image_features, output_hidden)
 
         # shape: (batch_size, max_caption_length, vocab_size)
-        output_logits = self._linear(output_hidden * image_features)
+        output_logits = self._linear(attended_features)
 
         # Get predictions from logits, only the predictions at [MASK]ed
         # positions would be useful.
