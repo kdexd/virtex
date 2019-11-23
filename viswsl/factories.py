@@ -54,6 +54,7 @@ class VisualStreamFactory(Factory):
 class OptimizerFactory(Factory):
 
     PRODUCTS: Dict[str, Type[optim.Optimizer]] = {
+        "sgd": optim.SGD,
         "adam": optim.Adam,
         "adamw": optim.AdamW,
     }
@@ -68,4 +69,8 @@ class OptimizerFactory(Factory):
         # may require different hyperparams in their constructor, for example:
         # `SGD` accepts "momentum" while `Adam` doesn't.
         kwargs = {"lr": _C.OPTIM.LR, "weight_decay": _C.OPTIM.WEIGHT_DECAY}
+        if _C.OPTIM.OPTIMIZER_NAME == "sgd":
+            kwargs["momentum"] = _C.OPTIM.SGD_MOMENTUM
+            kwargs["nesterov"] = _C.OPTIM.SGD_NESTEROV
+
         return cls.create(_C.OPTIM.OPTIMIZER_NAME, params, **kwargs)

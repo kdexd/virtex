@@ -98,6 +98,8 @@ class Config(object):
     OPTIM:
         Optimization hyper-parameters, mostly relevant during training.
 
+    OPTIM.OPTIMIZER_NAME: adamw
+        One of ``["sgd", "adam", "adamw"]``.
     OPTIM.BATCH_SIZE: 64
         Batch size during training and evaluation.
     OPTIM.BATCH_SIZE_MULTIPLIER: 1
@@ -114,6 +116,12 @@ class Config(object):
         thumb is to set it as ``(2 / beta2 - 1)`` for Adam-like optimizers.
     OPTIM.WEIGHT_DECAY: 1e-3
         Weight decay co-efficient for optimizer.
+    OPTIM.SGD_MOMENTUM: 0.9
+        Value for momentum co-efficient, only used when ``OPTIM.OPTIMIZER_NAME``
+        is "sgd", else ignored.
+    OPTIM.SGD_NESTEROV: True
+        Whether to use Nesterive accelerated gradient, only used when
+        ``OPTIM.OPTIMIZER_NAME`` is "sgd", else ignored.
     OPTIM.CLAMP_GRADIENTS: 10
         Threshold to clamp gradients for avoiding exploding gradients.
     """
@@ -156,6 +164,8 @@ class Config(object):
         _C.OPTIM.LR = 2e-5
         _C.OPTIM.WARMUP_STEPS = 2000
         _C.OPTIM.WEIGHT_DECAY = 1e-4
+        _C.OPTIM.MOMENTUM = 0.9
+        _C.OPTIM.NESTEROV = True
         _C.OPTIM.CLAMP_GRADIENTS = 10
 
         # Override parameter values from YAML file first, then from override
