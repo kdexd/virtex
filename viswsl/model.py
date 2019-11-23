@@ -27,8 +27,11 @@ class ViswslModel(nn.Module):
         caption_tokens: torch.Tensor,
         masked_labels: torch.Tensor,
     ):
-        # shape: (batch_size, 49, 2048)
+        # shape: (batch_size, 2048, 7, 7)
         image_features = self._visual(image)
+
+        # shape: (batch_size, 49, 2048)
+        image_features = image_features.view(-1, 2048, 49).permute(0, 2, 1)
 
         # shape: (batch_size, max_caption_length, hidden_size)
         output_hidden = self._linguistic(caption_tokens, masked_labels)

@@ -18,7 +18,7 @@ PRETEXT:
 
 MODEL:
   VISUAL:
-    NAME: torchvision::resnext101_32x8d
+    NAME: torchvision::resnet50
     PRETRAINED: false
 
   LINGUISTIC:

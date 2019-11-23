@@ -22,16 +22,14 @@ class TransformImageForResNetLikeModels(df.ProxyDataFlow):
     #        variance (optional).
     #     5. Convert from HWC to CHW format.
 
-    def __init__(
-        self, ds: df.DataFlow, normalize: bool = False, key: str = "image"
-    ):
+    def __init__(self, ds: df.DataFlow, normalize: bool = False, key: str = "image"):
         self.ds = ds
         self._normalize = normalize
         self._x = key
 
-        self._augmentor = df.imgaug.AugmentorList([
-            aug.RandomCrop(224), aug.ToFloat32(), aug.MapImage(self._transform)
-        ])
+        self._augmentor = df.imgaug.AugmentorList(
+            [aug.RandomCrop(224), aug.ToFloat32(), aug.MapImage(self._transform)]
+        )
 
     def _transform(self, image: np.ndarray) -> np.ndarray:
         image = image / 255.0
@@ -99,6 +97,10 @@ class TokenizeAndPadCaption(df.ProxyDataFlow):
 
 
 class MaskSomeTokensRandomly(df.ProxyDataFlow):
+
+    # Make sure to change here if changed in SentencePieceTokenizer.
+    SP_SPACE = u"▁"
+
     def __init__(
         self,
         ds: df.DataFlow,
@@ -147,6 +149,42 @@ class MaskSomeTokensRandomly(df.ProxyDataFlow):
                                 caption_tokens[i] = self._mask_index
                             else:
                                 caption_tokens[i] = self._random_token_index()
+
+            # At this point, caption tokens and masked labels are lists of
+            # same length. Do whole word masking now.
+            for i in range(len(caption_tokens)):
+                if caption_tokens[i] == self._mask_index:
+                    # Mask all following tokens until getting one which starts
+                    # with a space.
+                    for j in range(i + 1, len(caption_tokens)):
+                        tt = self._vocabulary.get_token_from_index(caption_tokens[j])
+                        if (
+                            tt.startswith(self.SP_SPACE)
+                            or tt in self._vocabulary.special_tokens
+                        ):
+                            break
+                        masked_labels[j] = caption_tokens[j]
+                        caption_tokens[j] = self._mask_index
+
+                    # Mask tokens before this one, if this one doesn't start
+                    # with a space.
+                    t = self._vocabulary.get_token_from_index(masked_labels[i])
+                    if (
+                        not t.startswith(self.SP_SPACE)
+                        and t not in self._vocabulary.special_tokens
+                    ):
+                        for j in range(i - 1, -1, -1):
+                            tt = self._vocabulary.get_token_from_index(
+                                caption_tokens[j]
+                            )
+                            if tt in self._vocabulary.special_tokens:
+                                break
+                            if tt.startswith(self.SP_SPACE):
+                                masked_labels[j] = caption_tokens[j]
+                                caption_tokens[j] = self._mask_index
+                                break
+                            masked_labels[j] = caption_tokens[j]
+                            caption_tokens[j] = self._mask_index
 
             datapoint[self._ik] = caption_tokens
             datapoint[self._ok] = masked_labels

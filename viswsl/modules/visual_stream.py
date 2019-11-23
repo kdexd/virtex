@@ -1,3 +1,5 @@
+from typing import Dict, Union
+
 import torch
 from torch import nn
 from torchvision import models as tv_models
@@ -11,20 +13,34 @@ class TorchvisionVisualStream(nn.Module):
         except AttributeError as err:
             raise AttributeError(f"{name} if not a torchvision model.")
 
-        self._cnn = model_creation_method(pretrained, **kwargs)
+        self._cnn = model_creation_method(
+            pretrained, zero_init_residual=True, **kwargs
+        )
 
         # Do nothing after the final res stage.
         self._cnn.avgpool = nn.Identity()
         self._cnn.fc = nn.Identity()
 
-    def forward(self, image: torch.Tensor):
-        # Get a flat feature vector, view it as spatial features.
-        # TODO (kd): Hardcoded values now, deal with them later.
-        flat_spatial_features = self._cnn(image)
+        # Keep a list of intermediate layer names.
+        self._stage_names = [f"layer{i}" for i in range(1, 5)]
 
-        # shape: (batch_size, 7, 7, 2048)
-        spatial_features = flat_spatial_features.view(-1, 49, 2048)
-        return spatial_features
+    def forward(
+        self, image: torch.Tensor, return_intermediate_outputs: bool = False
+    ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
+
+        # Iterate through the modules in sequence and collect feature
+        # vectors for last layers in each stage.
+        intermediate_outputs: Dict[str, torch.Tensor] = {}
+        for idx, (name, layer) in enumerate(self._cnn.named_children()):
+            out = layer(image) if idx == 0 else layer(out)
+            if name in self._stage_names:
+                intermediate_outputs[name] = out
+
+        if return_intermediate_outputs:
+            return intermediate_outputs
+        else:
+            # shape: (batch_size, 2048, 7, 7)
+            return intermediate_outputs["layer4"]
 
 
 class BlindVisualStream(nn.Module):
