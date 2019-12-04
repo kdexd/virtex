@@ -34,7 +34,7 @@ class MaskedLanguageModelingDataset(IterableDataset):
 
         self._pipeline = ReadDatapointsFromLmdb(lmdb_path)
         self._pipeline = TransformImageForResNetLikeModels(
-            self._pipeline, normalize=normalize_image
+            self._pipeline, normalize=normalize_image, index_or_key="image"
         )
         self._pipeline = TokenizeAndPadCaption(
             self._pipeline,

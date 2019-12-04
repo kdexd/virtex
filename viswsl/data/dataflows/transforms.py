@@ -1,5 +1,5 @@
 import random
-from typing import Iterator
+from typing import Union
 
 import dataflow as df
 from dataflow import imgaug as aug
@@ -7,7 +7,6 @@ import numpy as np
 
 from viswsl.data.tokenizers import SentencePieceTokenizer
 from viswsl.data.vocabulary import SentencePieceVocabulary
-from viswsl.types import LmdbDatapoint, MaskedLanguageModelingInstance
 
 
 class TransformImageForResNetLikeModels(df.ProxyDataFlow):
@@ -22,13 +21,23 @@ class TransformImageForResNetLikeModels(df.ProxyDataFlow):
     #        variance (optional).
     #     5. Convert from HWC to CHW format.
 
-    def __init__(self, ds: df.DataFlow, normalize: bool = False, key: str = "image"):
+    def __init__(
+        self,
+        ds: df.DataFlow,
+        normalize: bool = False,
+        index_or_key: Union[int, str] = "image",
+    ):
         self.ds = ds
         self._normalize = normalize
-        self._x = key
+        self._x = index_or_key
 
         self._augmentor = df.imgaug.AugmentorList(
-            [aug.RandomCrop(224), aug.ToFloat32(), aug.MapImage(self._transform)]
+            [
+                aug.ResizeShortestEdge(256),
+                aug.RandomCrop(224),
+                aug.ToFloat32(),
+                aug.MapImage(self._transform),
+            ]
         )
 
     def _transform(self, image: np.ndarray) -> np.ndarray:
@@ -39,7 +48,7 @@ class TransformImageForResNetLikeModels(df.ProxyDataFlow):
         image = np.transpose(image, (2, 0, 1))
         return image
 
-    def __iter__(self) -> Iterator[LmdbDatapoint]:
+    def __iter__(self):
         for datapoint in self.ds:
             image = self._augmentor.augment(datapoint[self._x])
             datapoint[self._x] = image
@@ -64,7 +73,7 @@ class TokenizeAndPadCaption(df.ProxyDataFlow):
         self._ok = output_key
         self._max_caption_length = max_caption_length
 
-    def __iter__(self) -> Iterator[LmdbDatapoint]:
+    def __iter__(self):
 
         for datapoint in self.ds:
 
@@ -128,7 +137,7 @@ class MaskSomeTokensRandomly(df.ProxyDataFlow):
         self._ik = input_key
         self._ok = output_key
 
-    def __iter__(self) -> Iterator[MaskedLanguageModelingInstance]:
+    def __iter__(self):
 
         for datapoint in self.ds:
             caption_tokens = datapoint[self._ik]

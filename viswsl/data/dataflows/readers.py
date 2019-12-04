@@ -1,13 +1,11 @@
 import math
 import os
-from typing import Any, Iterator, List, Tuple
+from typing import Any, List, Tuple
 
 import dataflow as df
 import lmdb
 from torch import distributed as dist
 from torch.utils.data import get_worker_info
-
-from viswsl.types import LmdbDatapoint
 
 
 class ReadDatapointsFromLmdb(df.DataFlow):
@@ -46,7 +44,7 @@ class ReadDatapointsFromLmdb(df.DataFlow):
     def __len__(self):
         return len(self._keys)
 
-    def __iter__(self) -> Iterator[LmdbDatapoint]:
+    def __iter__(self):
         # ====================================================================
         # This code block will be executed just once, when an iterator of this
         # dataflow is intialized: ``iter(df)`` or ``enumerate(df)``.
