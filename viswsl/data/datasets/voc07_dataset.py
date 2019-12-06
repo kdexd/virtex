@@ -1,7 +1,7 @@
 from collections import defaultdict
 import os
 import glob
-from typing import Dict, Iterator, List, Tuple
+from typing import Dict, List, Tuple
 
 import dataflow as df
 import numpy as np
@@ -13,10 +13,9 @@ from viswsl.data.dataflows import TransformImageForResNetLikeModels
 
 
 class VOC07ClassificationDataset(IterableDataset):
-
     def __init__(self, voc_root: str, split: str = "train"):
-        ann_paths = glob.glob(
-            os.path.join(voc_root, "ImageSets", "Main", f"*_{split}.txt")
+        ann_paths = sorted(
+            glob.glob(os.path.join(voc_root, "ImageSets", "Main", f"*_{split}.txt"))
         )
         self._image_dir = os.path.join(voc_root, "JPEGImages")
 
@@ -30,7 +29,7 @@ class VOC07ClassificationDataset(IterableDataset):
         image_names_to_labels: Dict[str, torch.Tensor] = defaultdict(
             lambda: -torch.ones(len(self._class_names), dtype=torch.int32)
         )
-        for cls_num, ann_path in enumerate(sorted(ann_paths)):
+        for cls_num, ann_path in enumerate(ann_paths):
             with open(ann_path, "r") as fopen:
                 for line in fopen:
                     img_name, orig_label_str = line.strip().split()
@@ -60,6 +59,10 @@ class VOC07ClassificationDataset(IterableDataset):
         self._pipeline = TransformImageForResNetLikeModels(
             self._pipeline, index_or_key=0
         )
+
+    @property
+    def class_names(self):
+        return self._class_names
 
     def __len__(self):
         return len(self._pipeline)

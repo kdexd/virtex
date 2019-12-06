@@ -169,6 +169,13 @@ class Config(object):
         _C.OPTIM.NESTEROV = True
         _C.OPTIM.CLAMP_GRADIENTS = 10
 
+        _C.DOWNSTREAM = CN()
+        _C.DOWNSTREAM.VOC07_CLF = CN()
+        _C.DOWNSTREAM.VOC07_CLF.DATA_ROOT = "data/VOC2007"
+        _C.DOWNSTREAM.VOC07_CLF.BATCH_SIZE = 256
+        _C.DOWNSTREAM.VOC07_CLF.LAYER_NAMES = ["layer3", "layer4"]
+        _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.1, 1.0, 2.0]
+
         # Override parameter values from YAML file first, then from override
         # list.
         self._C = _C
@@ -197,9 +204,10 @@ class Config(object):
             CN({"RANDOM_SEED": self._C.RANDOM_SEED})
         ) + "\n"
         common_string += str(CN({"DATA": self._C.DATA})) + "\n"
-        common_string += str(CN({"PRETEXT": self._C.DATA})) + "\n"
+        common_string += str(CN({"PRETEXT": self._C.PRETEXT})) + "\n"
         common_string += str(CN({"MODEL": self._C.MODEL})) + "\n"
         common_string += str(CN({"OPTIM": self._C.OPTIM})) + "\n"
+        common_string += str(CN({"DOWNSTREAM": self._C.DOWNSTREAM})) + "\n"
 
         return common_string
 

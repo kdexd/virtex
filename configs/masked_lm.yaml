@@ -35,3 +35,10 @@ OPTIM:
   WARMUP_STEPS: 2000
   WEIGHT_DECAY: 1e-4
   CLAMP_GRADIENTS: 5
+
+  DOWNSTREAM:
+    VOC07_CLF:
+      DATA_ROOT: data/VOC2007
+      BATCH_SIZE: 256
+      LAYER_NAMES: ["layer3", "layer4"]
+      SVM_COSTS: [0.1, 1.0, 2.0]
