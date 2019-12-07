@@ -7,6 +7,7 @@ Parts of this class are adopted from several of my past projects:
 from typing import Any, List, Optional
 
 from yacs.config import CfgNode as CN
+import viswsl.utils.distributed as dist
 
 
 class Config(object):
@@ -100,14 +101,21 @@ class Config(object):
 
     OPTIM.OPTIMIZER_NAME: adamw
         One of ``["sgd", "adam", "adamw"]``.
-    OPTIM.BATCH_SIZE: 64
-        Batch size during training and evaluation.
+    OPTIM.NUM_ITERATIONS: 400000
+        Number of iterations to train for, batches are randomly sampled.
+    OPTIM.BATCH_SIZE_PER_GPU: 32
+        Batch size per GPU (or just CPU) during training and evaluation.
     OPTIM.BATCH_SIZE_MULTIPLIER: 1
         Number of batches to use for accumulating gradients before taking
         optimizer step. Useful to simulate large batch sizes.
-    OPTIM.NUM_ITERATIONS: 400000
-        Number of iterations to train for, batches are randomly sampled.
-    OPTIM.LR: 1e-5
+
+    .. note::
+        At the start of training, two config parameters will be created:
+            1. ``BATCH_SIZE_PER_ITER = BATCH_SIZE_PER_GPU * num_gpus``
+            2. ``TOTAL_BATCH_SIZE = BATCH_SIZE_PER_ITER * BATCH_SIZE_MULTIPLIER``
+        These are just for reference and should not be used anywhere.
+
+    OPTIM.LR: 2e-5
         Initial learning rate for optimizer. This linearly decays to zero till
         the end of training.
     OPTIM.WARMUP_STEPS: 2000
@@ -159,9 +167,10 @@ class Config(object):
 
         _C.OPTIM = CN()
         _C.OPTIM.OPTIMIZER_NAME = "adamw"
-        _C.OPTIM.BATCH_SIZE = 64
-        _C.OPTIM.BATCH_SIZE_MULTIPLIER = 1
         _C.OPTIM.NUM_ITERATIONS = 400000
+        _C.OPTIM.BATCH_SIZE_PER_GPU = 32
+        _C.OPTIM.BATCH_SIZE_MULTIPLIER = 1
+
         _C.OPTIM.LR = 2e-5
         _C.OPTIM.WARMUP_STEPS = 2000
         _C.OPTIM.WEIGHT_DECAY = 1e-4
@@ -196,13 +205,20 @@ class Config(object):
         """
         self._C.dump(stream=open(file_path, "w"))
 
+    def add_derived_params(self):
+        r"""Add parameters with values derived from existing parameters."""
+        self._C.OPTIM.BATCH_SIZE_PER_ITER = (
+            self._C.OPTIM.BATCH_SIZE * dist.get_world_size()
+        )
+        self._C.OPTIM.TOTAL_BATCH_SIZE = (
+            self._C.OPTIM.BATCH_SIZE_PER_ITER * self._C.OPTIM.BATCH_SIZE_MULTIPLIER
+        )
+
     def __getattr__(self, attr: str):
         return self._C.__getattr__(attr)
 
     def __str__(self):
-        common_string: str = str(
-            CN({"RANDOM_SEED": self._C.RANDOM_SEED})
-        ) + "\n"
+        common_string: str = str(CN({"RANDOM_SEED": self._C.RANDOM_SEED})) + "\n"
         common_string += str(CN({"DATA": self._C.DATA})) + "\n"
         common_string += str(CN({"PRETEXT": self._C.PRETEXT})) + "\n"
         common_string += str(CN({"MODEL": self._C.MODEL})) + "\n"

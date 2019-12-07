@@ -146,7 +146,7 @@ if __name__ == "__main__":
     )
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
+        batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
         num_workers=_A.cpu_workers,
         pin_memory=True,
     )
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     )
     val_dataloader = DataLoader(
         val_dataset,
-        batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
+        batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
         num_workers=_A.cpu_workers,
         pin_memory=True,
     )
@@ -171,7 +171,8 @@ if __name__ == "__main__":
             model, device_ids=[device]
         )
 
-    optimizer = OptimizerFactory.from_config(_C, model.parameters())
+    # Weight decay will not be applied to norm layers and biases. Check defn.
+    optimizer = OptimizerFactory.from_config(_C, model.named_parameters())
     lr_scheduler = LinearWarmupLinearDecayLR(
         optimizer,
         total_steps=_C.OPTIM.NUM_ITERATIONS,

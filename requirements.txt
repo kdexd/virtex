@@ -13,5 +13,5 @@ torchvision==0.4.2
 tqdm==4.36.0
 yacs==0.1.6
 git+git://github.com/tensorpack/dataflow.git#egg=dataflow
-git+git://github.com/tensorpack/fvcore.git#egg=fvcore
+git+git://github.com/facebookresearch/fvcore.git#egg=fvcore
 git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI
