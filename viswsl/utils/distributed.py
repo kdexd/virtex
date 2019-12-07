@@ -1,6 +1,6 @@
-import logging
 import os
 
+from loguru import logger
 import torch
 from torch import distributed as dist
 
@@ -55,7 +55,6 @@ def init_distributed_env(backend: str = "nccl") -> int:
             # Wait for all processes to initialize, necessary to avoid timeout.
             synchronize()
     except Exception as e:
-        logger = logging.getLogger(__name__)
         logger.error(
             f"Dist URL: {os.environ['MASTER_ADDR']}:{os.environ['MASTER_PORT']}"
         )
@@ -64,39 +63,6 @@ def init_distributed_env(backend: str = "nccl") -> int:
     local_rank = int(
         os.environ.get("LOCAL_RANK", os.environ.get("SLURM_LOCALID", "0"))
     )
-    # Current process only accesses this single GPU exclusive of other processes
-    # in the process group.
-    torch.cuda.set_device(local_rank)
-    return local_rank
-
-
-def init_distributed_tcp(
-    local_rank: int,
-    machine_rank: int,
-    num_gpus_per_machine: int,
-    num_machines: int,
-    dist_url: str = "tcp://127.0.0.1:23456",
-    backend: str = "nccl",
-) -> int:
-    assert torch.cuda.is_available(), "Cannot use GPU, CUDA not found!"
-    world_size = num_machines * num_gpus_per_machine
-    world_rank = machine_rank * num_gpus_per_machine + local_rank
-
-    try:
-        if world_size > 1:
-            dist.init_process_group(
-                backend=backend,
-                init_method=dist_url,
-                world_size=world_size,
-                rank=world_rank,
-            )
-        # Wait for all processes to initialize, necessary to avoid timeout.
-        synchronize()
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.error(f"Dist URL: {dist_url}")
-        raise e
-
     # Current process only accesses this single GPU exclusive of other processes
     # in the process group.
     torch.cuda.set_device(local_rank)

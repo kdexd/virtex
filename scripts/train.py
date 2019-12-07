@@ -49,27 +49,8 @@ parser.add_argument(
 parser.add_argument(
     "--slurm", action="store_true",
     help="""Whether using SLURM for launching distributed training processes.
-    Setting this flag assumes ignores arguments `--num-gpus-per-machine`,
-    `--num-machines`, `--machine-rank` and `--dist-url`. Set `$MASTER_PORT`
-    env variable externally for distributed process group communication."""
-)
-parser.add_argument(
-    "--num-gpus-per-machine", type=int, default=0,
-    help="Number of GPUs per machine with IDs as 0, 1, 2.. and so on.",
-)
-parser.add_argument(
-    "--num-machines", type=int, default=1,
-    help="Number of machines used in distributed training."
-)
-parser.add_argument(
-    "--machine-rank", type=int, default=0,
-    help="""Rank of the machine, integer in [0, num_machines). Default 0 for
-    training with a single machine.""",
-)
-parser.add_argument(
-    "--dist-url", default=f"tcp://127.0.0.1:23456",
-    help="""URL of the master process in distributed training, it defaults to
-    localhost for single-machine training.""",
+    Set `$MASTER_PORT` env variable externally for distributed process group
+    communication."""
 )
 
 parser.add_argument_group("Checkpointing and Logging")
@@ -112,8 +93,6 @@ if __name__ == "__main__":
 
     if _A.slurm:
         device_id = dist.init_distributed_env(_A.dist_backend)
-    elif _A.num_gpus_per_machine == 0:
-        device_id = -1
     else:
         # TODO (kd): Add an option to use `init_distributed_tcp`.
         device_id = 0

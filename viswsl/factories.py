@@ -61,9 +61,31 @@ class OptimizerFactory(Factory):
 
     @classmethod
     def from_config(
-        cls, config: Config, params: Iterable[Any]
+        cls, config: Config, named_parameters: Iterable[Any]
     ) -> Type[optim.Optimizer]:
         _C = config
+
+        # Turn off weight decay for norm layers (in CNN and transformer) and all
+        # bias parameters.
+        no_decay: List[str] = [".bias", ".bn", ".norm"]
+
+        # fmt: off
+        param_groups = [
+            {
+                "params": [
+                    param for name, param in named_parameters
+                    if not any(nd in name for nd in no_decay)
+                ],
+                "weight_decay": _C.OPTIM.WEIGHT_DECAY
+            }, {
+                "params": [
+                    param for name, param in named_parameters
+                    if any(nd in name for nd in no_decay)
+                ],
+                "weight_decay": 0.0
+            }
+        ]
+        # fmt: on
 
         # Form kwargs according to the optimizer name, different optimizers
         # may require different hyperparams in their constructor, for example:
@@ -73,4 +95,4 @@ class OptimizerFactory(Factory):
             kwargs["momentum"] = _C.OPTIM.SGD_MOMENTUM
             kwargs["nesterov"] = _C.OPTIM.SGD_NESTEROV
 
-        return cls.create(_C.OPTIM.OPTIMIZER_NAME, params, **kwargs)
+        return cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
