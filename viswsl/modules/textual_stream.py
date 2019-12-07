@@ -1,13 +1,10 @@
 import torch
 from torch import nn
 
-from viswsl.config import Config
-from viswsl.data.vocabulary import SentencePieceVocabulary
 from viswsl.modules.embedding import WordAndPositionalEmbedding
 
 
-class LinguisticStream(nn.Module):
-    # MOST OF THIS IS TEMPORARY. I AM ONLY TESTING OUT TRAINING LOOP.
+class DefaultTextualStream(nn.Module):
 
     def __init__(
         self,
@@ -60,16 +57,3 @@ class LinguisticStream(nn.Module):
         output_hidden = output_hidden.transpose(0, 1)
 
         return output_hidden
-
-    @classmethod
-    def from_config(cls, config: Config):
-        _C = config
-
-        vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
-        return cls(
-            vocab_size=len(vocabulary),
-            hidden_size=_C.MODEL.LINGUISTIC.HIDDEN_SIZE,
-            num_attention_heads=_C.MODEL.LINGUISTIC.NUM_ATTENTION_HEADS,
-            num_layers=_C.MODEL.LINGUISTIC.NUM_LAYERS,
-            padding_idx=vocabulary.pad_index,
-        )

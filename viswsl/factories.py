@@ -2,7 +2,9 @@ from typing import Any, Dict, Iterable, List, Type
 from torch import nn, optim
 
 from viswsl.config import Config
-from viswsl.modules import visual_stream as vstream
+from viswsl.data.vocabulary import SentencePieceVocabulary
+from viswsl.modules import visual_stream as vstream, textual_stream as tstream
+from viswsl.optim import lr_scheduler
 
 
 class Factory(object):
@@ -34,14 +36,13 @@ class Factory(object):
 
 class VisualStreamFactory(Factory):
 
-    PRODUCTS: Dict[str, Type[nn.Module]] = {
+    PRODUCTS = {
         "blind": vstream.BlindVisualStream,
         "torchvision": vstream.TorchvisionVisualStream,
     }
 
     @classmethod
-    def from_config(cls, config: Config) -> Type[nn.Module]:
-
+    def from_config(cls, config: Config) -> nn.Module:
         _C = config
         if "torchvision" in _C.MODEL.VISUAL.NAME:
             cnn_name = _C.MODEL.VISUAL.NAME.split("::")[-1]
@@ -51,41 +52,58 @@ class VisualStreamFactory(Factory):
         return cls.create(_C.MODEL.VISUAL.NAME)
 
 
+class TextualStreamFactory(Factory):
+
+    PRODUCTS = {"default": tstream.DefaultTextualStream}
+
+    @classmethod
+    def from_config(cls, config: Config) -> nn.Module:
+        _C = config
+
+        vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
+        return cls.create(
+            _C.MODEL.TEXTUAL.NAME,
+            vocab_size=len(vocabulary),
+            hidden_size=_C.MODEL.TEXTUAL.HIDDEN_SIZE,
+            num_attention_heads=_C.MODEL.TEXTUAL.NUM_ATTENTION_HEADS,
+            num_layers=_C.MODEL.TEXTUAL.NUM_LAYERS,
+            padding_idx=vocabulary.pad_index,
+        )
+
+
 class OptimizerFactory(Factory):
 
-    PRODUCTS: Dict[str, Type[optim.Optimizer]] = {
-        "sgd": optim.SGD,
-        "adam": optim.Adam,
-        "adamw": optim.AdamW,
-    }
+    PRODUCTS = {"sgd": optim.SGD, "adam": optim.Adam, "adamw": optim.AdamW}
 
     @classmethod
     def from_config(
         cls, config: Config, named_parameters: Iterable[Any]
-    ) -> Type[optim.Optimizer]:
+    ) -> optim.Optimizer:
         _C = config
 
-        # Turn off weight decay for norm layers (in CNN and transformer) and all
-        # bias parameters.
-        no_decay: List[str] = [".bias", ".bn", ".norm"]
-
-        # fmt: off
-        param_groups = [
-            {
-                "params": [
-                    param for name, param in named_parameters
-                    if not any(nd in name for nd in no_decay)
-                ],
-                "weight_decay": _C.OPTIM.WEIGHT_DECAY
-            }, {
-                "params": [
-                    param for name, param in named_parameters
-                    if any(nd in name for nd in no_decay)
-                ],
-                "weight_decay": 0.0
-            }
-        ]
-        # fmt: on
+        if len(_C.OPTIM.NO_DECAY) > 0:
+            # Turn off weight decay for a few params -- typically norm layers
+            # and biases.
+            # fmt: off
+            param_groups = [
+                {
+                    "params": [
+                        param for name, param in named_parameters
+                        if not any(nd in name for nd in _C.OPTIM.NO_DECAY)
+                    ],
+                    "weight_decay": _C.OPTIM.WEIGHT_DECAY
+                }, {
+                    "params": [
+                        param for name, param in named_parameters
+                        if any(nd in name for nd in _C.OPTIM.NO_DECAY)
+                    ],
+                    "weight_decay": 0.0
+                }
+            ]
+            # fmt: on
+        else:
+            # Apply weight decay to all params equally.
+            param_groups = named_parameters  # type: ignore
 
         # Form kwargs according to the optimizer name, different optimizers
         # may require different hyperparams in their constructor, for example:
@@ -96,3 +114,23 @@ class OptimizerFactory(Factory):
             kwargs["nesterov"] = _C.OPTIM.SGD_NESTEROV
 
         return cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
+
+
+class LRSchedulerFactory(Factory):
+
+    PRODUCTS = {
+        "linear": lr_scheduler.LinearWarmupLinearDecayLR,
+        "cosine": lr_scheduler.LinearWarmupCosineAnnealingLR,
+    }
+
+    @classmethod
+    def from_config(
+        cls, config: Config, optimizer: optim.Optimizer
+    ) -> optim.lr_scheduler.LambdaLR:
+        _C = config
+        return cls.create(
+            _C.OPTIM.LR_DECAY_NAME,
+            optimizer,
+            total_steps=_C.OPTIM.NUM_ITERATIONS,
+            warmup_steps=_C.OPTIM.WARMUP_STEPS,
+        )

@@ -10,18 +10,18 @@ from viswsl.modules.attention import ScaledDotProductAttention
 class ViswslModel(nn.Module):
     # TODO (kd): Find a better name maybe?
 
-    def __init__(self, visual, linguistic):
+    def __init__(self, visual, textual):
         super().__init__()
-        self._visual = visual
-        self._linguistic = linguistic
+        self.visual = visual
+        self.textual = textual
 
         # TODO (kd): Remove hardcoded values once this becomes a dependency
         # injection.
-        self._attention = ScaledDotProductAttention(2048, linguistic.hidden_size)
+        self._attention = ScaledDotProductAttention(2048, textual.hidden_size)
         self._linear = nn.Linear(
-            2048 + linguistic.hidden_size, linguistic.vocab_size
+            2048 + textual.hidden_size, textual.vocab_size
         )
-        self._loss = nn.CrossEntropyLoss(ignore_index=linguistic.padding_idx)
+        self._loss = nn.CrossEntropyLoss(ignore_index=textual.padding_idx)
 
     def forward(
         self,
@@ -30,13 +30,13 @@ class ViswslModel(nn.Module):
         masked_labels: torch.Tensor,
     ):
         # shape: (batch_size, 2048, 7, 7)
-        image_features = self._visual(image)
+        image_features = self.visual(image)
 
         # shape: (batch_size, 49, 2048)
         image_features = image_features.view(-1, 2048, 49).permute(0, 2, 1)
 
         # shape: (batch_size, max_caption_length, hidden_size)
-        output_hidden = self._linguistic(caption_tokens, masked_labels)
+        output_hidden = self.textual(caption_tokens, masked_labels)
 
         # shape: (batch_size, max_caption_length, 2048)
         attended_features = self._attention(image_features, output_hidden)
@@ -79,7 +79,7 @@ class VOC07ClassificationFeatureExtractor(nn.Module):
         normalize: bool = True,
     ):
         super().__init__()
-        self._cnn = pretrained_model._visual
+        self._cnn = pretrained_model.visual
 
         layer = nn.AdaptiveAvgPool2d if mode == "avg" else nn.AdaptiveMaxPool2d
         self._normalize = normalize

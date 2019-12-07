@@ -72,7 +72,7 @@ class Config(object):
     DATA.NORMALIZE_IMAGE: True
         Whether to normalize the image by RGB color mean and variance.
     DATA.MAX_CAPTION_LENGTH: 30
-        Maximum length of captions as input to the linguistic stream. Captions
+        Maximum length of captions as input to the textual stream. Captions
         longer than this will be truncated to maximum length.
     __________
 
@@ -80,19 +80,19 @@ class Config(object):
 
     MODEL.VISUAL:
         Parameters defining the architecture of the visual stream.
-    MODEL.VISUAL.NAME: "torchvision::resnext101_32x8d"
+    MODEL.VISUAL.NAME: "torchvision::resnet50"
         Name of the visual stream model. Torchvision models supported for now.
     MODEL.VISUAL.PRETRAINED:
         Whether to initialize model from ImageNet pre-trained weights.
     _____
 
-    MODEL.LINGUISTIC:
-        Parameters defining the architecture of the linguistic stream.
-    MODEL.LINGUISTIC.HIDDEN_SIZE: 512
+    MODEL.TEXTUAL:
+        Parameters defining the architecture of the textual stream.
+    MODEL.TEXTUAL.HIDDEN_SIZE: 768
         Size of the hidden state for the transformer.
-    MODEL.LINGUISTIC.ATTENTION_HEADS: 8
+    MODEL.TEXTUAL.ATTENTION_HEADS: 12
         Number of attention heads for multi-headed attention.
-    MODEL.LINGUISTIC.NUM_LAYERS: 6
+    MODEL.TEXTUAL.NUM_LAYERS: 6
         Number of layers in the transformer encoder.
     __________
 
@@ -101,7 +101,7 @@ class Config(object):
 
     OPTIM.OPTIMIZER_NAME: adamw
         One of ``["sgd", "adam", "adamw"]``.
-    OPTIM.NUM_ITERATIONS: 400000
+    OPTIM.NUM_ITERATIONS: 1000000
         Number of iterations to train for, batches are randomly sampled.
     OPTIM.BATCH_SIZE_PER_GPU: 32
         Batch size per GPU (or just CPU) during training and evaluation.
@@ -115,7 +115,7 @@ class Config(object):
             2. ``TOTAL_BATCH_SIZE = BATCH_SIZE_PER_ITER * BATCH_SIZE_MULTIPLIER``
         These are just for reference and should not be used anywhere.
 
-    OPTIM.LR: 2e-5
+    OPTIM.LR: 1e-4
         Initial learning rate for optimizer. This linearly decays to zero till
         the end of training.
     OPTIM.WARMUP_STEPS: 2000
@@ -160,22 +160,25 @@ class Config(object):
         _C.MODEL.VISUAL.NAME = "torchvision::resnet50"
         _C.MODEL.VISUAL.PRETRAINED = False
 
-        _C.MODEL.LINGUISTIC = CN()
-        _C.MODEL.LINGUISTIC.HIDDEN_SIZE = 512
-        _C.MODEL.LINGUISTIC.NUM_ATTENTION_HEADS = 8
-        _C.MODEL.LINGUISTIC.NUM_LAYERS = 6
+        _C.MODEL.TEXTUAL = CN()
+        _C.MODEL.TEXTUAL.HIDDEN_SIZE = 768
+        _C.MODEL.TEXTUAL.NUM_ATTENTION_HEADS = 12
+        _C.MODEL.TEXTUAL.NUM_LAYERS = 6
 
         _C.OPTIM = CN()
         _C.OPTIM.OPTIMIZER_NAME = "adamw"
-        _C.OPTIM.NUM_ITERATIONS = 400000
         _C.OPTIM.BATCH_SIZE_PER_GPU = 32
         _C.OPTIM.BATCH_SIZE_MULTIPLIER = 1
 
-        _C.OPTIM.LR = 2e-5
+        _C.OPTIM.NUM_ITERATIONS = 1000000
+        _C.OPTIM.LR = 1e-4
         _C.OPTIM.WARMUP_STEPS = 2000
-        _C.OPTIM.WEIGHT_DECAY = 1e-4
-        _C.OPTIM.MOMENTUM = 0.9
-        _C.OPTIM.NESTEROV = True
+        _C.OPTIM.LR_DECAY_NAME = "cosine"
+
+        _C.OPTIM.WEIGHT_DECAY = 1e-3
+        _C.OPTIM.NO_DECAY = [".bn", ".norm", ".bias"]
+        _C.OPTIM.SGD_MOMENTUM = 0.9
+        _C.OPTIM.SGD_NESTEROV = True
         _C.OPTIM.CLAMP_GRADIENTS = 10
 
         _C.DOWNSTREAM = CN()
@@ -185,12 +188,18 @@ class Config(object):
         _C.DOWNSTREAM.VOC07_CLF.LAYER_NAMES = ["layer3", "layer4"]
         _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.1, 1.0, 2.0]
 
+        # Set these two values after mergining from file.
+        _C.OPTIM.BATCH_SIZE_PER_ITER = None
+        _C.OPTIM.TOTAL_BATCH_SIZE = None
+
         # Override parameter values from YAML file first, then from override
-        # list.
+        # list, then add derived params.
         self._C = _C
         if config_file is not None:
             self._C.merge_from_file(config_file)
         self._C.merge_from_list(override_list)
+
+        self.add_derived_params()
 
         # Make an instantiated object of this class immutable.
         self._C.freeze()
@@ -208,7 +217,7 @@ class Config(object):
     def add_derived_params(self):
         r"""Add parameters with values derived from existing parameters."""
         self._C.OPTIM.BATCH_SIZE_PER_ITER = (
-            self._C.OPTIM.BATCH_SIZE * dist.get_world_size()
+            self._C.OPTIM.BATCH_SIZE_PER_GPU * dist.get_world_size()
         )
         self._C.OPTIM.TOTAL_BATCH_SIZE = (
             self._C.OPTIM.BATCH_SIZE_PER_ITER * self._C.OPTIM.BATCH_SIZE_MULTIPLIER

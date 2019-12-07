@@ -17,9 +17,8 @@ from tqdm import tqdm
 
 from viswsl.config import Config
 from viswsl.data.datasets import VOC07ClassificationDataset
-from viswsl.factories import VisualStreamFactory
+from viswsl.factories import VisualStreamFactory, TextualStreamFactory
 from viswsl.model import ViswslModel, VOC07ClassificationFeatureExtractor
-from viswsl.modules.linguistic_stream import LinguisticStream
 
 
 # fmt: off
@@ -107,13 +106,13 @@ if __name__ == "__main__":
     NUM_CLASSES = len(train_dataset.class_names)
 
     # Initialize from a checkpoint, but only keep the visual module.
-    visual_module = VisualStreamFactory.from_config(_C)
-    linguistic_module = LinguisticStream.from_config(_C)
-    model = ViswslModel(visual_module, linguistic_module).to(device)
+    model = ViswslModel(
+        VisualStreamFactory.from_config(_C), TextualStreamFactory.from_config(_C)
+    ).to(device)
     model.load_state_dict(torch.load(_A.checkpoint_path)["model"])
 
     feature_extractor = VOC07ClassificationFeatureExtractor(model, mode="avg")
-    del visual_module, linguistic_module, model
+    del model
 
     # Possible keys: {"layer1", "layer2", "layer3", "layer4"}
     # Each key holds a list of numpy arrays, one per example.
