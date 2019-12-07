@@ -192,9 +192,7 @@ if __name__ == "__main__":
         tensorboard_writer.add_text("config", str(_C))
 
     # Keep track of (moving) average time per iteration and ETA.
-    timer = Timer(
-        window_size=_A.log_every, total_iterations=_C.OPTIM.NUM_ITERATIONS
-    )
+    timer = Timer(window_size=_A.log_every, total_iterations=_C.OPTIM.NUM_ITERATIONS)
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter: Iterator = iter(train_dataloader)
 
@@ -228,7 +226,6 @@ if __name__ == "__main__":
                 parameter.grad.clamp_(
                     min=-_C.OPTIM.CLAMP_GRADIENTS, max=_C.OPTIM.CLAMP_GRADIENTS
                 )
-
         optimizer.step()
         lr_scheduler.step()
         timer.toc()
@@ -243,7 +240,6 @@ if __name__ == "__main__":
                 tensorboard_writer.add_scalar(
                     "learning_rate", optimizer.param_groups[0]["lr"], iteration
                 )
-
             dist.synchronize()
 
         # ---------------------------------------------------------------------
@@ -253,35 +249,18 @@ if __name__ == "__main__":
             torch.set_grad_enabled(False)
             model.eval()
 
-            # Check performance of blind variant of this model too. This is an
-            # unfair evaluation, but we keep it only for debugging.
-            blind_model = ViswslModel(
-                VisualStreamFactory.create("blind"), linguistic_module
-            ).to(device)
-            # Don't wrap to DDP because we don't need to sync gradients.
-
-            normal_val_loss = torch.tensor(0.0, device=device)
-            blind_val_loss = torch.tensor(0.0, device=device)
+            val_loss = torch.tensor(0.0, device=device)
             for val_iteration, val_batch in enumerate(val_dataloader):
                 output_dict = model(
                     batch["image"], batch["caption_tokens"], batch["masked_labels"]
                 )
-                blind_output_dict = blind_model(
-                    batch["image"], batch["caption_tokens"], batch["masked_labels"]
-                )
-                normal_val_loss += output_dict["loss"].mean().item()
-                blind_val_loss += blind_output_dict["loss"].mean().item()
+                val_loss += output_dict["loss"].mean().item()
 
                 if val_iteration == _A.val_batches // dist.get_world_size():
-                    normal_val_loss /= _A.val_batches // dist.get_world_size()
-                    blind_val_loss /= _A.val_batches // dist.get_world_size()
+                    val_loss /= _A.val_batches // dist.get_world_size()
                     break
 
-            dist.average_across_processes(normal_val_loss)
-            dist.average_across_processes(blind_val_loss)
-
-            # Free up memory by deleting blind model.
-            del blind_model
+            dist.average_across_processes(val_loss)
             torch.set_grad_enabled(True)
             model.train()
 
@@ -291,28 +270,20 @@ if __name__ == "__main__":
         # fmt: off
         if iteration % _A.checkpoint_every == 0 and dist.is_master_process():
             logger.info(
-                f"Iter: {iteration} | Val loss- normal: {normal_val_loss:.3f} "
-                f"blind: {blind_val_loss:.3f} "
+                f"Iter: {iteration} | Val loss- masked_lm: {val_loss:.3f} "
             )
             tensorboard_writer.add_scalar(
-                "val/normal_loss", normal_val_loss, iteration
-            )
-            tensorboard_writer.add_scalar(
-                "val/blind_loss", blind_val_loss, iteration
+                "val/masked_lm_loss", val_loss, iteration
             )
 
             examples_str = ""
-            for tokens, labels, predictions, blind_predictions in zip(
+            for tokens, labels, predictions in zip(
                 batch["caption_tokens"], batch["masked_labels"],
-                output_dict["predictions"], blind_output_dict["predictions"]
+                output_dict["predictions"]
             ):
                 # Keep predictions only from [MASK]ed positions.
                 predictions = [
                     predictions[i] for i in range(len(predictions))
-                    if labels[i] != vocabulary.unk_index
-                ]
-                blind_predictions = [
-                    blind_predictions[i] for i in range(len(predictions))
                     if labels[i] != vocabulary.unk_index
                 ]
                 to_strtokens = lambda token_indices: [  # noqa: E731
@@ -322,13 +293,11 @@ if __name__ == "__main__":
                 tokens = to_strtokens(tokens)
                 labels = to_strtokens(labels)
                 predictions = to_strtokens(predictions)
-                blind_predictions = to_strtokens(blind_predictions)
 
                 examples_str += f"""
                     Caption tokens      : {tokenizer.detokenize(tokens)}
                     Masked Labels       : {" ".join(labels)}
                     Predictions (normal): {" ".join(predictions)}
-                    Predictions (blind) : {" ".join(blind_predictions)}
 
                     """
             # fmt: on
