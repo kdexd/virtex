@@ -109,7 +109,7 @@ if __name__ == "__main__":
     model = ViswslModel(
         VisualStreamFactory.from_config(_C), TextualStreamFactory.from_config(_C)
     ).to(device)
-    model.load_state_dict(torch.load(_A.checkpoint_path)["model"])
+    model.load_state_dict(torch.load(_A.checkpoint_path))
 
     feature_extractor = VOC07ClassificationFeatureExtractor(model, mode="avg")
     del model

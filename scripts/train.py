@@ -65,6 +65,10 @@ parser.add_argument(
     only master process logs averaged loss values across processes.""",
 )
 parser.add_argument(
+    "--checkpoint-after", type=int, default=20000,
+    help="Start checkpointing after this iteration.",
+)
+parser.add_argument(
     "--checkpoint-every", type=int, default=2000,
     help="Serialize model to a checkpoint after every these many iterations.",
 )
@@ -220,7 +224,7 @@ if __name__ == "__main__":
         # ---------------------------------------------------------------------
         #   VALIDATION
         # ---------------------------------------------------------------------
-        if iteration % _A.checkpoint_every == 0:
+        if iteration >= _A.checkpoint_after and iteration % _A.checkpoint_every == 0:
             torch.set_grad_enabled(False)
             model.eval()
 
@@ -242,8 +246,12 @@ if __name__ == "__main__":
         # ---------------------------------------------------------------------
         #   TENSORBOARD LOGGING
         # ---------------------------------------------------------------------
-        # fmt: off
-        if iteration % _A.checkpoint_every == 0 and dist.is_master_process():
+        if (
+            iteration >= _A.checkpoint_after
+            and iteration % _A.checkpoint_every == 0
+            and dist.is_master_process()
+        ):
+            # fmt: off
             logger.info(
                 f"Iter: {iteration} | Val loss- masked_lm: {val_loss:.3f} "
             )

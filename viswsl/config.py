@@ -161,6 +161,7 @@ class Config(object):
         _C.MODEL.VISUAL.PRETRAINED = False
 
         _C.MODEL.TEXTUAL = CN()
+        _C.MODEL.TEXTUAL.NAME = "default"
         _C.MODEL.TEXTUAL.HIDDEN_SIZE = 768
         _C.MODEL.TEXTUAL.NUM_ATTENTION_HEADS = 12
         _C.MODEL.TEXTUAL.NUM_LAYERS = 6
@@ -188,9 +189,9 @@ class Config(object):
         _C.DOWNSTREAM.VOC07_CLF.LAYER_NAMES = ["layer3", "layer4"]
         _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.1, 1.0, 2.0]
 
-        # Set these two values after mergining from file.
-        _C.OPTIM.BATCH_SIZE_PER_ITER = None
-        _C.OPTIM.TOTAL_BATCH_SIZE = None
+        # Placeholders, set these two values after merging from file.
+        _C.OPTIM.BATCH_SIZE_PER_ITER = 0
+        _C.OPTIM.TOTAL_BATCH_SIZE = 0
 
         # Override parameter values from YAML file first, then from override
         # list, then add derived params.

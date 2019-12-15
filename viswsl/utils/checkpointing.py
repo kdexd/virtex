@@ -54,7 +54,7 @@ class CheckpointManager(object):
         optimizer: optim.Optimizer,
         serialization_dir: str,
         mode: Optional[str] = None,
-        k_recent: int = 5,
+        k_recent: int = 20,
     ):
         self._model = model
         self._optimizer = optimizer
