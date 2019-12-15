@@ -1,9 +1,10 @@
 import argparse
 from collections import defaultdict
+import multiprocessing as mp
 import os
 import random
 import sys
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from loguru import logger
 import numpy as np
@@ -40,6 +41,9 @@ parser.add_argument(
     "--gpu-id", type=int, default=0, help="ID of GPU to use (-1 for CPU)."
 )
 parser.add_argument(
+    "--cpu-workers", type=int, default=2, help="Number of CPU workers."
+)
+parser.add_argument(
     "--checkpoint-path", required=True,
     help="""Path to load checkpoint and run downstream task evaluation. The
     name of checkpoint file is required to be `checkpoint_*.pth`, where * is
@@ -51,6 +55,59 @@ parser.add_argument(
     file. If not provided, this will be the parent directory of checkpoint."""
 )
 # fmt: on
+
+
+def train_test_single_svm(args):
+
+    feats_train, tgts_train, feats_test, tgts_test, layer_name, cls_name, costs = (
+        args
+    )
+
+    cls_labels = np.copy(tgts_train)
+    # Meaning of labels in VOC/COCO original loaded target files:
+    # label 0 = not present, set it to -1 as svm train target
+    # label 1 = present. Make the svm train target labels as -1, 1.
+    cls_labels[np.where(cls_labels == 0)] = -1
+
+    # See which cost maximizes the AP for this class.
+    max_crossval_ap: float = 0.0
+    best_crossval_clf = None
+
+    # fmt: off
+    for cost in costs:
+        clf = LinearSVC(
+            C=cost, class_weight={1: 2, -1: 1}, penalty="l2",
+            loss="squared_hinge", max_iter=2000,
+        )
+        ap_scores = cross_val_score(
+            clf, feats_train, cls_labels, cv=3, scoring="average_precision",
+        )
+        clf.fit(feats_train, cls_labels)
+
+        # Keep track of best SVM (based on cost) for each (layer, cls).
+        if ap_scores.mean() > max_crossval_ap:
+            max_ap = ap_scores.mean()
+            best_crossval_clf = clf
+
+        logger.info(
+            f"SVM for: {layer_name}, {cls_name}, cost {cost}, mAP {ap_scores.mean()}"
+        )
+    # fmt: on
+
+    # -------------------------------------------------------------------------
+    #   TEST THE TRAINED SVM (PER LAYER, PER CLASS)
+    # -------------------------------------------------------------------------
+    predictions = best_crossval_clf.decision_function(feats_test)
+    evaluate_data_inds = tgts_test != -1
+    eval_preds = predictions[evaluate_data_inds]
+
+    cls_labels = np.copy(tgts_test)
+    eval_cls_labels = cls_labels[evaluate_data_inds]
+    eval_cls_labels[np.where(eval_cls_labels == 0)] = -1
+
+    # Binarize class labels to make AP targets.
+    targets = eval_cls_labels > 0
+    return average_precision_score(targets, eval_preds)
 
 
 if __name__ == "__main__":
@@ -154,89 +211,54 @@ if __name__ == "__main__":
     features_test = {
         k: torch.cat(v, dim=0).numpy() for k, v in features_test.items()
     }
-    targets_train = torch.cat(targets_train, dim=0).numpy()
-    targets_test = torch.cat(targets_test, dim=0).numpy()
+    targets_train = torch.cat(targets_train, dim=0).numpy().astype(np.int32)
+    targets_test = torch.cat(targets_test, dim=0).numpy().astype(np.int32)
+
+    # Log class distribution.
+    for cls_idx in range(NUM_CLASSES):
+
+        targets_train_cls = targets_train[:, cls_idx]
+        num_positives = len(np.where(targets_train_cls == 1)[0])
+        num_negatives = len(targets_train_cls) - num_positives
+
+        logger.info(
+            f"""Class {train_dataset.class_names[cls_idx]}:
+                Positive Examples: {num_positives}
+                Negative Examples: {num_negatives}
+                Ratio: {num_positives / num_negatives}"""
+        )
 
     # -------------------------------------------------------------------------
-    #   TRAIN SVMs WITH EXTRACTED FEATURES
+    #   TRAIN AND TEST SVMs WITH EXTRACTED FEATURES
     # -------------------------------------------------------------------------
 
-    # Store test set AP for each class, for features from every layer.
-    # shape: (num_layers, num_classes)
-    test_ap = np.zeros((len(_C_DOWNSTREAM.LAYER_NAMES), NUM_CLASSES))
-
+    input_args: List[Any] = []
     # Possible keys: {"layer1", "layer2", "layer3", "layer4"}
     for layer_idx, layer_name in enumerate(_C_DOWNSTREAM.LAYER_NAMES):
 
         # Iterate over all VOC classes and train one-vs-all linear SVMs.
         for cls_idx in range(NUM_CLASSES):
-            cls_labels = targets_train[:, cls_idx].astype(dtype=np.int32, copy=True)
-            # meaning of labels in VOC/COCO original loaded target files:
-            # label 0 = not present, set it to -1 as svm train target
-            # label 1 = present. Make the svm train target labels as -1, 1.
-            cls_labels[np.where(cls_labels == 0)] = -1
-            num_positives = len(np.where(cls_labels == 1)[0])
-            num_negatives = len(cls_labels) - num_positives
-            logger.info(
-                f"""Class {train_dataset.class_names[cls_idx]}:
-                    Positive Examples: {num_positives}
-                    Negative Examples: {num_negatives}
-                    Ratio: {num_positives / num_negatives}"""
-            )
-
-            # See which cost maximizes the AP for this class.
-            max_crossval_ap: float = 0.0
-            best_crossval_clf = None
-
-            for cost in _C_DOWNSTREAM.SVM_COSTS:
-                clf = LinearSVC(
-                    C=cost,
-                    class_weight={1: 2, -1: 1},
-                    penalty="l2",
-                    loss="squared_hinge",
-                    max_iter=2000,
-                )
-                ap_scores = cross_val_score(
-                    clf,
+            input_args.append(
+                (
+                    _C_DOWNSTREAM,
                     features_train[layer_name],
-                    cls_labels,
-                    cv=3,
-                    scoring="average_precision",
+                    targets_train[:, cls_idx],
+                    features_test[layer_name],
+                    targets_test[:, cls_idx],
+                    layer_name,
+                    train_datasets.class_names[cls_idx],
                 )
-                clf.fit(features_train[layer_name], cls_labels)
-
-                # Keep track of best SVM (based on cost) for each (layer, cls).
-                if ap_scores.mean() > max_crossval_ap:
-                    max_ap = ap_scores.mean()
-                    best_crossval_clf = clf
-
-                logger.info(
-                    f"SVM for: {layer_name}, cost {cost}, mAP {ap_scores.mean()}"
-                )
-
-            # -----------------------------------------------------------------
-            #   TEST THE TRAINED SVM (PER LAYER, PER CLASS)
-            # -----------------------------------------------------------------
-
-            predictions = best_crossval_clf.decision_function(
-                features_test[layer_name]
-            )
-            # Meaning of labels in VOC/COCO original loaded target files:
-            # label 0 = not present, set it to -1 as SVM train target.
-            # label 1 = present. Make the SVM train target labels as -1, 1.
-            cls_labels = targets_test[:, cls_idx].astype(dtype=np.int32, copy=True)
-            evaluate_data_inds = targets_test[:, cls_idx] != -1
-            eval_preds = predictions[evaluate_data_inds]
-            eval_cls_labels = cls_labels[evaluate_data_inds]
-            eval_cls_labels[np.where(eval_cls_labels == 0)] = -1
-
-            # Binarize class labels to make AP targets.
-            targets = eval_cls_labels > 0
-            test_ap[layer_idx][cls_idx] = average_precision_score(
-                targets, eval_preds
             )
 
-        layer_test_map = np.mean(test_ap, axis=-1)[layer_idx]
+    pool = mp.Pool(processes=_A.cpu_workers)
+    pool_output = pool.map(train_test_single_svm, input_args)
+
+    # Test set AP for each class, for features from every layer.
+    # shape: (num_layers, num_classes)
+    test_ap = torch.tensor(pool_output).view(-1, NUM_CLASSES)
+
+    for layer_idx, layer_name in enumerate(_C_DOWNSTREAM.LAYER_NAMES):
+        layer_test_map = torch.mean(test_ap, dim=-1)[layer_idx]
         logger.info(f"mAP for {layer_name}: {layer_test_map}")
         tensorboard_writer.add_scalars(
             "metrics/voc07_clf",
@@ -244,7 +266,8 @@ if __name__ == "__main__":
             CHECKPOINT_ITERATION,
         )
 
-    best_test_map = max(np.mean(test_ap, axis=-1))
+    best_test_map = torch.max(torch.mean(test_ap, dim=-1)).item()
+    logger.info(f"Best mAP: {best_test_map}")
     tensorboard_writer.add_scalars(
         "metrics/voc07_clf", {"best_mAP": best_test_map}, CHECKPOINT_ITERATION
     )
