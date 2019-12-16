@@ -3,6 +3,20 @@ import time
 from typing import Optional
 
 
+def cycle(dataloader, device):
+    r"""
+    A generator which yields batch from dataloader perpetually.
+    This is done so because we train for a fixed number of iterations, and do
+    not have the notion of 'epochs'. Using ``itertools.cycle`` with dataloader
+    is harmful and may cause unexpeced memory leaks.
+    """
+    while True:
+        for batch in dataloader:
+            for key in batch:
+                batch[key] = batch[key].to(device)
+            yield batch
+
+
 class Timer(object):
     r"""
     A simple timer to record time per iteration and ETA of training. Using this

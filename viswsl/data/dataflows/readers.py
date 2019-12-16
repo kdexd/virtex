@@ -4,6 +4,7 @@ from typing import Any, List, Tuple
 
 import dataflow as df
 import lmdb
+import torch
 from torch import distributed as dist
 from torch.utils.data import get_worker_info
 
@@ -23,8 +24,9 @@ class ReadDatapointsFromLmdb(df.DataFlow):
     lmdb_path: str
     """
 
-    def __init__(self, lmdb_path: str):
+    def __init__(self, lmdb_path: str, shuffle: bool = False):
         self._lmdb_path = lmdb_path
+        self._shuffle = shuffle
 
         # Get a list of "keys" in the LMDB file so we could shard the dataset.
         with lmdb.open(
@@ -41,10 +43,24 @@ class ReadDatapointsFromLmdb(df.DataFlow):
                 _txn.get(b"__keys__")
             )
 
+        # For deterministically generating different shuffle ordes everytime
+        # the read through starts again.
+        self._read_epoch = 0
+
     def __len__(self):
         return len(self._keys)
 
     def __iter__(self):
+
+        self._read_epoch += 1
+        if self._shuffle:
+            # Deterministically shuffle the dataset, differently everytime so.
+            g = torch.Generator()
+            g.manual_seed(self._read_epoch)
+            indices = torch.randperm(len(self._keys), generator=g).tolist()
+        else:
+            indices = list(range(len(self._keys)))
+
         # ====================================================================
         # This code block will be executed just once, when an iterator of this
         # dataflow is intialized: ``iter(df)`` or ``enumerate(df)``.
@@ -66,7 +82,7 @@ class ReadDatapointsFromLmdb(df.DataFlow):
         if worker_info is not None:
             samples_per_worker = int(
                 math.ceil(
-                    len(self._keys) / (worker_info.num_workers * world_size)
+                    len(indices) / (worker_info.num_workers * world_size)
                 )
             )
             start = (
@@ -74,15 +90,17 @@ class ReadDatapointsFromLmdb(df.DataFlow):
                 + worker_info.id * samples_per_worker
             )
             # Last worker may get less than ``_per_worker`` examples.
-            end = min(len(self._keys), start + samples_per_worker)
+            end = min(len(indices), start + samples_per_worker)
         else:
             # Using single worker in dataloader, don't shard further.
             start = world_rank * samples_per_gpu_process
-            end = min(len(self._keys), start + samples_per_gpu_process)
+            end = min(len(indices), start + samples_per_gpu_process)
 
-        # Read sequentially, random reads from large files may be expensive.
+        keys_per_worker = [self._keys[i] for i in indices[start:end]]
+
+        # Shuffle controlled outsie, set False here.
         pipeline = df.LMDBData(
-            self._lmdb_path, keys=self._keys[start:end], shuffle=False
+            self._lmdb_path, keys=keys_per_worker, shuffle=False
         )
         # Decode bytes read from LMDB to Python objects.
         pipeline = df.MapData(pipeline, self._deserialize)

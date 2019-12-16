@@ -240,13 +240,13 @@ if __name__ == "__main__":
         for cls_idx in range(NUM_CLASSES):
             input_args.append(
                 (
-                    _C_DOWNSTREAM,
                     features_train[layer_name],
                     targets_train[:, cls_idx],
                     features_test[layer_name],
                     targets_test[:, cls_idx],
                     layer_name,
-                    train_datasets.class_names[cls_idx],
+                    train_dataset.class_names[cls_idx],
+                    _C_DOWNSTREAM.VOC07_CLF.SVM_COSTS,
                 )
             )
 

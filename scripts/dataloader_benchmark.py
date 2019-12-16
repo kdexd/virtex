@@ -1,7 +1,6 @@
 import argparse
 import random
 import sys
-from typing import Iterator
 
 from loguru import logger
 import numpy as np
@@ -13,7 +12,7 @@ from viswsl.data.datasets import MaskedLanguageModelingDataset
 from viswsl.data.vocabulary import SentencePieceVocabulary
 from viswsl.data.tokenizers import SentencePieceTokenizer
 import viswsl.utils.distributed as dist
-from viswsl.utils.logging import Timer
+from viswsl.utils.common import cycle, Timer
 
 
 # fmt: off
@@ -45,24 +44,6 @@ parser.add_argument(
     `--num-machines`, `--machine-rank` and `--dist-url`. Set `$MASTER_PORT`
     env variable externally for distributed process group communication."""
 )
-parser.add_argument(
-    "--num-gpus-per-machine", type=int, default=0,
-    help="Number of GPUs per machine with IDs as 0, 1, 2.. and so on.",
-)
-parser.add_argument(
-    "--num-machines", type=int, default=1,
-    help="Number of machines used in distributed training."
-)
-parser.add_argument(
-    "--machine-rank", type=int, default=0,
-    help="""Rank of the machine, integer in [0, num_machines). Default 0 for
-    training with a single machine.""",
-)
-parser.add_argument(
-    "--dist-url", default=f"tcp://127.0.0.1:23456",
-    help="""URL of the master process in distributed training, it defaults to
-    localhost for single-machine training.""",
-)
 
 parser.add_argument_group("Checkpointing and Logging")
 parser.add_argument(
@@ -92,11 +73,8 @@ if __name__ == "__main__":
 
     if _A.slurm:
         device_id = dist.init_distributed_env(_A.dist_backend)
-    elif _A.num_gpus_per_machine == 0:
-        device_id = -1
     else:
-        # TODO (kd): Add an option to use `init_distributed_tcp`.
-        device_id = 0
+        device_id = -1
     device = torch.device(f"cuda:{device_id}" if device_id != -1 else "cpu")
 
     # Disable the logger for all processes except master process to avoid
@@ -126,8 +104,7 @@ if __name__ == "__main__":
         num_workers=_A.cpu_workers,
         pin_memory=True,
     )
-    # Create an iterator from dataloader to sample batches perpetually.
-    train_dataloader_iter: Iterator = iter(train_dataloader)
+    train_dataloader_iter = cycle(train_dataloader, device)
 
     # Keep track of (moving) average time per iteration and ETA.
     timer = Timer(
@@ -139,16 +116,11 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     for iteration in range(1, _C.OPTIM.NUM_ITERATIONS + 1):
         timer.tic()
-        # keys: {"image_id", "image", "caption_tokens", "masked_labels"}
         batch = next(train_dataloader_iter)
-        for key in batch:
-            batch[key] = batch[key].to(device)
 
         # Synchronize every iteratin to record the worst time among processes.
         dist.synchronize()
         timer.toc()
-
-        # Make the master process log loss, lr, time to tensorboard.
         if iteration % _A.log_every == 0 and dist.is_master_process():
             logger.info(timer.stats)
             dist.synchronize()

@@ -1,6 +1,5 @@
 from typing import Optional
 
-import dataflow as df
 import torch
 from torch.utils.data import IterableDataset
 
@@ -27,12 +26,11 @@ class MaskedLanguageModelingDataset(IterableDataset):
         replace_probability: float = 0.10,
         normalize_image: bool = False,
         max_caption_length: int = 25,
-        buffer_size: int = 64,
+        shuffle: bool = False,
     ):
-        assert buffer_size >= 0, "Buffer size must be non-negative."
         self._vocabulary = vocabulary
 
-        self._pipeline = ReadDatapointsFromLmdb(lmdb_path)
+        self._pipeline = ReadDatapointsFromLmdb(lmdb_path, shuffle=shuffle)
         self._pipeline = TransformImageForResNetLikeModels(
             self._pipeline, normalize=normalize_image, index_or_key="image"
         )
@@ -49,11 +47,6 @@ class MaskedLanguageModelingDataset(IterableDataset):
             mask_probability=mask_probability,
             replace_probability=replace_probability,
         )
-        # Keep a fixed-size buffer: examples will be pushed in this buffer and
-        # randomly selected to make batches; a good proxy for random reads.
-        # Set buffer size=0 to avoid shuffling and have finite length.
-        if buffer_size > 0:
-            self._pipeline = df.LocallyShuffleData(self._pipeline, buffer_size)
 
     @classmethod
     def from_config(
@@ -76,7 +69,7 @@ class MaskedLanguageModelingDataset(IterableDataset):
             replace_probability=_C.PRETEXT.MASKED_LM.REPLACE_PROBABILITY,
             normalize_image=_C.DATA.NORMALIZE_IMAGE,
             max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
-            buffer_size=0 if split == "val" else 64,
+            shuffle=False if split == "val" else True,
         )
 
     def __len__(self):

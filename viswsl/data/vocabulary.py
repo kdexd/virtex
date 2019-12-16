@@ -1,9 +1,5 @@
 import csv
-import logging
 from typing import Dict
-
-
-logger = logging.getLogger(__name__)
 
 
 class SentencePieceVocabulary(object):

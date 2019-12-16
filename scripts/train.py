@@ -2,7 +2,6 @@ import argparse
 import os
 import random
 import sys
-from typing import Iterator
 
 from loguru import logger
 import numpy as np
@@ -22,8 +21,8 @@ from viswsl.factories import (
 )
 from viswsl.model import ViswslModel
 from viswsl.utils.checkpointing import CheckpointManager
+from viswsl.utils.common import cycle, Timer
 import viswsl.utils.distributed as dist
-from viswsl.utils.logging import Timer
 
 
 parser = argparse.ArgumentParser(
@@ -173,7 +172,7 @@ if __name__ == "__main__":
     # Keep track of (moving) average time per iteration and ETA.
     timer = Timer(window_size=_A.log_every, total_iterations=_C.OPTIM.NUM_ITERATIONS)
     # Create an iterator from dataloader to sample batches perpetually.
-    train_dataloader_iter: Iterator = iter(train_dataloader)
+    train_dataloader_iter = cycle(train_dataloader, device)
 
     # -------------------------------------------------------------------------
     #   TRAINING LOOP
@@ -185,10 +184,7 @@ if __name__ == "__main__":
         # Simulate a larger batch size (mostly due to GPU constraints).
         batch_loss = torch.tensor(0.0, device=device)
         for _ in range(_C.OPTIM.BATCH_SIZE_MULTIPLIER):
-            # keys: {"image_id", "image", "caption_tokens", "masked_labels"}
             batch = next(train_dataloader_iter)
-            for key in batch:
-                batch[key] = batch[key].to(device)
 
             # keys; {"predictions", "loss"}
             output_dict = model(
