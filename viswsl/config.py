@@ -6,6 +6,7 @@ Parts of this class are adopted from several of my past projects:
 """
 from typing import Any, List, Optional
 
+from loguru import logger
 from yacs.config import CfgNode as CN
 import viswsl.utils.distributed as dist
 
@@ -103,7 +104,7 @@ class Config(object):
         One of ``["sgd", "adam", "adamw"]``.
     OPTIM.NUM_ITERATIONS: 1000000
         Number of iterations to train for, batches are randomly sampled.
-    OPTIM.BATCH_SIZE_PER_GPU: 32
+    OPTIM.BATCH_SIZE_PER_GPU: 64
         Batch size per GPU (or just CPU) during training and evaluation.
     OPTIM.BATCH_SIZE_MULTIPLIER: 1
         Number of batches to use for accumulating gradients before taking
@@ -115,15 +116,15 @@ class Config(object):
             2. ``TOTAL_BATCH_SIZE = BATCH_SIZE_PER_ITER * BATCH_SIZE_MULTIPLIER``
         These are just for reference and should not be used anywhere.
 
-    OPTIM.LR: 1e-4
+    OPTIM.LR: 1e-5
         Initial learning rate for optimizer. This linearly decays to zero till
         the end of training.
-    OPTIM.WARMUP_STEPS: 2000
+    OPTIM.WARMUP_STEPS: 10000
         Number of steps to perform LR warmup. Learning rate goes linearly from
         0 to ``OPTIM.LR`` for ``OPTIM.WARMUP_STEPS`` steps. A good rule of
         thumb is to set it as ``(2 / 1 - beta2)`` for Adam-like optimizers, or
         5-10% of total number of iterations.
-    OPTIM.WEIGHT_DECAY: 1e-3
+    OPTIM.WEIGHT_DECAY: 1e-4
         Weight decay co-efficient for optimizer.
     OPTIM.SGD_MOMENTUM: 0.9
         Value for momentum co-efficient, only used when ``OPTIM.OPTIMIZER_NAME``
@@ -168,15 +169,15 @@ class Config(object):
 
         _C.OPTIM = CN()
         _C.OPTIM.OPTIMIZER_NAME = "adamw"
-        _C.OPTIM.BATCH_SIZE_PER_GPU = 32
+        _C.OPTIM.BATCH_SIZE_PER_GPU = 64
         _C.OPTIM.BATCH_SIZE_MULTIPLIER = 1
 
         _C.OPTIM.NUM_ITERATIONS = 1000000
-        _C.OPTIM.LR = 1e-4
-        _C.OPTIM.WARMUP_STEPS = 2000
+        _C.OPTIM.LR = 1e-5
+        _C.OPTIM.WARMUP_STEPS = 10000
         _C.OPTIM.LR_DECAY_NAME = "cosine"
 
-        _C.OPTIM.WEIGHT_DECAY = 1e-3
+        _C.OPTIM.WEIGHT_DECAY = 1e-4
         _C.OPTIM.NO_DECAY = [".bn", ".norm", ".bias"]
         _C.OPTIM.SGD_MOMENTUM = 0.9
         _C.OPTIM.SGD_NESTEROV = True
@@ -187,7 +188,7 @@ class Config(object):
         _C.DOWNSTREAM.VOC07_CLF.DATA_ROOT = "data/VOC2007"
         _C.DOWNSTREAM.VOC07_CLF.BATCH_SIZE = 256
         _C.DOWNSTREAM.VOC07_CLF.LAYER_NAMES = ["layer3", "layer4"]
-        _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.1, 1.0, 2.0]
+        _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.001, 0.01, 0.1, 1.0, 2.0]
 
         # Placeholders, set these two values after merging from file.
         _C.OPTIM.BATCH_SIZE_PER_ITER = 0
@@ -223,6 +224,18 @@ class Config(object):
         self._C.OPTIM.TOTAL_BATCH_SIZE = (
             self._C.OPTIM.BATCH_SIZE_PER_ITER * self._C.OPTIM.BATCH_SIZE_MULTIPLIER
         )
+
+        # Set textual stream architecture if specified in string.
+        # For example: "default::l6-d768-h12":
+        #     l = layers, d = hidden_size, h = num_heads
+        textual_stream_name_parts = self._C.MODEL.TEXTUAL.NAME.split("::")[-1].split("-")
+        for name_part in textual_stream_name_parts:
+            if name_part[0] == "l":
+                self._C.MODEL.TEXTUAL.NUM_LAYERS = int(name_part[1:])
+            elif name_part[0] == "d":
+                self._C.MODEL.TEXTUAL.HIDDEN_SIZE = int(name_part[1:])
+            elif name_part[0] == "h":
+                self._C.MODEL.TEXTUAL.NUM_ATTENTION_HEADS = int(name_part[1:]
 
     def __getattr__(self, attr: str):
         return self._C.__getattr__(attr)

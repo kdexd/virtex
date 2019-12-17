@@ -62,7 +62,7 @@ class TextualStreamFactory(Factory):
 
         vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
         return cls.create(
-            _C.MODEL.TEXTUAL.NAME,
+            _C.MODEL.TEXTUAL.NAME.split("::")[0],
             vocab_size=len(vocabulary),
             hidden_size=_C.MODEL.TEXTUAL.HIDDEN_SIZE,
             num_attention_heads=_C.MODEL.TEXTUAL.NUM_ATTENTION_HEADS,

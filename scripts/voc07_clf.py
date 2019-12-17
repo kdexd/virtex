@@ -246,7 +246,7 @@ if __name__ == "__main__":
                     targets_test[:, cls_idx],
                     layer_name,
                     train_dataset.class_names[cls_idx],
-                    _C_DOWNSTREAM.VOC07_CLF.SVM_COSTS,
+                    _C_DOWNSTREAM.SVM_COSTS,
                 )
             )
 
