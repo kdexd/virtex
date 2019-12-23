@@ -59,8 +59,8 @@ class WordAndPositionalEmbedding(nn.Module):
 
         # Zero-out embeddings for positions which have padding tokens.
         # shape: (batch_size, max_sequence_length, 1)
-        token_mask = (tokens != self._padding_idx).unsqueeze(-1).float()
+        token_mask = (tokens != self._padding_idx).unsqueeze(-1)
 
         # shape: (batch_size, max_sequence_length, embedding_size)
-        embeddings = embeddings * token_mask
+        embeddings = embeddings * token_mask.type(embeddings.dtype)
         return embeddings

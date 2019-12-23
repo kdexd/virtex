@@ -29,7 +29,15 @@ pip install -r requirements.txt
 
 <!-- Mention apt dependency: ZeroMQ (libzmq3-dev) -->
 
-4. Install this codebase as a package in development version.
+4. **[Optional]** Install NVIDIA Apex for Half-precision training. (Requires GCC 5+)
+
+```
+pip install -v --no-cache-dir --global-option="--cpp_ext" \
+    --global-option="--cuda_ext" git+https://github.com/nvidia/apex.git
+```
+
+
+5. Install this codebase as a package in development version.
 
 ```
 python setup.py develop

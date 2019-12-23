@@ -3,6 +3,7 @@ import os
 import random
 import sys
 
+from apex import amp
 from loguru import logger
 import numpy as np
 import torch
@@ -147,14 +148,21 @@ if __name__ == "__main__":
         VisualStreamFactory.from_config(_C), TextualStreamFactory.from_config(_C)
     ).to(device)
 
+    optimizer = OptimizerFactory.from_config(_C, model.named_parameters())
+    lr_scheduler = LRSchedulerFactory.from_config(_C, optimizer)
+
+    # Wrap model and optimizer using NVIDIA Apex for mixed precision training.
+    # This will be no-op for `_C.MIXED_PRECISION_OPT = 0`.
+    # NOTE: Always do this before wrapping model with DistributedDataParallel.
+    model, optimizer = amp.initialize(
+        model, optimizer, opt_level=f"O{_C.MIXED_PRECISION_OPT}"
+    )
+
     if dist.get_world_size() > 1:
         dist.synchronize()
         model = nn.parallel.DistributedDataParallel(  # type: ignore
-            model, device_ids=[device]
+            model, device_ids=[device], find_unused_parameters=True
         )
-
-    optimizer = OptimizerFactory.from_config(_C, model.named_parameters())
-    lr_scheduler = LRSchedulerFactory.from_config(_C, optimizer)
 
     # -------------------------------------------------------------------------
     #  BEFORE TRAINING STARTS
@@ -194,13 +202,17 @@ if __name__ == "__main__":
             # (summed) while the loss is averaged across training instances.
             loss = output_dict["loss"].mean() / _C.OPTIM.BATCH_SIZE_MULTIPLIER
             batch_loss += loss.item()
-            loss.backward()
 
-        for parameter in model.parameters():
-            if parameter.grad is not None:
-                parameter.grad.clamp_(
-                    min=-_C.OPTIM.CLAMP_GRADIENTS, max=_C.OPTIM.CLAMP_GRADIENTS
-                )
+            # Perform dynamic scaling of loss to adjust for mixed precision.
+            # For normal FP32 training, we have `scaled_loss = loss`.
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
+
+        # Clip gradients before optimizer step.
+        torch.nn.utils.clip_grad_value_(
+            amp.master_params(optimizer), _C.OPTIM.CLAMP_GRADIENTS
+        )
+
         optimizer.step()
         lr_scheduler.step()
         timer.toc()

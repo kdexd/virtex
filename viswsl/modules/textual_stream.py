@@ -12,6 +12,7 @@ class DefaultTextualStream(nn.Module):
         hidden_size: int,
         num_attention_heads: int,
         num_layers: int,
+        activation: str = "gelu",
         padding_idx: int = 0,
     ):
         super().__init__()
@@ -25,7 +26,7 @@ class DefaultTextualStream(nn.Module):
         )
 
         _transformer_encoder_layer = nn.TransformerEncoderLayer(
-            self.hidden_size, self.num_attention_heads, activation="gelu"
+            self.hidden_size, self.num_attention_heads, activation=activation
         )
         self._transformer_encoder = nn.TransformerEncoder(
             _transformer_encoder_layer, self.num_layers

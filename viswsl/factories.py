@@ -67,6 +67,7 @@ class TextualStreamFactory(Factory):
             hidden_size=_C.MODEL.TEXTUAL.HIDDEN_SIZE,
             num_attention_heads=_C.MODEL.TEXTUAL.NUM_ATTENTION_HEADS,
             num_layers=_C.MODEL.TEXTUAL.NUM_LAYERS,
+            activation=_C.MODEL.TEXTUAL.ACTIVATION,
             padding_idx=vocabulary.pad_index,
         )
 

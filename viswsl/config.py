@@ -141,6 +141,7 @@ class Config(object):
     ):
         _C = CN()
         _C.RANDOM_SEED = 0
+        _C.MIXED_PRECISION_OPT = 0
 
         _C.DATA = CN()
         _C.DATA.VOCABULARY = "data/coco_vocabulary.vocab"
@@ -166,6 +167,7 @@ class Config(object):
         _C.MODEL.TEXTUAL.HIDDEN_SIZE = 768
         _C.MODEL.TEXTUAL.NUM_ATTENTION_HEADS = 12
         _C.MODEL.TEXTUAL.NUM_LAYERS = 6
+        _C.MODEL.TEXTUAL.ACTIVATION = "gelu"
 
         _C.OPTIM = CN()
         _C.OPTIM.OPTIMIZER_NAME = "adamw"
@@ -237,11 +239,16 @@ class Config(object):
             elif name_part[0] == "h":
                 self._C.MODEL.TEXTUAL.NUM_ATTENTION_HEADS = int(name_part[1:]
 
+        if self._C.MIXED_PRECISION_OPT > 0 and self._C.MODEL.TEXTUAL.ACTIVATION == "gelu":
+            logger.warning("Cannot use GELU with mixed precision, changing to RELU.")
+            self._C.MODEL.TEXTUAL.ACTIVATION = "relu"
+
     def __getattr__(self, attr: str):
         return self._C.__getattr__(attr)
 
     def __str__(self):
         common_string: str = str(CN({"RANDOM_SEED": self._C.RANDOM_SEED})) + "\n"
+        common_string: str = str(CN({"MIXED_PRECISION_OPT": self._C.MIXED_PRECISION_OPT})) + "\n"
         common_string += str(CN({"DATA": self._C.DATA})) + "\n"
         common_string += str(CN({"PRETEXT": self._C.PRETEXT})) + "\n"
         common_string += str(CN({"MODEL": self._C.MODEL})) + "\n"
