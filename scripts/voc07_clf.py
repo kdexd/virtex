@@ -164,7 +164,9 @@ if __name__ == "__main__":
 
     # Initialize from a checkpoint, but only keep the visual module.
     model = ViswslModel(
-        VisualStreamFactory.from_config(_C), TextualStreamFactory.from_config(_C)
+        visual=VisualStreamFactory.from_config(_C),
+        textual=TextualStreamFactory.from_config(_C),
+        fused_normalize=_C.MODEL.FUSED_NORMALIZE,
     ).to(device)
     model.load_state_dict(torch.load(_A.checkpoint_path))
 

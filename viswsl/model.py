@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import torch
 from torch import nn
@@ -8,19 +8,24 @@ from viswsl.modules.attention import ScaledDotProductAttention
 
 
 class ViswslModel(nn.Module):
-    # TODO (kd): Find a better name maybe?
 
-    def __init__(self, visual, textual):
+    def __init__(
+        self,
+        visual,
+        textual,
+        fused_normalize: bool = False,
+    ):
         super().__init__()
         self.visual = visual
         self.textual = textual
+        self._fused_projection_size = 2048 + textual.hidden_size
 
-        # TODO (kd): Remove hardcoded values once this becomes a dependency
-        # injection.
         self._attention = ScaledDotProductAttention(2048, textual.hidden_size)
-        self._linear = nn.Linear(
-            2048 + textual.hidden_size, textual.vocab_size
+        self._layer_norm = (
+            nn.Identity() if not fused_normalize
+            else nn.LayerNorm(self._fused_projection_size, eps=1e-8)
         )
+        self._linear = nn.Linear(self._fused_projection_size, textual.vocab_size)
         self._loss = nn.CrossEntropyLoss(ignore_index=textual.padding_idx)
 
     def forward(
@@ -41,10 +46,12 @@ class ViswslModel(nn.Module):
         # shape: (batch_size, max_caption_length, 2048)
         attended_features = self._attention(image_features, output_hidden)
 
+        # shape: (batch_size, max_caption_length, fused_projection_size)
+        concatenated = torch.cat((attended_features, output_hidden), dim=-1)
+        concatenated = self._layer_norm(concatenated)
+
         # shape: (batch_size, max_caption_length, vocab_size)
-        output_logits = self._linear(
-            torch.cat((attended_features, output_hidden), dim=-1)
-        )
+        output_logits = self._linear(concatenated)
 
         # Get predictions from logits, only the predictions at [MASK]ed
         # positions would be useful.

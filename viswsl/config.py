@@ -169,6 +169,8 @@ class Config(object):
         _C.MODEL.TEXTUAL.NUM_LAYERS = 6
         _C.MODEL.TEXTUAL.ACTIVATION = "gelu"
 
+        _C.MODEL.FUSED_NORMALIZE = False
+
         _C.OPTIM = CN()
         _C.OPTIM.OPTIMIZER_NAME = "adamw"
         _C.OPTIM.BATCH_SIZE_PER_GPU = 64
