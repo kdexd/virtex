@@ -1,5 +1,6 @@
+import math
 import random
-from typing import Union
+from typing import List, Union
 
 import dataflow as df
 from dataflow import imgaug as aug
@@ -55,7 +56,7 @@ class TransformImageForResNetLikeModels(df.ProxyDataFlow):
             yield datapoint
 
 
-class TokenizeAndPadCaption(df.ProxyDataFlow):
+class TokenizeCaption(df.ProxyDataFlow):
     def __init__(
         self,
         ds: df.DataFlow,
@@ -90,12 +91,6 @@ class TokenizeAndPadCaption(df.ProxyDataFlow):
             # Trim captions up to maximum length.
             caption_tokens = caption_tokens[: self._max_caption_length]
 
-            # Pad the sequence of tokens up to maximum length.
-            # This makes the default ``collate_fn`` of dataloader work.
-            caption_tokens.extend(
-                [self._vocabulary.pad_token]
-                * (self._max_caption_length - len(caption_tokens))
-            )
             # Convert (string) tokens to (integer) token indices.
             token_indices = [
                 self._vocabulary.get_token_index(t) for t in caption_tokens
@@ -106,6 +101,10 @@ class TokenizeAndPadCaption(df.ProxyDataFlow):
 
 
 class MaskSomeTokensRandomly(df.ProxyDataFlow):
+    r"""
+    Mask some tokens randomly tokens from an input caption. Do this before
+    padding the caption to maximum length to avoid instance with no padded tokens.
+    """
 
     # Make sure to change here if changed in SentencePieceTokenizer.
     SP_SPACE = u"▁"
@@ -117,7 +116,7 @@ class MaskSomeTokensRandomly(df.ProxyDataFlow):
         mask_proportion: float = 0.15,
         mask_probability: float = 0.80,
         replace_probability: float = 0.10,
-        input_key: str = "caption_tokens",
+        input_key: str = "masked_tokens",
         output_key: str = "masked_labels",
     ):
         self.ds = ds
@@ -125,12 +124,6 @@ class MaskSomeTokensRandomly(df.ProxyDataFlow):
 
         self._mask_index = vocabulary.mask_index
         self._pad_index = vocabulary.pad_index
-        self._ignore_indices = [
-            vocabulary.pad_index,
-            vocabulary.unk_index,
-            vocabulary.cls_index,
-            vocabulary.sep_index,
-        ]
         self._mask_proportion = mask_proportion
         self._mask_prob = mask_probability
         self._repl_prob = replace_probability
@@ -140,40 +133,45 @@ class MaskSomeTokensRandomly(df.ProxyDataFlow):
     def __iter__(self):
 
         for datapoint in self.ds:
-            caption_tokens = datapoint[self._ik]
-            masked_labels = [self._pad_index] * len(caption_tokens)
+            masked_tokens = datapoint[self._ik]
+            masked_labels = [self._pad_index] * len(masked_tokens)
 
-            for i, token_index in enumerate(caption_tokens):
-                if token_index not in self._ignore_indices:
-                    # Get float in [0, 1) interval from a uniform distribution.
-                    # The probability of ``mask_flag < k`` is ``k``.
-                    mask_flag: float = random.random()
-                    if mask_flag <= self._mask_proportion:
-
-                        # Whether to replace with [MASK] or random word.
-                        _flag: float = random.random()
-                        if _flag <= self._mask_prob + self._repl_prob:
-                            masked_labels[i] = token_index
-                            if _flag <= self._mask_prob:
-                                caption_tokens[i] = self._mask_index
-                            else:
-                                caption_tokens[i] = self._random_token_index()
+            # Indices in `masked_tokens` list to mask (minimum 1 index).
+            # Leave out first and last indices (boundary tokens).
+            tokens_to_mask: List[int] = random.sample(
+                list(range(1, len(masked_tokens) - 1)),
+                math.ceil((len(masked_tokens) - 2) * self._mask_proportion),
+            )
+            for i in tokens_to_mask:
+                # Whether to replace with [MASK] or random word.
+                # If only one token, always [MASK].
+                if len(tokens_to_mask) == 1:
+                    masked_labels[i] = masked_tokens[i]
+                    masked_tokens[i] = self._mask_index
+                else:
+                    _flag: float = random.random()
+                    if _flag <= self._mask_prob + self._repl_prob:
+                        if _flag <= self._mask_prob:
+                            masked_labels[i] = masked_tokens[i]
+                            masked_tokens[i] = self._mask_index
+                        else:
+                            masked_tokens[i] = self._random_token_index()
 
             # At this point, caption tokens and masked labels are lists of
             # same length. Do whole word masking now.
-            for i in range(len(caption_tokens)):
-                if caption_tokens[i] == self._mask_index:
+            for i in range(len(masked_tokens)):
+                if masked_tokens[i] == self._mask_index:
                     # Mask all following tokens until getting one which starts
                     # with a space.
-                    for j in range(i + 1, len(caption_tokens)):
-                        tt = self._vocabulary.get_token_from_index(caption_tokens[j])
+                    for j in range(i + 1, len(masked_tokens)):
+                        tt = self._vocabulary.get_token_from_index(masked_tokens[j])
                         if (
                             tt.startswith(self.SP_SPACE)
                             or tt in self._vocabulary.special_tokens
                         ):
                             break
-                        masked_labels[j] = caption_tokens[j]
-                        caption_tokens[j] = self._mask_index
+                        masked_labels[j] = masked_tokens[j]
+                        masked_tokens[j] = self._mask_index
 
                     # Mask tokens before this one, if this one doesn't start
                     # with a space.
@@ -184,18 +182,18 @@ class MaskSomeTokensRandomly(df.ProxyDataFlow):
                     ):
                         for j in range(i - 1, -1, -1):
                             tt = self._vocabulary.get_token_from_index(
-                                caption_tokens[j]
+                                masked_tokens[j]
                             )
                             if tt in self._vocabulary.special_tokens:
                                 break
                             if tt.startswith(self.SP_SPACE):
-                                masked_labels[j] = caption_tokens[j]
-                                caption_tokens[j] = self._mask_index
+                                masked_labels[j] = masked_tokens[j]
+                                masked_tokens[j] = self._mask_index
                                 break
-                            masked_labels[j] = caption_tokens[j]
-                            caption_tokens[j] = self._mask_index
+                            masked_labels[j] = masked_tokens[j]
+                            masked_tokens[j] = self._mask_index
 
-            datapoint[self._ik] = caption_tokens
+            datapoint[self._ik] = masked_tokens
             datapoint[self._ok] = masked_labels
             yield datapoint
 
@@ -204,3 +202,33 @@ class MaskSomeTokensRandomly(df.ProxyDataFlow):
             token_index = random.randint(0, len(self._vocabulary) - 1)
             if token_index not in self._vocabulary.special_indices:
                 return token_index
+
+
+class PadSequences(df.ProxyDataFlow):
+    r"""
+    Pad a list of integers or strings on the right to maximum specified length
+    by specified padding value (token/index). Inplace operation on ``input_key``
+    of the dic returned by wrapped dataflow.
+    """
+
+    def __init__(
+        self,
+        ds: df.DataFlow,
+        max_length: int = 25,
+        padding_value: Union[int, str] = "<unk>",
+        input_key: Union[str, List[str]] = "caption_tokens",
+    ):
+        self.ds = ds
+        self._max_length = max_length
+        self._padding_value = padding_value
+        self._ik = input_key if isinstance(input_key, list) else [input_key]
+
+    def __iter__(self):
+        for datapoint in self.ds:
+            # Pad the sequence of tokens up to maximum length.
+            # This makes the default ``collate_fn`` of dataloader work.
+            for ik in self._ik:
+                datapoint[ik].extend(
+                    [self._padding_value] * (self._max_length - len(datapoint[ik]))
+                )
+            yield datapoint

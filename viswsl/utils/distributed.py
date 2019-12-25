@@ -1,4 +1,5 @@
 import os
+from typing import Dict, Union
 
 from loguru import logger
 import torch
@@ -40,12 +41,9 @@ def init_distributed_env(backend: str = "nccl") -> int:
     # Set env variables required to initialize distributed process group.
     # If using SLURM, these may have been set as some other name.
     os.environ["MASTER_ADDR"] = os.environ.get(
-        "MASTER_ADDR",
-        os.environ.get("SLURM_NODELIST", "localhost").split(",")[-1],
+        "MASTER_ADDR", os.environ.get("SLURM_NODELIST", "localhost").split(",")[-1]
     )
-    os.environ["RANK"] = os.environ.get(
-        "RANK", os.environ.get("SLURM_PROCID", "0")
-    )
+    os.environ["RANK"] = os.environ.get("RANK", os.environ.get("SLURM_PROCID", "0"))
     os.environ["WORLD_SIZE"] = os.environ.get(
         "WORLD_SIZE", os.environ.get("SLURM_NTASKS", "1")
     )
@@ -93,12 +91,17 @@ def is_master_process() -> bool:
     """
     return get_rank() == 0
 
-def average_across_processes(t: torch.Tensor) -> torch.Tensor:
+
+def average_across_processes(t: Union[Dict[str, torch.Tensor], torch.Tensor]):
     r"""
-    Averages out a tensor across all processes in a process group. All processes
-    finally have the same mean value.
+    Averages a tensor, or a (flat) dict of tensors across all processes in a
+    process group. All processes finally have the same mean value.
     """
     if dist.is_initialized():
-        dist.all_reduce(t, op=dist.ReduceOp.SUM)
-        t /= get_world_size()
-    return t
+        if isinstance(t, torch.Tensor):
+            dist.all_reduce(t, op=dist.ReduceOp.SUM)
+            t /= get_world_size()
+        elif isinstance(t, dict):
+            for k in t:
+                dist.all_reduce(t[k], op=dist.ReduceOp.SUM)
+                t[k] /= dist.get_world_size()

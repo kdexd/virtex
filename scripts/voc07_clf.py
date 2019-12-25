@@ -17,9 +17,9 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from viswsl.config import Config
-from viswsl.data.datasets import VOC07ClassificationDataset
-from viswsl.factories import VisualStreamFactory, TextualStreamFactory
-from viswsl.model import ViswslModel, VOC07ClassificationFeatureExtractor
+from viswsl.data import VOC07ClassificationDataset
+from viswsl.factories import PretrainingModelFactory
+from viswsl.models import VOC07ClassificationFeatureExtractor
 
 
 # fmt: off
@@ -163,11 +163,7 @@ if __name__ == "__main__":
     NUM_CLASSES = len(train_dataset.class_names)
 
     # Initialize from a checkpoint, but only keep the visual module.
-    model = ViswslModel(
-        visual=VisualStreamFactory.from_config(_C),
-        textual=TextualStreamFactory.from_config(_C),
-        fused_normalize=_C.MODEL.FUSED_NORMALIZE,
-    ).to(device)
+    model = PretrainingModelFactory.from_config(_C).to(device)
     model.load_state_dict(torch.load(_A.checkpoint_path))
 
     feature_extractor = VOC07ClassificationFeatureExtractor(model, mode="avg")

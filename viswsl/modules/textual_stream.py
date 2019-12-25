@@ -5,7 +5,6 @@ from viswsl.modules.embedding import WordAndPositionalEmbedding
 
 
 class DefaultTextualStream(nn.Module):
-
     def __init__(
         self,
         vocab_size: int,
@@ -33,9 +32,7 @@ class DefaultTextualStream(nn.Module):
         )
         self.padding_idx = padding_idx
 
-    def forward(
-        self, caption_tokens: torch.LongTensor, masked_labels: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, caption_tokens: torch.LongTensor) -> torch.Tensor:
 
         # Form a mask, it is True for positions with padding token.
         # Transformer will ignore these positions for multi-headed attention.

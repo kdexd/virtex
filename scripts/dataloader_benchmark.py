@@ -8,9 +8,9 @@ import torch
 from torch.utils.data import DataLoader
 
 from viswsl.config import Config
-from viswsl.data.datasets import MaskedLanguageModelingDataset
-from viswsl.data.vocabulary import SentencePieceVocabulary
-from viswsl.data.tokenizers import SentencePieceTokenizer
+from viswsl.data import (
+    ImageCaptionDataset, SentencePieceVocabulary, SentencePieceTokenizer
+)
 import viswsl.utils.distributed as dist
 from viswsl.utils.common import cycle, Timer
 
@@ -23,7 +23,7 @@ parser.add_argument(
     "--config", help="Path to a config file with all configuration parameters."
 )
 parser.add_argument(
-    "--config-override", nargs="*",
+    "--config-override", nargs="*", default=[],
     help="""A sequence of key-value pairs specifying certain config arguments
     (with dict-like nesting) using a dot operator.""",
 )
@@ -95,12 +95,12 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
     tokenizer = SentencePieceTokenizer(_C.DATA.TOKENIZER)
-    train_dataset = MaskedLanguageModelingDataset.from_config(
-        _C, vocabulary=vocabulary, tokenizer=tokenizer
+    train_dataset = ImageCaptionDataset.from_config(
+        _C, vocabulary=vocabulary, tokenizer=tokenizer, split="train"
     )
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
+        batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
         num_workers=_A.cpu_workers,
         pin_memory=True,
     )
@@ -121,6 +121,22 @@ if __name__ == "__main__":
         # Synchronize every iteratin to record the worst time among processes.
         dist.synchronize()
         timer.toc()
-        if iteration % _A.log_every == 0 and dist.is_master_process():
-            logger.info(timer.stats)
-            dist.synchronize()
+
+    #     examples_str = ""
+    #     for tokens, labels in zip(
+    #         batch["caption_tokens"], batch["masked_labels"],
+    #     ):
+    #         to_strtokens = lambda token_indices: [  # noqa: E731
+    #             vocabulary.get_token_from_index(t.item())
+    #             for t in token_indices if t.item() != vocabulary.unk_index
+    #         ]
+    #         tokens = to_strtokens(tokens)
+    #         labels = to_strtokens(labels)
+
+    #         examples_str += f"""
+    #             Caption tokens      : {tokenizer.detokenize(tokens)}
+    #             Masked Labels       : {" ".join(labels)}
+
+    #             """
+    #     break
+    # print(examples_str)

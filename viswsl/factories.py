@@ -3,6 +3,7 @@ from torch import nn, optim
 
 from viswsl.config import Config
 from viswsl.data.vocabulary import SentencePieceVocabulary
+from viswsl.models import WordMaskingModel
 from viswsl.modules import visual_stream as vstream, textual_stream as tstream
 from viswsl.optim import lr_scheduler
 
@@ -70,6 +71,22 @@ class TextualStreamFactory(Factory):
             activation=_C.MODEL.TEXTUAL.ACTIVATION,
             padding_idx=vocabulary.pad_index,
         )
+
+
+class PretrainingModelFactory(Factory):
+
+    PRODUCTS = {"word_masking": WordMaskingModel}
+
+    @classmethod
+    def from_config(cls, config: Config) -> nn.Module:
+        _C = config
+        visual = VisualStreamFactory.from_config(_C)
+        textual = TextualStreamFactory.from_config(_C)
+
+        # Form kwargs according to the model name, different models require
+        # different sets of kwargs in their constructor.
+        kwargs = {}
+        return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
 
 
 class OptimizerFactory(Factory):
