@@ -1,16 +1,18 @@
-from typing import Any, Dict, Iterable, List, Type
+from functools import partial
+from typing import Any, Callable, Dict, Iterable, List
 from torch import nn, optim
 
 from viswsl.config import Config
 from viswsl.data.vocabulary import SentencePieceVocabulary
 from viswsl.models import WordMaskingModel
 from viswsl.modules import visual_stream as vstream, textual_stream as tstream
-from viswsl.optim import lr_scheduler
+from viswsl.modules import fusion
+from viswsl.optim import Lookahead, lr_scheduler
 
 
 class Factory(object):
 
-    PRODUCTS: Dict[str, Type[Any]] = {}
+    PRODUCTS: Dict[str, Any] = {}
 
     def __init__(self):
         raise ValueError(
@@ -31,7 +33,7 @@ class Factory(object):
         return cls.PRODUCTS[name](*args, **kwargs)
 
     @classmethod
-    def from_config(cls, config: Config, *args, **kwargs) -> Any:
+    def from_config(cls, config: Config) -> Any:
         raise NotImplementedError
 
 
@@ -69,8 +71,35 @@ class TextualStreamFactory(Factory):
             num_attention_heads=_C.MODEL.TEXTUAL.NUM_ATTENTION_HEADS,
             num_layers=_C.MODEL.TEXTUAL.NUM_LAYERS,
             activation=_C.MODEL.TEXTUAL.ACTIVATION,
+            dropout=_C.MODEL.TEXTUAL.DROPOUT,
             padding_idx=vocabulary.pad_index,
         )
+
+
+class FusionFactory(Factory):
+
+    PRODUCTS: Dict[str, Callable[..., fusion.Fusion]] = {
+        "concatenate": fusion.ConcatenateFusion,
+        "additive": partial(fusion.ElementwiseFusion, operation="additive"),
+        "multiplicative": partial(
+            fusion.ElementwiseFusion, operation="multiplicative"
+        ),
+        "multihead": fusion.MultiheadAttentionFusion,
+    }
+
+    @classmethod
+    def from_config(cls, config: Config) -> fusion.Fusion:
+        _C = config
+        kwargs = {
+            "visual_feature_size": _C.MODEL.VISUAL.FEATURE_SIZE,
+            "textual_feature_size": _C.MODEL.TEXTUAL.HIDDEN_SIZE,
+            "projection_size": _C.MODEL.FUSION.PROJECTION_SIZE,
+            "dropout": _C.MODEL.FUSION.DROPOUT,
+        }
+        if _C.MODEL.FUSION.NAME == "multihead":
+            kwargs["num_heads"] = _C.MODEL.FUSION.NUM_ATTENTION_HEADS
+
+        return cls.create(_C.MODEL.FUSION.NAME, **kwargs)
 
 
 class PretrainingModelFactory(Factory):
@@ -82,11 +111,12 @@ class PretrainingModelFactory(Factory):
         _C = config
         visual = VisualStreamFactory.from_config(_C)
         textual = TextualStreamFactory.from_config(_C)
+        fusion = FusionFactory.from_config(_C)
 
         # Form kwargs according to the model name, different models require
         # different sets of kwargs in their constructor.
         kwargs = {}
-        return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
+        return cls.create(_C.MODEL.NAME, visual, textual, fusion, **kwargs)
 
 
 class OptimizerFactory(Factory):
@@ -94,34 +124,26 @@ class OptimizerFactory(Factory):
     PRODUCTS = {"sgd": optim.SGD, "adam": optim.Adam, "adamw": optim.AdamW}
 
     @classmethod
-    def from_config(
+    def from_config(  # type: ignore
         cls, config: Config, named_parameters: Iterable[Any]
     ) -> optim.Optimizer:
         _C = config
 
-        if len(_C.OPTIM.NO_DECAY) > 0:
-            # Turn off weight decay for a few params -- typically norm layers
-            # and biases.
-            # fmt: off
-            param_groups = [
-                {
-                    "params": [
-                        param for name, param in named_parameters
-                        if not any(nd in name for nd in _C.OPTIM.NO_DECAY)
-                    ],
-                    "weight_decay": _C.OPTIM.WEIGHT_DECAY
-                }, {
-                    "params": [
-                        param for name, param in named_parameters
-                        if any(nd in name for nd in _C.OPTIM.NO_DECAY)
-                    ],
-                    "weight_decay": 0.0
-                }
-            ]
-            # fmt: on
-        else:
-            # Apply weight decay to all params equally.
-            param_groups = named_parameters  # type: ignore
+        # No weight decay for some params -- typically norm layers and biases.
+        # fmt: off
+        decay = [
+            param for name, param in named_parameters
+            if not any(n in name for n in _C.OPTIM.NO_DECAY)
+        ]
+        no_decay = [
+            param for name, param in named_parameters
+            if any(n in name for n in _C.OPTIM.NO_DECAY)
+        ]
+        # fmt: on
+        param_groups = [
+            {"params": decay, "weight_decay": _C.OPTIM.WEIGHT_DECAY},
+            {"params": no_decay, "weight_decay": 0.0},
+        ]
 
         # Form kwargs according to the optimizer name, different optimizers
         # may require different hyperparams in their constructor, for example:
@@ -131,7 +153,12 @@ class OptimizerFactory(Factory):
             kwargs["momentum"] = _C.OPTIM.SGD_MOMENTUM
             kwargs["nesterov"] = _C.OPTIM.SGD_NESTEROV
 
-        return cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
+        optimizer = cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
+        if _C.OPTIM.USE_LOOKAHEAD:
+            optimizer = Lookahead(
+                optimizer, k=_C.OPTIM.LOOKAHEAD_STEPS, alpha=_C.OPTIM.LOOKAHEAD_ALPHA
+            )
+        return optimizer
 
 
 class LRSchedulerFactory(Factory):
@@ -142,7 +169,7 @@ class LRSchedulerFactory(Factory):
     }
 
     @classmethod
-    def from_config(
+    def from_config(  # type: ignore
         cls, config: Config, optimizer: optim.Optimizer
     ) -> optim.lr_scheduler.LambdaLR:
         _C = config

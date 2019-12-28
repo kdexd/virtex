@@ -12,20 +12,24 @@ class DefaultTextualStream(nn.Module):
         num_attention_heads: int,
         num_layers: int,
         activation: str = "gelu",
+        dropout: float = 0.1,
         padding_idx: int = 0,
     ):
         super().__init__()
         self.vocab_size = vocab_size
-        self.hidden_size = hidden_size
+        self.textual_feature_size = hidden_size
         self.num_attention_heads = num_attention_heads
         self.num_layers = num_layers
 
         self._embedding = WordAndPositionalEmbedding(
-            self.vocab_size, self.hidden_size, dropout_probability=0.1
+            self.vocab_size, self.textual_feature_size, dropout=dropout
         )
 
         _transformer_encoder_layer = nn.TransformerEncoderLayer(
-            self.hidden_size, self.num_attention_heads, activation=activation
+            self.textual_feature_size,
+            self.num_attention_heads,
+            activation=activation,
+            dropout=dropout
         )
         self._transformer_encoder = nn.TransformerEncoder(
             _transformer_encoder_layer, self.num_layers
@@ -48,10 +52,10 @@ class DefaultTextualStream(nn.Module):
         token_embeddings = token_embeddings.transpose(0, 1)
 
         # shape: (max_caption_length, batch_size, hidden_size)
-        output_hidden = self._transformer_encoder(
+        textual_features = self._transformer_encoder(
             token_embeddings, src_key_padding_mask=caption_mask
         )
         # shape: (batch_size, max_caption_length, hidden_size)
-        output_hidden = output_hidden.transpose(0, 1)
+        textual_features = textual_features.transpose(0, 1)
 
-        return output_hidden
+        return textual_features

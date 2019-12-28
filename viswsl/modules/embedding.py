@@ -10,7 +10,7 @@ class WordAndPositionalEmbedding(nn.Module):
         vocab_size: int,
         embedding_size: int = 512,
         max_sequence_length: int = 30,
-        dropout_probability: float = 0.0,
+        dropout: float = 0.0,
         padding_idx: int = 0,
     ):
         super().__init__()
@@ -23,9 +23,8 @@ class WordAndPositionalEmbedding(nn.Module):
         self._position_embedding = nn.Embedding(
             max_sequence_length, embedding_size
         )
-
         self._layer_norm = nn.LayerNorm(embedding_size, eps=1e-8)
-        self._dropout = nn.Dropout(p=dropout_probability)
+        self._dropout = nn.Dropout(p=dropout)
         self._padding_idx = padding_idx
 
     def forward(
