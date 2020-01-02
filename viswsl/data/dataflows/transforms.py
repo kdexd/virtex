@@ -26,6 +26,8 @@ class TransformImageForResNetLikeModels(df.ProxyDataFlow):
         self,
         ds: df.DataFlow,
         normalize: bool = False,
+        image_resize_size: int = 256,
+        image_crop_size: int = 224,
         index_or_key: Union[int, str] = "image",
     ):
         self.ds = ds
@@ -34,8 +36,8 @@ class TransformImageForResNetLikeModels(df.ProxyDataFlow):
 
         self._augmentor = df.imgaug.AugmentorList(
             [
-                aug.ResizeShortestEdge(256),
-                aug.RandomCrop(224),
+                aug.ResizeShortestEdge(image_resize_size),
+                aug.RandomCrop(image_crop_size),
                 aug.ToFloat32(),
                 aug.MapImage(self._transform),
             ]

@@ -28,7 +28,9 @@ class ImageCaptionDataset(IterableDataset):
         mask_probability: float = 0.80,
         replace_probability: float = 0.10,
         normalize_image: bool = False,
-        max_caption_length: int = 25,
+        image_resize_size: int = 256,
+        image_crop_size: int = 224,
+        max_caption_length: int = 30,
         shuffle: bool = False,
     ):
         self._vocabulary = vocabulary
@@ -98,6 +100,8 @@ class ImageCaptionDataset(IterableDataset):
             mask_probability=_C.PRETEXT.WORD_MASKING.MASK_PROBABILITY,
             replace_probability=_C.PRETEXT.WORD_MASKING.REPLACE_PROBABILITY,
             normalize_image=_C.DATA.NORMALIZE_IMAGE,
+            image_resize_size=_C.DATA.IMAGE_RESIZE_SIZE,
+            image_crop_size=_C.DATA.IMAGE_CROP_SIZE,
             max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
             shuffle=False if split == "val" else True,
         )

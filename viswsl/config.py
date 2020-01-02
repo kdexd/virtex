@@ -89,10 +89,6 @@ class Config(object):
 
     MODEL.TEXTUAL:
         Parameters defining the architecture of the textual stream.
-    MODEL.TEXTUAL.MODEL_DIM: 768
-        Size of the hidden state for the transformer.
-    MODEL.TEXTUAL.ATTENTION_HEADS: 12
-        Number of attention heads for multi-headed attention.
     MODEL.TEXTUAL.NUM_LAYERS: 6
         Number of layers in the transformer encoder.
     __________
@@ -149,6 +145,8 @@ class Config(object):
         _C.DATA.TRAIN_LMDB = "data/serialized/coco_train2017.lmdb"
         _C.DATA.VAL_LMDB = "data/serialized/coco_val2017.lmdb"
         _C.DATA.NORMALIZE_IMAGE = True
+        _C.DATA.IMAGE_RESIZE_SIZE = 256
+        _C.DATA.IMAGE_CROP_SIZE = 224
         _C.DATA.MAX_CAPTION_LENGTH = 30
 
         _C.PRETEXT = CN()
@@ -166,17 +164,17 @@ class Config(object):
         _C.MODEL.VISUAL.PRETRAINED = False
 
         _C.MODEL.TEXTUAL = CN()
-        _C.MODEL.TEXTUAL.NAME = "default"
-        _C.MODEL.TEXTUAL.HIDDEN_SIZE = 768
-        _C.MODEL.TEXTUAL.NUM_ATTENTION_HEADS = 12
+        _C.MODEL.TEXTUAL.NAME = "postnorm_gelu"
+        _C.MODEL.TEXTUAL.HIDDEN_SIZE = 512
+        _C.MODEL.TEXTUAL.ATTENTION_HEADS = 8
+        _C.MODEL.TEXTUAL.FEEDFORWARD_SIZE = 2048
         _C.MODEL.TEXTUAL.NUM_LAYERS = 6
-        _C.MODEL.TEXTUAL.ACTIVATION = "gelu"
         _C.MODEL.TEXTUAL.DROPOUT = 0.1
 
         _C.MODEL.FUSION = CN()
         _C.MODEL.FUSION.NAME = "multihead"
         _C.MODEL.FUSION.PROJECTION_SIZE = 512
-        _C.MODEL.FUSION.NUM_ATTENTION_HEADS = 8
+        _C.MODEL.FUSION.ATTENTION_HEADS = 8
         _C.MODEL.FUSION.DROPOUT = 0.1
 
         _C.OPTIM = CN()
@@ -195,7 +193,7 @@ class Config(object):
         _C.OPTIM.BATCH_SIZE_MULTIPLIER = 1
 
         _C.OPTIM.NUM_ITERATIONS = 1000000
-        _C.OPTIM.LR = 1e-5
+        _C.OPTIM.LR = 1e-4
         _C.OPTIM.WARMUP_STEPS = 10000
         _C.OPTIM.LR_DECAY_NAME = "cosine"
 
@@ -204,12 +202,11 @@ class Config(object):
         _C.DOWNSTREAM.VOC07_CLF.DATA_ROOT = "data/VOC2007"
         _C.DOWNSTREAM.VOC07_CLF.BATCH_SIZE = 256
         _C.DOWNSTREAM.VOC07_CLF.LAYER_NAMES = ["layer3", "layer4"]
-        _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.001, 0.01, 0.1, 1.0, 2.0]
+        _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.01, 0.1, 1.0, 10.0]
 
         # Placeholders, set these values after merging from file.
         _C.OPTIM.BATCH_SIZE_PER_ITER = 0
         _C.OPTIM.TOTAL_BATCH_SIZE = 0
-
 
         # Override parameter values from YAML file first, then from override
         # list, then add derived params.
@@ -242,9 +239,13 @@ class Config(object):
             self._C.OPTIM.BATCH_SIZE_PER_ITER * self._C.OPTIM.BATCH_SIZE_MULTIPLIER
         )
 
+        if self._C.MIXED_PRECISION_OPT > 0 and "gelu" in self._C.MODEL.TEXTUAL.NAME:
+            logger.warning("Cannot use GELU with FP16 precision, changing to RELU.")
+            self._C.MODEL.TEXTUAL.NAME.replace("gelu", "relu")
+
         # Set textual stream architecture if specified in string.
-        # For example: "default::L6_H768_A12":
-        #     L = layers, H = hidden_size, A = num_attention_heads
+        # For example: "prenorm_gelu::L6_H768_A12_F3072":
+        #     L = layers, H = hidden_size, A = attention_heads, F= feedforward_size
         tstream_name_parts = self._C.MODEL.TEXTUAL.NAME.split("::")[-1].split("_")
         for name_part in tstream_name_parts:
             if name_part[0] == "L":
@@ -252,18 +253,30 @@ class Config(object):
             elif name_part[0] == "H":
                 self._C.MODEL.TEXTUAL.HIDDEN_SIZE = int(name_part[1:])
             elif name_part[0] == "A":
-                self._C.MODEL.TEXTUAL.NUM_ATTENTION_HEADS = int(name_part[1:])
+                self._C.MODEL.TEXTUAL.ATTENTION_HEADS = int(name_part[1:])
+            elif name_part[0] == "F":
+                self._C.MODEL.TEXTUAL.FEEDFORWARD_SIZE = int(name_part[1:])
 
-        if self._C.MIXED_PRECISION_OPT > 0 and self._C.MODEL.TEXTUAL.ACTIVATION == "gelu":
-            logger.warning("Cannot use GELU with mixed precision, changing to RELU.")
-            self._C.MODEL.TEXTUAL.ACTIVATION = "relu"
+        # For simplicity, set size and heads for fusion to be same as transformer.
+        # This might be temporary, can possibly remove it later.
+        if (
+            self._C.MODEL.FUSION.PROJECTION_SIZE != self._C.MODEL.TEXTUAL.HIDDEN_SIZE
+            or self._C.MODEL.FUSION.ATTENTION_HEADS
+            != self._C.MODEL.TEXTUAL.ATTENTION_HEADS
+        ):
+            logger.warning("Setting hyperparams for fusion to be same as textual.")
+
+        self._C.MODEL.FUSION.PROJECTION_SIZE = self._C.MODEL.TEXTUAL.HIDDEN_SIZE
+        self._C.MODEL.FUSION.ATTENTION_HEADS = self._C.MODEL.TEXTUAL.ATTENTION_HEADS
 
     def __getattr__(self, attr: str):
         return self._C.__getattr__(attr)
 
     def __str__(self):
         common_string: str = str(CN({"RANDOM_SEED": self._C.RANDOM_SEED})) + "\n"
-        common_string: str = str(CN({"MIXED_PRECISION_OPT": self._C.MIXED_PRECISION_OPT})) + "\n"
+        common_string: str = str(
+            CN({"MIXED_PRECISION_OPT": self._C.MIXED_PRECISION_OPT})
+        ) + "\n"
         common_string += str(CN({"DATA": self._C.DATA})) + "\n"
         common_string += str(CN({"PRETEXT": self._C.PRETEXT})) + "\n"
         common_string += str(CN({"MODEL": self._C.MODEL})) + "\n"

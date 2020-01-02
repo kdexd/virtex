@@ -6,7 +6,7 @@ from torch import nn
 from viswsl.modules.fusion import Fusion
 
 
-class WordMaskingModel(nn.Module):
+class CaptioningModel(nn.Module):
     def __init__(self, visual, textual, fusion: Fusion):
         super().__init__()
         self.visual = visual
@@ -16,7 +16,7 @@ class WordMaskingModel(nn.Module):
         # Tie input and output word embeddings to reduce parameters.
         # Output embedding layer will also learn a bias.
         if textual.textual_feature_size == fusion.fused_feature_size:
-            self.output = nn.Linear(
+            self.output: nn.Module = nn.Linear(
                 fusion.fused_feature_size, textual.vocab_size
             )
             self.output.weight = self.textual.embedding.word_embedding.weight
@@ -39,8 +39,7 @@ class WordMaskingModel(nn.Module):
     def forward(
         self,
         image: torch.Tensor,
-        masked_tokens: torch.Tensor,
-        masked_labels: torch.Tensor,
+        caption_tokens: torch.Tensor,
     ):
         batch_size = image.size(0)
 
@@ -53,7 +52,7 @@ class WordMaskingModel(nn.Module):
         ).permute(0, 2, 1)
 
         # shape: (batch_size, num_caption_tokens, textual_feature_size)
-        textual_features = self.textual(masked_tokens)
+        textual_features = self.textual(caption_tokens)
 
         # shape: (batch_size, num_caption_tokens, fused_feature_size)
         fused_features = self.fusion(visual_features, textual_features)
@@ -61,19 +60,19 @@ class WordMaskingModel(nn.Module):
         # shape: (batch_size, num_caption_tokens, vocab_size)
         output_logits = self.output(fused_features)
 
-        # Get predictions from logits, only the predictions at [MASK]ed
-        # positions would be useful.
+        # Get predictions from logits, these will be shifted right by one
+        # time-step (using forward transformer encoder).
         predictions = torch.argmax(output_logits, dim=-1)
 
         output_dict: Dict[str, Any] = {
             "predictions": predictions,
             "loss": self.loss(
-                output_logits.view(-1, output_logits.size(-1)),
-                masked_labels.view(-1),
+                output_logits[:, :-1].view(-1, output_logits.size(-1)),
+                caption_tokens[:, 1:].view(-1),
             ),
         }
         # Single scalar per batch for logging in training script.
         output_dict["loss_components"] = {
-            "word_masking": output_dict["loss"].detach()
+            "captioning": output_dict["loss"].detach()
         }
         return output_dict

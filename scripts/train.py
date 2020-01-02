@@ -63,7 +63,7 @@ parser.add_argument(
     only master process logs averaged loss values across processes.""",
 )
 parser.add_argument(
-    "--checkpoint-every", type=int, default=2500,
+    "--checkpoint-every", type=int, default=2000,
     help="Serialize model to a checkpoint after every these many iterations.",
 )
 # fmt: on
@@ -194,7 +194,7 @@ if __name__ == "__main__":
 
             # Normalize the loss, because gradients are being accumulated
             # (summed) while the loss is averaged across training instances.
-            loss = output_dict["loss"].mean() / _C.OPTIM.BATCH_SIZE_MULTIPLIER
+            loss = output_dict["loss"] / _C.OPTIM.BATCH_SIZE_MULTIPLIER
             batch_loss += loss.item()
 
             # Perform dynamic scaling of loss to adjust for mixed precision.
@@ -204,8 +204,8 @@ if __name__ == "__main__":
             else:
                 loss.backward()
 
-        # Clip gradients before optimizer step.
-        torch.nn.utils.clip_grad_value_(
+        # Clip norm of gradients before optimizer step.
+        torch.nn.utils.clip_grad_norm_(
             amp.master_params(optimizer)
             if _C.MIXED_PRECISION_OPT > 0
             else model.parameters(),
@@ -223,6 +223,9 @@ if __name__ == "__main__":
             dist.average_across_processes(train_loss_dict)
             train_loss_counter.clear()
 
+        # ---------------------------------------------------------------------
+        #   TENSORBOARD LOGGING
+        # ---------------------------------------------------------------------
         if iteration % _A.log_every == 0 and dist.is_master_process():
             logger.info(
                 f"{timer.stats} | Loss: {batch_loss:.3f} | "
@@ -232,6 +235,13 @@ if __name__ == "__main__":
                 "learning_rate", optimizer.param_groups[0]["lr"], iteration
             )
             tensorboard_writer.add_scalars("train", train_loss_dict, iteration)
+
+            for name, param in model.named_parameters():
+                tensorboard_writer.add_histogram(name, param, iteration)
+                tensorboard_writer.add_histogram(
+                    name + "_grad", param.grad, iteration
+                )
+
         dist.synchronize()
 
         # ---------------------------------------------------------------------

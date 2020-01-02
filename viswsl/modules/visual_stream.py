@@ -19,9 +19,9 @@ class TorchvisionVisualStream(nn.Module):
             pretrained, zero_init_residual=True, **kwargs
         )
 
-        # Do nothing after the final residual stage.
-        self._cnn.avgpool = nn.Identity()
-        self._cnn.fc = nn.Identity()
+        # Do nothing after the final residual stage.	
+        self._cnn.avgpool = nn.Identity()	
+        self._cnn.fc = nn.Identity()	
 
         # Keep a list of intermediate layer names.
         self._stage_names = [f"layer{i}" for i in range(1, 5)]
