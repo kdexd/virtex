@@ -1,10 +1,10 @@
 from functools import partial
-from typing import Any, Callable, Dict, Iterable, List
+from typing import Any, Callable, Dict, Iterable, List, Optional
 from torch import nn, optim
 
 from viswsl.config import Config
-from viswsl.data.vocabulary import SentencePieceVocabulary
-from viswsl.models import WordMaskingModel, CaptioningModel
+import viswsl.data as vdata
+import viswsl.models as vmodels
 from viswsl.modules import visual_stream as vs, textual_stream as ts
 from viswsl.modules import fusion
 from viswsl.optim import Lookahead, lr_scheduler
@@ -35,6 +35,44 @@ class Factory(object):
     @classmethod
     def from_config(cls, config: Config) -> Any:
         raise NotImplementedError
+
+
+class DatasetFactory(Factory):
+    PRODUCTS = {
+        "word_masking": vdata.WordMaskingDataset,
+        "captioning": vdata.CaptioningDataset,
+    }
+
+    @classmethod
+    def from_config(
+        cls,
+        config: Config,
+        vocabulary: Optional[vdata.SentencePieceVocabulary] = None,
+        tokenizer: Optional[vdata.SentencePieceTokenizer] = None,
+        split: str = "train",  # one of {"train", "val"}
+    ):
+        _C = config
+        vocabulary = vocabulary or vdata.SentencePieceVocabulary(_C.DATA.VOCABULARY)
+        tokenizer = tokenizer or vdata.SentencePieceTokenizer(_C.DATA.TOKENIZER)
+
+        kwargs = {
+            "lmdb_path": _C.DATA.VAL_LMDB if split == "val" else _C.DATA.TRAIN_LMDB,
+            "vocabulary": vocabulary,
+            "tokenizer": tokenizer,
+            "normalize_image": _C.DATA.NORMALIZE_IMAGE,
+            "image_resize_size": _C.DATA.IMAGE_RESIZE_SIZE,
+            "image_crop_size": _C.DATA.IMAGE_CROP_SIZE,
+            "max_caption_length": _C.DATA.MAX_CAPTION_LENGTH,
+            "shuffle": False if split == "val" else True,
+        }
+        if _C.MODEL.NAME == "word_masking":
+            kwargs.update(
+                mask_proportion=_C.PRETEXT.WORD_MASKING.MASK_PROPORTION,
+                mask_probability=_C.PRETEXT.WORD_MASKING.MASK_PROBABILITY,
+                replace_probability=_C.PRETEXT.WORD_MASKING.REPLACE_PROBABILITY,
+            )
+        # Dataset names match with model names (and ofcourse pretext names).
+        return cls.create(_C.MODEL.NAME, **kwargs)
 
 
 class VisualStreamFactory(Factory):
@@ -76,10 +114,9 @@ class TextualStreamFactory(Factory):
     def from_config(cls, config: Config) -> nn.Module:
         _C = config
 
-        vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
+        vocabulary = vdata.SentencePieceVocabulary(_C.DATA.VOCABULARY)
 
-        # Transformer will be bidirectional for word masking, else forward
-        # for doing autoregressive captioning.
+        # Transformer will be bidirectional only for word masking pretext.
         is_bidirectional = _C.MODEL.NAME == "word_masking"
 
         return cls.create(
@@ -124,8 +161,9 @@ class FusionFactory(Factory):
 class PretrainingModelFactory(Factory):
 
     PRODUCTS = {
-        "word_masking": WordMaskingModel,
-        "captioning": CaptioningModel,
+        "word_masking": vmodels.WordMaskingModel,
+        "captioning": partial(vmodels.CaptioningModel, bidirectional=False),
+        "bicaptioning": partial(vmodels.CaptioningModel, bidirectional=True),
     }
 
     @classmethod

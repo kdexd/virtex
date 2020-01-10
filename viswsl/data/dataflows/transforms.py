@@ -204,33 +204,3 @@ class MaskSomeTokensRandomly(df.ProxyDataFlow):
             token_index = random.randint(0, len(self._vocabulary) - 1)
             if token_index not in self._vocabulary.special_indices:
                 return token_index
-
-
-class PadSequences(df.ProxyDataFlow):
-    r"""
-    Pad a list of integers or strings on the right to maximum specified length
-    by specified padding value (token/index). Inplace operation on ``input_key``
-    of the dic returned by wrapped dataflow.
-    """
-
-    def __init__(
-        self,
-        ds: df.DataFlow,
-        max_length: int = 25,
-        padding_value: Union[int, str] = "<unk>",
-        input_key: Union[str, List[str]] = "caption_tokens",
-    ):
-        self.ds = ds
-        self._max_length = max_length
-        self._padding_value = padding_value
-        self._ik = input_key if isinstance(input_key, list) else [input_key]
-
-    def __iter__(self):
-        for datapoint in self.ds:
-            # Pad the sequence of tokens up to maximum length.
-            # This makes the default ``collate_fn`` of dataloader work.
-            for ik in self._ik:
-                datapoint[ik].extend(
-                    [self._padding_value] * (self._max_length - len(datapoint[ik]))
-                )
-            yield datapoint

@@ -31,7 +31,7 @@ class PreNormTransformerEncoderLayer(nn.TransformerEncoderLayer):
         return src
 
 
-class BidirectionalTansformerEncoder(nn.TransformerEncoder):
+class BidirectionalTransformerEncoder(nn.TransformerEncoder):
     def __init__(self, encoder_layer: nn.TransformerEncoderLayer, num_layers: int):
         super().__init__(encoder_layer, num_layers)
 
@@ -52,14 +52,8 @@ class BidirectionalTansformerEncoder(nn.TransformerEncoder):
 
 
 class UnidirectionalTransformerEncoder(nn.TransformerEncoder):
-    def __init__(
-        self,
-        encoder_layer: nn.TransformerEncoderLayer,
-        num_layers: int,
-        backward: bool,
-    ):
+    def __init__(self, encoder_layer: nn.TransformerEncoderLayer, num_layers: int):
         super().__init__(encoder_layer, num_layers)
-        self.backward = backward
 
     def forward(
         self, token_embeddings: torch.Tensor, token_mask: torch.Tensor
@@ -74,13 +68,12 @@ class UnidirectionalTransformerEncoder(nn.TransformerEncoder):
         # Generate an additive mask based on direction of encoder: forward
         # encoder will mask the future, backward encoder will mask the past.
         # shape: (sequence_length, sequence_length)
-        direction_mask = self._generate_mask(sequence_length)
-
+        subsequent_mask = self._generate_square_subsequent_mask(
+            sequence_length, token_embeddings.device
+        )
         # shape: (sequence_length, batch_size, hidden_size)
         outputs = super().forward(
-            token_embeddings,
-            src_mask=direction_mask,
-            src_key_padding_mask=token_mask,
+            token_embeddings, mask=subsequent_mask, src_key_padding_mask=token_mask
         )
 
         # shape: (batch_size, sequence_length, hidden_size)
@@ -88,7 +81,9 @@ class UnidirectionalTransformerEncoder(nn.TransformerEncoder):
         return outputs
 
     @functools.lru_cache(maxsize=10)
-    def _generate_mask(self, size: int) -> torch.Tensor:
+    def _generate_square_subsequent_mask(
+        self, size: int, device: torch.device
+    ) -> torch.Tensor:
         r"""
         Generate a mask for "future" positions, useful when using this module
         for language modeling.
@@ -100,16 +95,4 @@ class UnidirectionalTransformerEncoder(nn.TransformerEncoder):
         # Default mask is for forward direction. Flip for backward direction.
         mask = torch.tril(torch.ones(size, size), diagonal=-1)
         mask = mask.masked_fill(mask == 1, float("-inf"))
-        if self.backward:
-            mask = mask.flip(0, 1)
-
         return mask
-
-
-ForwardTransformerEncoder = functools.partial(
-    UnidirectionalTransformerEncoder, backward=False
-)
-
-BackwardTransformerEncoder = functools.partial(
-    UnidirectionalTransformerEncoder, backward=True
-)

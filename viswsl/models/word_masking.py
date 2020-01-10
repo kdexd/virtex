@@ -39,7 +39,8 @@ class WordMaskingModel(nn.Module):
     def forward(
         self,
         image: torch.Tensor,
-        masked_tokens: torch.Tensor,
+        caption_tokens: torch.Tensor,
+        caption_lengths: torch.Tensor,
         masked_labels: torch.Tensor,
     ):
         batch_size = image.size(0)
@@ -53,7 +54,7 @@ class WordMaskingModel(nn.Module):
         ).permute(0, 2, 1)
 
         # shape: (batch_size, num_caption_tokens, textual_feature_size)
-        textual_features = self.textual(masked_tokens)
+        textual_features = self.textual(caption_tokens, caption_lengths)
 
         # shape: (batch_size, num_caption_tokens, fused_feature_size)
         fused_features = self.fusion(visual_features, textual_features)
