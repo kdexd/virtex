@@ -209,9 +209,12 @@ class OptimizerFactory(Factory):
         # may require different hyperparams in their constructor, for example:
         # `SGD` accepts "momentum" while `Adam` doesn't.
         kwargs = {"lr": _C.OPTIM.LR, "weight_decay": _C.OPTIM.WEIGHT_DECAY}
-        if _C.OPTIM.OPTIMIZER_NAME == "sgd":
+
+        if "sgd" in _C.OPTIM.OPTIMIZER_NAME:
             kwargs["momentum"] = _C.OPTIM.SGD_MOMENTUM
             kwargs["nesterov"] = _C.OPTIM.SGD_NESTEROV
+        elif "adam" in _C.OPTIM.OPTIMIZER_NAME:
+            kwargs["betas"] = (_C.OPTIM.ADAM_BETA1, _C.OPTIM.ADAM_BETA2)
 
         optimizer = cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
         if _C.OPTIM.USE_LOOKAHEAD:
@@ -224,6 +227,7 @@ class OptimizerFactory(Factory):
 class LRSchedulerFactory(Factory):
 
     PRODUCTS = {
+        "none": lr_scheduler.LinearWarmupNoDecayLR,
         "linear": lr_scheduler.LinearWarmupLinearDecayLR,
         "cosine": lr_scheduler.LinearWarmupCosineAnnealingLR,
     }

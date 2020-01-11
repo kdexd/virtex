@@ -187,7 +187,10 @@ if __name__ == "__main__":
             batch = next(train_dataloader_iter)
             if _C.MODEL.NAME == "word_masking":
                 output_dict = model(
-                    batch["image"], batch["caption_tokens"], batch["caption_lengths"], batch["masked_labels"]
+                    batch["image"],
+                    batch["caption_tokens"],
+                    batch["caption_lengths"],
+                    batch["masked_labels"],
                 )
             elif _C.MODEL.NAME == "captioning":
                 output_dict = model(

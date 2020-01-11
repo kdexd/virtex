@@ -183,6 +183,8 @@ class Config(object):
         _C.OPTIM.NO_DECAY = [".bn", ".norm", ".bias"]
         _C.OPTIM.CLAMP_GRADIENTS = 10
 
+        _C.OPTIM.ADAM_BETA1 = 0.9
+        _C.OPTIM.ADAM_BETA2 = 0.98
         _C.OPTIM.SGD_MOMENTUM = 0.9
         _C.OPTIM.SGD_NESTEROV = True
         _C.OPTIM.USE_LOOKAHEAD = False
