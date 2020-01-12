@@ -189,32 +189,30 @@ class OptimizerFactory(Factory):
     ) -> optim.Optimizer:
         _C = config
 
-        # No weight decay for some params -- typically norm layers and biases.
+        # Form param groups on two criterions:
+        #   1. no weight decay for some parameters (usually norm and bias)
+        #   2. different LR for visual stream.
         # fmt: off
-        decay = [
-            param for name, param in named_parameters
-            if not any(n in name for n in _C.OPTIM.NO_DECAY)
-        ]
-        no_decay = [
-            param for name, param in named_parameters
-            if any(n in name for n in _C.OPTIM.NO_DECAY)
-        ]
+        param_groups: List[Dict[str, Any]] = []
+        for name, param in named_parameters:
+            lr = _C.OPTIM.VISUAL_LR if "visual" in name else _C.OPTIM.LR
+            wd = (
+                _C.OPTIM.WEIGHT_DECAY
+                if not any(n in name for n in _C.OPTIM.NO_DECAY) else 0.0
+            )
+            param_groups.append({"params": [param], "lr": lr, "weight_decay": wd})
         # fmt: on
-        param_groups = [
-            {"params": decay, "weight_decay": _C.OPTIM.WEIGHT_DECAY},
-            {"params": no_decay, "weight_decay": 0.0},
-        ]
 
         # Form kwargs according to the optimizer name, different optimizers
         # may require different hyperparams in their constructor, for example:
         # `SGD` accepts "momentum" while `Adam` doesn't.
-        kwargs = {"lr": _C.OPTIM.LR, "weight_decay": _C.OPTIM.WEIGHT_DECAY}
-
         if "sgd" in _C.OPTIM.OPTIMIZER_NAME:
-            kwargs["momentum"] = _C.OPTIM.SGD_MOMENTUM
-            kwargs["nesterov"] = _C.OPTIM.SGD_NESTEROV
+            kwargs = {
+                "momentum": _C.OPTIM.SGD_MOMENTUM,
+                "nesterov": _C.OPTIM.SGD_NESTEROV,
+            }
         elif "adam" in _C.OPTIM.OPTIMIZER_NAME:
-            kwargs["betas"] = (_C.OPTIM.ADAM_BETA1, _C.OPTIM.ADAM_BETA2)
+            kwargs = {"betas": (_C.OPTIM.ADAM_BETA1, _C.OPTIM.ADAM_BETA2)}
 
         optimizer = cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
         if _C.OPTIM.USE_LOOKAHEAD:

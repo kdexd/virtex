@@ -140,11 +140,11 @@ if __name__ == "__main__":
 
     # Wrap model and optimizer using NVIDIA Apex for mixed precision training.
     # NOTE: Always do this before wrapping model with DistributedDataParallel.
-    if _C.MIXED_PRECISION_OPT > 0:
+    if _C.FP16_OPT > 0:
         from apex import amp
 
         model, optimizer = amp.initialize(
-            model, optimizer, opt_level=f"O{_C.MIXED_PRECISION_OPT}"
+            model, optimizer, opt_level=f"O{_C.FP16_OPT}"
         )
 
     if dist.get_world_size() > 1:
@@ -193,7 +193,7 @@ if __name__ == "__main__":
             batch_loss += loss.item()
 
             # Perform dynamic scaling of loss to adjust for mixed precision.
-            if _C.MIXED_PRECISION_OPT > 0:
+            if _C.FP16_OPT > 0:
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
                     scaled_loss.backward()
             else:
@@ -204,10 +204,8 @@ if __name__ == "__main__":
 
         # Clip norm of gradients before optimizer step.
         torch.nn.utils.clip_grad_norm_(
-            amp.master_params(optimizer)
-            if _C.MIXED_PRECISION_OPT > 0
-            else model.parameters(),
-            _C.OPTIM.CLAMP_GRADIENTS,
+            amp.master_params(optimizer) if _C.FP16_OPT > 0 else model.parameters(),
+            _C.OPTIM.CLIP_GRAD_NORM,
         )
         optimizer.step()
         lr_scheduler.step()
@@ -231,7 +229,12 @@ if __name__ == "__main__":
                 f"GPU mem: {torch.cuda.max_memory_allocated() / 1048576} MB"
             )
             tensorboard_writer.add_scalar(
-                "learning_rate", optimizer.param_groups[0]["lr"], iteration
+                "learning_rate",
+                {
+                    "visual": optimizer.param_groups[0]["lr"],
+                    "common": optimizer.param_groups[-1]["lr"],
+                },
+                iteration,
             )
             tensorboard_writer.add_scalars("train", train_loss_dict, iteration)
 

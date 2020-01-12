@@ -128,7 +128,7 @@ class Config(object):
     OPTIM.SGD_NESTEROV: True
         Whether to use Nesterive accelerated gradient, only used when
         ``OPTIM.OPTIMIZER_NAME`` is ``sgd``, else ignored.
-    OPTIM.CLAMP_GRADIENTS: 10
+    OPTIM.CLIP_GRAD_NORM: 10
         Threshold to clamp gradients for avoiding exploding gradients.
     """
 
@@ -137,7 +137,7 @@ class Config(object):
     ):
         _C = CN()
         _C.RANDOM_SEED = 0
-        _C.MIXED_PRECISION_OPT = 0
+        _C.FP16_OPT = 0
 
         _C.DATA = CN()
         _C.DATA.VOCABULARY = "data/coco_vocabulary.vocab"
@@ -178,10 +178,11 @@ class Config(object):
         _C.MODEL.FUSION.DROPOUT = 0.1
 
         _C.OPTIM = CN()
+        _C.OPTIM.NUM_ITERATIONS = 1000000
         _C.OPTIM.OPTIMIZER_NAME = "adamw"
         _C.OPTIM.WEIGHT_DECAY = 1e-4
         _C.OPTIM.NO_DECAY = [".bn", ".norm", ".bias"]
-        _C.OPTIM.CLAMP_GRADIENTS = 10
+        _C.OPTIM.CLIP_GRAD_NORM = 10
 
         _C.OPTIM.ADAM_BETA1 = 0.9
         _C.OPTIM.ADAM_BETA2 = 0.98
@@ -194,7 +195,7 @@ class Config(object):
         _C.OPTIM.BATCH_SIZE_PER_GPU = 64
         _C.OPTIM.BATCH_SIZE_MULTIPLIER = 1
 
-        _C.OPTIM.NUM_ITERATIONS = 1000000
+        _C.OPTIM.VISUAL_LR = 1e-3
         _C.OPTIM.LR = 1e-4
         _C.OPTIM.WARMUP_STEPS = 10000
         _C.OPTIM.LR_DECAY_NAME = "cosine"
@@ -241,7 +242,7 @@ class Config(object):
             self._C.OPTIM.BATCH_SIZE_PER_ITER * self._C.OPTIM.BATCH_SIZE_MULTIPLIER
         )
 
-        if self._C.MIXED_PRECISION_OPT > 0 and "gelu" in self._C.MODEL.TEXTUAL.NAME:
+        if self._C.FP16_OPT > 0 and "gelu" in self._C.MODEL.TEXTUAL.NAME:
             logger.warning("Cannot use GELU with FP16 precision, changing to RELU.")
             self._C.MODEL.TEXTUAL.NAME.replace("gelu", "relu")
 
@@ -276,9 +277,7 @@ class Config(object):
 
     def __str__(self):
         common_string: str = str(CN({"RANDOM_SEED": self._C.RANDOM_SEED})) + "\n"
-        common_string: str = str(
-            CN({"MIXED_PRECISION_OPT": self._C.MIXED_PRECISION_OPT})
-        ) + "\n"
+        common_string: str = str(CN({"FP16_OPT": self._C.FP16_OPT})) + "\n"
         common_string += str(CN({"DATA": self._C.DATA})) + "\n"
         common_string += str(CN({"PRETEXT": self._C.PRETEXT})) + "\n"
         common_string += str(CN({"MODEL": self._C.MODEL})) + "\n"
