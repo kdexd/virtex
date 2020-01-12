@@ -1,4 +1,5 @@
-import torch
+from typing import List
+
 from torch.utils.data import IterableDataset
 
 from viswsl.data.dataflows import (
@@ -7,6 +8,7 @@ from viswsl.data.dataflows import (
     TokenizeCaption,
 )
 
+from viswsl.data.structures import CaptioningInstance, CaptioningBatch
 from viswsl.data.tokenizers import SentencePieceTokenizer
 from viswsl.data.vocabulary import SentencePieceVocabulary
 
@@ -47,16 +49,11 @@ class CaptioningDataset(IterableDataset):
         self._pipeline.reset_state()
 
         for datapoint in self._pipeline:
-            caption_tokens = datapoint["caption_tokens"]
-            caption_length = len(caption_tokens)
-
-            # Pad caption tokens to maximum length, so default collate_fn works.
-            caption_tokens.extend(
-                [self.padding_idx] * (self.max_caption_length - len(caption_tokens))
+            yield CaptioningInstance(
+                datapoint["image_id"],
+                datapoint["image"],
+                datapoint["caption_tokens"],
             )
-            yield {
-                "image_id": torch.tensor(datapoint["image_id"]).long(),
-                "image": torch.tensor(datapoint["image"]).float(),
-                "caption_tokens": torch.tensor(caption_tokens).long(),
-                "caption_lengths": torch.tensor(caption_length).long(),
-            }
+
+    def collate_fn(self, instances: List[CaptioningInstance]) -> CaptioningBatch:
+        return CaptioningBatch(instances, padding_value=self.padding_idx)

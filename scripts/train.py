@@ -73,11 +73,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     _A = parser.parse_args()
 
-    if _A.slurm:
-        device_id = dist.init_distributed_env(_A.dist_backend)
-    else:
-        # TODO (kd): Add an option to use `init_distributed_tcp`.
-        device_id = 0
+    device_id = dist.init_distributed_env(_A.dist_backend) if _A.slurm else -1
     device = torch.device(f"cuda:{device_id}" if device_id != -1 else "cpu")
 
     # Create a config with default values, then override from config file, and
@@ -88,8 +84,10 @@ if __name__ == "__main__":
     random.seed(_C.RANDOM_SEED)
     np.random.seed(_C.RANDOM_SEED)
     torch.manual_seed(_C.RANDOM_SEED)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
+
+    # TODO (kd): uncomment for reproducibility. Right now,we care about speed.
+    # torch.backends.cudnn.benchmark = False
+    # torch.backends.cudnn.deterministic = True
 
     # Create serialization directory and save config in it.
     os.makedirs(_A.serialization_dir, exist_ok=True)
@@ -121,6 +119,7 @@ if __name__ == "__main__":
         batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
         num_workers=_A.cpu_workers,
         pin_memory=True,
+        collate_fn=train_dataset.collate_fn,
     )
     val_dataset = DatasetFactory.from_config(
         _C, vocabulary=vocabulary, tokenizer=tokenizer, split="val"
@@ -130,6 +129,7 @@ if __name__ == "__main__":
         batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
         num_workers=_A.cpu_workers,
         pin_memory=True,
+        collate_fn=val_dataset.collate_fn,
     )
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter = cycle(train_dataloader, device)
@@ -185,19 +185,7 @@ if __name__ == "__main__":
 
         for _ in range(_C.OPTIM.BATCH_SIZE_MULTIPLIER):
             batch = next(train_dataloader_iter)
-            if _C.MODEL.NAME == "word_masking":
-                output_dict = model(
-                    batch["image"],
-                    batch["caption_tokens"],
-                    batch["caption_lengths"],
-                    batch["masked_labels"],
-                )
-            elif _C.MODEL.NAME == "captioning":
-                output_dict = model(
-                    batch["image"], batch["caption_tokens"], batch["caption_lengths"]
-                )
-
-            train_loss_counter.update(output_dict["loss_components"])
+            output_dict = model(batch)
 
             # Normalize the loss, because gradients are being accumulated
             # (summed) while the loss is averaged across training instances.
@@ -211,6 +199,9 @@ if __name__ == "__main__":
             else:
                 loss.backward()
 
+            # Update accumulated loss components for logging.
+            train_loss_counter.update(output_dict["loss_components"])
+
         # Clip norm of gradients before optimizer step.
         torch.nn.utils.clip_grad_norm_(
             amp.master_params(optimizer)
@@ -222,7 +213,7 @@ if __name__ == "__main__":
         lr_scheduler.step()
         timer.toc()
 
-        # Make the master process log loss, lr, time to tensorboard.
+        # Make the master process log loss, LR etc. to tensorboard.
         if iteration % _A.log_every == 0:
             train_loss_dict = {
                 k: v / (_A.log_every * _C.OPTIM.BATCH_SIZE_MULTIPLIER)
@@ -264,19 +255,7 @@ if __name__ == "__main__":
             val_loss_counter: Counter = Counter()
 
             for val_iteration, val_batch in enumerate(val_dataloader, start=1):
-                if _C.MODEL.NAME == "word_masking":
-                    args = [
-                        batch["image"],
-                        batch["caption_tokens"],
-                        batch["caption_lengths"],
-                        batch["masked_labels"],
-                    )
-                elif _C.MODEL.NAME == "captioning":
-                    output_dict = model(
-                        batch["image"],
-                        batch["caption_tokens"],
-                        batch["caption_lengths"],
-                    )
+                output_dict = model(val_batch)
 
                 # This will have a key named "loss_components": these are
                 # scalar tensors (mean loss per batch) only for logging.
@@ -299,52 +278,9 @@ if __name__ == "__main__":
             logger.info(f"Iter: {iteration} | Val loss: {val_loss_dict}")
             tensorboard_writer.add_scalars("val", val_loss_dict, iteration)
 
-            if _C.MODEL.NAME == "word_masking":
-                # fmt: off
-                examples_str = ""
-                for tokens, labels, predictions in zip(
-                    batch["caption_tokens"], batch["masked_labels"],
-                    output_dict["predictions"]
-                ):
-                    # Keep predictions only from [MASK]ed positions.
-                    predictions = [
-                        predictions[i] for i in range(len(predictions))
-                        if labels[i] != vocabulary.unk_index
-                    ]
-                    to_strtokens = lambda token_indices: [  # noqa: E731
-                        vocabulary.get_token_from_index(t.item())
-                        for t in token_indices if t.item() != vocabulary.unk_index
-                    ]
-                    tokens = to_strtokens(tokens)
-                    labels = to_strtokens(labels)
-                    predictions = to_strtokens(predictions)
-
-                    examples_str += f"""
-                        Caption tokens : {tokenizer.detokenize(tokens)}
-                        Masked Labels  : {" ".join(labels)}
-                        Predictions    : {" ".join(predictions)}
-
-                        """
-                # fmt: on
-                tensorboard_writer.add_text("predictions", examples_str, iteration)
-
-            elif _C.MODEL.NAME == "captioning":
-                for tokens, forward_predictions, backward_predictions in zip(
-                    batch["caption_tokens"], output_dict["forward_predictions"],
-                    output_dict["backward_predictions"]
-                ):
-                    tokens = to_strtokens(tokens)
-                    forward_predictions = to_strtokens(forward_predictions)
-                    backward_predictions = to_strtokens(backward_predictions)
-
-                    examples_str += f"""
-                        Caption tokens : {tokenizer.detokenize(tokens)}
-                        Predictions (f): {tokenizer.detokenize(forward_predictions)}
-                        Predictions (b): {tokenizer.detokenize(backward_predictions)}
-
-                        """
-                tensorboard_writer.add_text("predictions", examples_str, iteration)
-            # fmt: on
+            if hasattr(model, "log_predictions"):
+                predstr = model.log_predictions(val_batch, vocabulary, tokenizer)
+                tensorboard_writer.add_text("predictions", predstr, iteration)
 
         # All processes will wait till master process is done logging.
         dist.synchronize()

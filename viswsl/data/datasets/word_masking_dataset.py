@@ -1,4 +1,5 @@
-import torch
+from typing import List
+
 from torch.utils.data import IterableDataset
 
 from viswsl.data.dataflows import (
@@ -8,6 +9,7 @@ from viswsl.data.dataflows import (
     MaskSomeTokensRandomly,
 )
 
+from viswsl.data.structures import WordMaskingInstance, WordMaskingBatch
 from viswsl.data.tokenizers import SentencePieceTokenizer
 from viswsl.data.vocabulary import SentencePieceVocabulary
 
@@ -61,21 +63,12 @@ class WordMaskingDataset(IterableDataset):
         self._pipeline.reset_state()
 
         for datapoint in self._pipeline:
-            caption_tokens = datapoint["caption_tokens"]
-            masked_labels = datapoint["masked_labels"]
-            caption_length = len(caption_tokens)
+            yield WordMaskingInstance(
+                datapoint["image_id"],
+                datapoint["image"],
+                datapoint["caption_tokens"],
+                datapoint["masked_labels"],
+            )
 
-            # Pad masked tokens to maximum length, so default collate_fn works.
-            caption_tokens.extend(
-                [self.padding_idx] * (self.max_caption_length - len(caption_tokens))
-            )
-            masked_labels.extend(
-                [self.padding_idx] * (self.max_caption_length - len(masked_labels))
-            )
-            yield {
-                "image_id": torch.tensor(datapoint["image_id"]).long(),
-                "image": torch.tensor(datapoint["image"]).float(),
-                "caption_tokens": torch.tensor(caption_tokens).long(),
-                "caption_lengths": torch.tensor(caption_length).long(),
-                "masked_labels": torch.tensor(masked_labels).long(),
-            }
+    def collate_fn(self, instances: List[WordMaskingInstance]) -> WordMaskingBatch:
+        return WordMaskingBatch(instances, padding_value=self.padding_idx)

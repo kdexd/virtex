@@ -4,6 +4,8 @@ from typing import Any, Dict
 import torch
 from torch import nn
 
+from viswsl.data import SentencePieceTokenizer, SentencePieceVocabulary
+from viswsl.data.structures import CaptioningBatch
 from viswsl.modules.fusion import Fusion
 
 
@@ -20,15 +22,15 @@ class CaptioningModel(nn.Module):
 
         if self.bidirectional:
             # Clone the textual branch and fusion branch.
-            self.textual_backward = copy.deepcopy(self.textual)
-            self.fusion_backward = copy.deepcopy(self.fusion)
+            self.backward_textual = copy.deepcopy(self.textual)
+            self.backward_fusion = copy.deepcopy(self.fusion)
 
             # Tie the visual projection for both directions.
             self.fusion.projections._v_projection = (
-                self.fusion_backward.projections._v_projection
+                self.backward_fusion.projections._v_projection
             )
             # Tie word and position embeddings for both directions.
-            self.textual_backward.embedding = self.textual.embedding
+            self.backward_textual.embedding = self.textual.embedding
 
         # Tie input and output word embeddings to reduce parameters.
         # Output embedding layer will also learn a bias.
@@ -53,26 +55,18 @@ class CaptioningModel(nn.Module):
 
         self.loss = nn.CrossEntropyLoss(ignore_index=textual.padding_idx)
 
-    def forward(
-        self,
-        image: torch.Tensor,
-        caption_tokens: torch.Tensor,
-        caption_lengths: torch.Tensor,
-    ):
-        batch_size = image.size(0)
-        max_caption_length = caption_lengths.max()
+    def forward(self, batch: CaptioningBatch):
 
         # shape: (batch_size, visual_feature_size, ...)
-        visual_features = self.visual(image)
+        visual_features = self.visual(batch["image"])
 
         # shape: (batch_size, ..., visual_feature_size)
         visual_features = visual_features.view(
-            batch_size, self.visual.visual_feature_size, -1
+            batch["image"].size(0), self.visual.visual_feature_size, -1
         ).permute(0, 2, 1)
 
-        # Trim some token positions from the end if all captions are smaller
-        # than max length.
-        caption_tokens = caption_tokens[:, :max_caption_length]
+        caption_tokens = batch["caption_tokens"]
+        caption_lengths = batch["caption_lengths"]
 
         # shape: (batch_size, max_caption_length, textual_feature_size)
         textual_features = self.textual(caption_tokens, caption_lengths)
@@ -83,32 +77,25 @@ class CaptioningModel(nn.Module):
         # shape: (batch_size, num_caption_tokens, vocab_size)
         output_logits = self.output(fused_features)
 
-        # Get predictions from logits, these will be shifted right by one
-        # time-step (using forward transformer encoder).
-        predictions = torch.argmax(output_logits, dim=-1)
-
         loss = self.loss(
             output_logits[:, :-1].contiguous().view(-1, self.textual.vocab_size),
             caption_tokens[:, 1:].contiguous().view(-1),
         )
-        output_dict: Dict[str, Any] = {"predictions": predictions, "loss": loss}
-
-        # Single scalar per batch for logging in training script.
-        output_dict["loss_components"] = {"captioning_forward": loss.detach()}
-
+        output_dict: Dict[str, Any] = {
+            "loss": loss,
+            # Single scalar per batch for logging in training script.
+            "loss_components": {"captioning_forward": loss.detach()},
+        }
         # Do captioning in backward direction.
         if self.bidirectional:
-            backward_caption_tokens = self._reverse_flip(
-                caption_tokens, caption_lengths
-            )
-            backward_textual_features = self.textual_backward(
+            backward_caption_tokens = batch["noitpac_tokens"]
+            backward_textual_features = self.backward_textual(
                 backward_caption_tokens, caption_lengths
             )
-            backward_fused_features = self.fusion_backward(
+            backward_fused_features = self.backward_fusion(
                 visual_features, backward_textual_features
             )
             backward_output_logits = self.output(backward_fused_features)
-            backward_predictions = torch.argmax(backward_output_logits, dim=-1)
 
             backward_loss = self.loss(
                 backward_output_logits[:, :-1]
@@ -116,7 +103,6 @@ class CaptioningModel(nn.Module):
                 .view(-1, self.textual.vocab_size),
                 backward_caption_tokens[:, 1:].contiguous().view(-1),
             )
-            output_dict.update(backward_predictions=backward_predictions)
             output_dict["loss"] += backward_loss
 
             # Single scalar per batch for logging in training script.
@@ -124,33 +110,52 @@ class CaptioningModel(nn.Module):
                 captioning_backward=backward_loss.detach()
             )
 
+        # During evaluation, get predictions from logits. Useful for logging.
+        # Predictions from forward transformer will be shifted right by one
+        # time-step, and vice-versa.
+        if not self.training:
+            predictions = torch.argmax(output_logits, dim=-1)
+            output_dict["predictions"] = {"forward": predictions}
+
+            if self.bidirectional:
+                backward_predictions = backward_predictions = torch.argmax(
+                    backward_output_logits, dim=-1
+                )
+                output_dict["predictions"]["backward"] = backward_predictions
+
         return output_dict
 
-    @staticmethod
-    def _reverse_flip(
-        caption_tokens: torch.Tensor, caption_lengths: torch.Tensor
-    ) -> torch.LongTensor:
-        r"""
-        Flips a (right-)padded batched tensor of caption tokens without
-        affecting padded positions.
+    def log_predictions(
+        self,
+        batch: CaptioningBatch,
+        vocabulary: SentencePieceVocabulary,
+        tokenizer: SentencePieceTokenizer,
+    ) -> str:
 
-        Parameters
-        ----------
-        caption_tokens: torch.Tensor
-            Batch of caption tokens, shape ``(batch_size, num_caption_tokens)``.
-        caption_lengths: torch.Tensor
-            Length of each caption in the batch, shape ``(batch_size, )``.
+        self.eval()
+        with torch.no_grad():
+            predictions = self.forward(batch)["predictions"]
+        self.train()
 
-        Returns
-        -------
-        torch.Tensor
-            Reversed captions, a tensor of same shape as ``caption_tokens``.
-        """
-        batch_size, max_caption_length = caption_tokens.size()
-        flipped_caption_tokens = torch.flip(caption_tokens, [1])
-
-        sequences = [
-            flipped_caption_tokens[i, max_caption_length - length :]
-            for i, length in enumerate(caption_lengths.tolist())
+        # fmt: off
+        to_strtokens = lambda token_indices: [  # noqa: E731
+            vocabulary.get_token_from_index(t.item())
+            for t in token_indices if t.item() != vocabulary.pad_index
         ]
-        return torch.nn.utils.rnn.pad_sequence(sequences, batch_first=True)
+        predictions_str = ""
+        for tokens, preds in zip(batch["caption_tokens"], predictions["forward"]):
+            predictions_str += f"""
+                Caption tokens : {tokenizer.detokenize(to_strtokens(tokens))}
+                Predictions (f): {tokenizer.detokenize(to_strtokens(preds))}
+
+                """
+
+        if self.bidirectional:
+            for tokens, preds in zip(batch["noitpac_tokens"], predictions["backward"]):
+                predictions_str += f"""
+                    Noitpac tokens : {tokenizer.detokenize(to_strtokens(tokens))}
+                    Predictions (b): {tokenizer.detokenize(to_strtokens(preds))}
+
+                    """
+        # fmt: on
+        return predictions_str

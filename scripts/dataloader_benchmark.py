@@ -8,9 +8,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from viswsl.config import Config
-from viswsl.data import (
-    ImageCaptionDataset, SentencePieceVocabulary, SentencePieceTokenizer
-)
+from viswsl.data import SentencePieceVocabulary, SentencePieceTokenizer
+from viswsl.factories import DatasetFactory
 import viswsl.utils.distributed as dist
 from viswsl.utils.common import cycle, Timer
 
@@ -95,7 +94,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
     tokenizer = SentencePieceTokenizer(_C.DATA.TOKENIZER)
-    train_dataset = ImageCaptionDataset.from_config(
+    train_dataset = DatasetFactory.from_config(
         _C, vocabulary=vocabulary, tokenizer=tokenizer, split="train"
     )
     train_dataloader = DataLoader(
@@ -103,13 +102,13 @@ if __name__ == "__main__":
         batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
         num_workers=_A.cpu_workers,
         pin_memory=True,
+        collate_fn=train_dataset.collate_fn,
     )
+    # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter = cycle(train_dataloader, device)
 
     # Keep track of (moving) average time per iteration and ETA.
-    timer = Timer(
-        window_size=_A.log_every, total_iterations=_C.OPTIM.NUM_ITERATIONS
-    )
+    timer = Timer(window_size=_A.log_every, total_iterations=_C.OPTIM.NUM_ITERATIONS)
 
     # -------------------------------------------------------------------------
     #   BENCHMARKING LOOP
