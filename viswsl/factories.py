@@ -41,6 +41,7 @@ class DatasetFactory(Factory):
     PRODUCTS = {
         "word_masking": vdata.WordMaskingDataset,
         "captioning": vdata.CaptioningDataset,
+        "bicaptioning": vdata.CaptioningDataset,
     }
 
     @classmethod

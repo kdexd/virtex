@@ -61,6 +61,10 @@ parser.add_argument(
     only master process logs averaged loss values across processes.""",
 )
 parser.add_argument(
+    "--log-params", action="store_true", help="""Whether to log histograms of
+    parameters and their gradients during training."""
+)
+parser.add_argument(
     "--checkpoint-every", type=int, default=2000,
     help="Serialize model to a checkpoint after every these many iterations.",
 )
@@ -85,7 +89,7 @@ if __name__ == "__main__":
     np.random.seed(_C.RANDOM_SEED)
     torch.manual_seed(_C.RANDOM_SEED)
 
-    # TODO (kd): uncomment for reproducibility. Right now,we care about speed.
+    # TODO (kd): uncomment for reproducibility. Right now, we care about speed.
     # torch.backends.cudnn.benchmark = False
     # torch.backends.cudnn.deterministic = True
 
@@ -228,7 +232,7 @@ if __name__ == "__main__":
                 f"{timer.stats} | Loss: {batch_loss:.3f} | "
                 f"GPU mem: {torch.cuda.max_memory_allocated() / 1048576} MB"
             )
-            tensorboard_writer.add_scalar(
+            tensorboard_writer.add_scalars(
                 "learning_rate",
                 {
                     "visual": optimizer.param_groups[0]["lr"],
@@ -238,11 +242,12 @@ if __name__ == "__main__":
             )
             tensorboard_writer.add_scalars("train", train_loss_dict, iteration)
 
-            for name, param in model.named_parameters():
-                tensorboard_writer.add_histogram(name, param, iteration)
-                tensorboard_writer.add_histogram(
-                    name + "_grad", param.grad, iteration
-                )
+            if _A.log_params:
+                for name, param in model.named_parameters():
+                    tensorboard_writer.add_histogram(name, param, iteration)
+                    tensorboard_writer.add_histogram(
+                        name + "_grad", param.grad, iteration
+                    )
 
         dist.synchronize()
 
@@ -258,6 +263,8 @@ if __name__ == "__main__":
             val_loss_counter: Counter = Counter()
 
             for val_iteration, val_batch in enumerate(val_dataloader, start=1):
+                for key in batch:
+                    val_batch[key] = val_batch[key].to(device)
                 output_dict = model(val_batch)
 
                 # This will have a key named "loss_components": these are

@@ -32,7 +32,11 @@ class WordMaskingDataset(IterableDataset):
         # keys: {"image_id", "image", "captions"}
         self._pipeline = ReadDatapointsFromLmdb(lmdb_path, shuffle=shuffle)
         self._pipeline = TransformImageForResNetLikeModels(
-            self._pipeline, normalize=normalize_image, index_or_key="image"
+            self._pipeline,
+            normalize=normalize_image,
+            image_resize_size=image_resize_size,
+            image_crop_size=image_crop_size,
+            index_or_key="image"
         )
         # keys added: {"caption_tokens"}
         self._pipeline = TokenizeCaption(

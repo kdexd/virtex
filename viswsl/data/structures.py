@@ -31,6 +31,10 @@ class Instance(dict):
 
         return new_instance
 
+    def pin_memory(self):
+        for key in self.keys():
+            self[key].pin_memory()
+
     def clone(self) -> "Instance":
         return copy.deepcopy(self)
 
@@ -55,6 +59,10 @@ class Batch(dict):
             for key in new_batch.keys():
                 new_batch[key] = new_batch[key].to(device)
         return new_batch
+
+    def pin_memory(self):
+        for key in self.keys():
+            self[key].pin_memory()
 
     def clone(self) -> "Batch":
         return copy.deepcopy(self)

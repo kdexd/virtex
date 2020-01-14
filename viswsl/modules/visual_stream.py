@@ -44,6 +44,40 @@ class TorchvisionVisualStream(nn.Module):
             # shape: (batch_size, feature_size, ...)
             return intermediate_outputs["layer4"]
 
+    def detectron2_backbone_state_dict(self):
+        r"""
+        Return state dict for loading as a backbone in detectron2. Useful for
+        object detection downstream tasks.
+        """
+        # Detectron2 backbones have slightly different module names, this mapping
+        # lists substrings of module names required to be renamed for loading a
+        # torchvision model into Detectron2.
+        DETECTRON2_RENAME_MAPPING: Dict[str, str] = {
+            "layer1": "res2",
+            "layer2": "res3",
+            "layer3": "res4",
+            "layer4": "res5",
+            "bn1": "conv1.norm",
+            "bn2": "conv2.norm",
+            "bn3": "conv3.norm",
+            "downsample.0": "shortcut",
+            "downsample.1": "shortcut.norm",
+        }
+        # Populate this dict by renaming module names.
+        d2_backbone_dict: Dict[str, torch.Tensor] = {}
+
+        for name, param in self._cnn.state_dict().items():
+            for old, new in DETECTRON2_RENAME_MAPPING.items():
+                name = name.replace(old, new)
+
+            # First conv and bn module parameters are prefixed with "stem.".
+            if not name.startswith("res"):
+                name = f"stem.{name}"
+
+            d2_backbone_dict[name] = param
+
+        return d2_backbone_dict
+
 
 class BlindVisualStream(nn.Module):
     r"""A visual stream which cannot see the image."""
