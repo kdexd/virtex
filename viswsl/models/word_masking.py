@@ -66,7 +66,7 @@ class WordMaskingModel(nn.Module):
         }
         # Single scalar per batch for logging in training script.
         output_dict["loss_components"] = {
-            "word_masking": output_dict["loss"].detach()
+            "word_masking": output_dict["loss"].clone().detach()
         }
         # During evaluation, get predictions from logits. Useful for logging.
         # Only the predictions at [MASK]ed positions are relevant.

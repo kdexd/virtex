@@ -84,7 +84,7 @@ class CaptioningModel(nn.Module):
         output_dict: Dict[str, Any] = {
             "loss": loss,
             # Single scalar per batch for logging in training script.
-            "loss_components": {"captioning_forward": loss.detach()},
+            "loss_components": {"captioning_forward": loss.clone().detach()},
         }
         # Do captioning in backward direction.
         if self.bidirectional:
@@ -107,7 +107,7 @@ class CaptioningModel(nn.Module):
 
             # Single scalar per batch for logging in training script.
             output_dict["loss_components"].update(
-                captioning_backward=backward_loss.detach()
+                captioning_backward=backward_loss.clone().detach()
             )
 
         # During evaluation, get predictions from logits. Useful for logging.
