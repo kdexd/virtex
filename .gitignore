@@ -48,6 +48,7 @@ scripts/test_*
 *.sh
 
 # Data (symlinks) directory, model checkpoints, tensorboard logs etc.
-data/
+data
+datasets
 !viswsl/data/
 checkpoints/

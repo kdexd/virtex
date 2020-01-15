@@ -76,7 +76,11 @@ class TorchvisionVisualStream(nn.Module):
 
             d2_backbone_dict[name] = param
 
-        return d2_backbone_dict
+        return {
+            "model": d2_backbone_dict,
+            "__author__": "Karan Desai",
+            "matching_heuristics": True,
+        }
 
 
 class BlindVisualStream(nn.Module):

@@ -3,6 +3,7 @@ future==0.18.0
 lmdb==0.97
 loguru==0.3.2
 mypy_extensions==0.4.1
+lvis==0.5.1
 numpy==1.17.2
 opencv-python==4.1.0.25
 pillow==6.1.0

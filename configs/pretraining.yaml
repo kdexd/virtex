@@ -9,8 +9,8 @@ DATA:
   VAL_LMDB: data/serialized/coco_val2017.lmdb
 
   NORMALIZE_IMAGE: true
-  IMAGE_RESIZE_SIZE: 256
-  IMAGE_CROP_SIZE: 224
+  IMAGE_RESIZE_SIZE: 256 # 192
+  IMAGE_CROP_SIZE: 224 # 168
   MAX_CAPTION_LENGTH: 30
 
 PRETEXT:
@@ -20,7 +20,7 @@ PRETEXT:
     REPLACE_PROBABILITY: 0.0
 
 MODEL:
-  NAME: word_masking
+  NAME: bicaptioning
   VISUAL:
     NAME: torchvision::resnet50
     PRETRAINED: false
@@ -57,6 +57,6 @@ OPTIM:
 DOWNSTREAM:
   VOC07_CLF:
     DATA_ROOT: data/VOC2007
-    BATCH_SIZE: 256
+    BATCH_SIZE: 64
     LAYER_NAMES: ["layer3", "layer4"]
     SVM_COSTS: [0.01, 0.1, 1.0, 10.0]

@@ -4,6 +4,7 @@ Parts of this class are adopted from several of my past projects:
 - `https://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py`_
 - `https://github.com/nocaps-org/updown-baseline/blob/master/updown/config.py`_
 """
+import re
 from typing import Any, List, Optional
 
 from loguru import logger
@@ -83,6 +84,15 @@ class Config(object):
         Parameters defining the architecture of the visual stream.
     MODEL.VISUAL.NAME: "torchvision::resnet50"
         Name of the visual stream model. Torchvision models supported for now.
+<<<<<<< HEAD
+=======
+    MODEL.VISUAL.NORM_LAYER: GN
+        One of ``["BN", "GN"]``. Instance Norm and Layer Norm are special cases
+        of Group Norm.
+    MODEL.VISUAL.NUM_GROUPS: 32
+        Number of groups for Group Norm. Ignored if ``MODEL.VISUAL.NORM_LAYER``
+        is ``BN``.
+>>>>>>> 65d469f... Add D2 config and script for LVIS finetuning.
     MODEL.VISUAL.PRETRAINED:
         Whether to initialize model from ImageNet pre-trained weights.
     _____
@@ -207,6 +217,10 @@ class Config(object):
         _C.DOWNSTREAM.VOC07_CLF.LAYER_NAMES = ["layer3", "layer4"]
         _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.01, 0.1, 1.0, 10.0]
 
+        _C.DOWNSTREAM.LVIS = CN()
+        _C.DOWNSTREAM.LVIS.D2_CONFIG = "configs/lvis_d2.yaml"
+        _C.DOWNSTREAM.LVIS.NORM_LAYER = "FrozenBN"
+
         # Placeholders, set these values after merging from file.
         _C.OPTIM.BATCH_SIZE_PER_ITER = 0
         _C.OPTIM.TOTAL_BATCH_SIZE = 0
@@ -235,17 +249,22 @@ class Config(object):
 
     def add_derived_params(self):
         r"""Add parameters with values derived from existing parameters."""
+        # ---------------------------------------------------------------------
+        # Set total batch size accounting for multiple-GPUs and multiplier.
+        # These are usually not used anywhere, adding for better reproducibility.
         self._C.OPTIM.BATCH_SIZE_PER_ITER = (
             self._C.OPTIM.BATCH_SIZE_PER_GPU * dist.get_world_size()
         )
         self._C.OPTIM.TOTAL_BATCH_SIZE = (
             self._C.OPTIM.BATCH_SIZE_PER_ITER * self._C.OPTIM.BATCH_SIZE_MULTIPLIER
         )
+        # ---------------------------------------------------------------------
 
         if self._C.FP16_OPT > 0 and "gelu" in self._C.MODEL.TEXTUAL.NAME:
             logger.warning("Cannot use GELU with FP16 precision, changing to RELU.")
             self._C.MODEL.TEXTUAL.NAME.replace("gelu", "relu")
 
+        # ---------------------------------------------------------------------
         # Set textual stream architecture if specified in string.
         # For example: "prenorm_gelu::L6_H768_A12_F3072":
         #     L = layers, H = hidden_size, A = attention_heads, F= feedforward_size
@@ -259,7 +278,9 @@ class Config(object):
                 self._C.MODEL.TEXTUAL.ATTENTION_HEADS = int(name_part[1:])
             elif name_part[0] == "F":
                 self._C.MODEL.TEXTUAL.FEEDFORWARD_SIZE = int(name_part[1:])
+        # ---------------------------------------------------------------------
 
+        # ---------------------------------------------------------------------
         # For simplicity, set size and heads for fusion to be same as transformer.
         # This might be temporary, can possibly remove it later.
         if (
@@ -271,6 +292,7 @@ class Config(object):
 
         self._C.MODEL.FUSION.PROJECTION_SIZE = self._C.MODEL.TEXTUAL.HIDDEN_SIZE
         self._C.MODEL.FUSION.ATTENTION_HEADS = self._C.MODEL.TEXTUAL.ATTENTION_HEADS
+        # ---------------------------------------------------------------------
 
     def __getattr__(self, attr: str):
         return self._C.__getattr__(attr)
