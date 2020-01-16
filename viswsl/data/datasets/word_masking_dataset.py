@@ -5,6 +5,7 @@ from torch.utils.data import IterableDataset
 from viswsl.data.dataflows import (
     ReadDatapointsFromLmdb,
     TransformImageForResNetLikeModels,
+    RandomHorizontalFlip,
     TokenizeCaption,
     MaskSomeTokensRandomly,
 )
@@ -38,13 +39,14 @@ class WordMaskingDataset(IterableDataset):
             image_crop_size=image_crop_size,
             index_or_key="image"
         )
+        self._pipeline = RandomHorizontalFlip(self._pipeline)
         # keys added: {"caption_tokens"}
         self._pipeline = TokenizeCaption(
             self._pipeline,
             vocabulary,
             tokenizer,
             max_caption_length=max_caption_length,
-            input_key="captions",
+            input_key="caption",
             output_key="caption_tokens",
         )
         # keys added: {"masked_labels"}

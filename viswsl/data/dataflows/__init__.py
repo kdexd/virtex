@@ -1,6 +1,7 @@
 from .readers import ReadDatapointsFromLmdb
 from .transforms import (
     TransformImageForResNetLikeModels,
+    RandomHorizontalFlip,
     TokenizeCaption,
     MaskSomeTokensRandomly,
 )
@@ -8,6 +9,7 @@ from .transforms import (
 __all__ = [
     "ReadDatapointsFromLmdb",
     "TransformImageForResNetLikeModels",
+    "RandomHorizontalFlip",
     "TokenizeCaption",
     "MaskSomeTokensRandomly",
 ]

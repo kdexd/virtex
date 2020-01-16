@@ -1,5 +1,6 @@
 import math
 import os
+import random
 from typing import Any, List, Tuple
 
 import dataflow as df
@@ -24,9 +25,15 @@ class ReadDatapointsFromLmdb(df.DataFlow):
     lmdb_path: str
     """
 
-    def __init__(self, lmdb_path: str, shuffle: bool = False):
+    def __init__(
+        self,
+        lmdb_path: str,
+        shuffle: bool = False,
+        return_all_captions: bool = False
+    ):
         self._lmdb_path = lmdb_path
         self._shuffle = shuffle
+        self._return_all_captions = return_all_captions
 
         # Get a list of "keys" in the LMDB file so we could shard the dataset.
         with lmdb.open(
@@ -108,8 +115,12 @@ class ReadDatapointsFromLmdb(df.DataFlow):
         # ====================================================================
 
         for image_id, instance in pipeline:
-            image, captions = instance
-            yield {"image_id": image_id, "image": image, "captions": captions}
+            # `caption` here is a List[str].
+            image, caption = instance
+            if not self._return_all_captions:
+                caption = random.choice(caption)
+
+            yield {"image_id": image_id, "image": image, "caption": caption}
 
     @staticmethod
     def _deserialize(datapoint: List[bytes]) -> Tuple[int, Any]:

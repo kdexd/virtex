@@ -3,6 +3,7 @@ from typing import List
 from torch.utils.data import IterableDataset
 
 from viswsl.data.dataflows import (
+    RandomHorizontalFlip,
     ReadDatapointsFromLmdb,
     TransformImageForResNetLikeModels,
     TokenizeCaption,
@@ -34,13 +35,14 @@ class CaptioningDataset(IterableDataset):
             image_crop_size=image_crop_size,
             index_or_key="image"
         )
+        self._pipeline = RandomHorizontalFlip(self._pipeline)
         # keys added: {"caption_tokens"}
         self._pipeline = TokenizeCaption(
             self._pipeline,
             vocabulary,
             tokenizer,
             max_caption_length=max_caption_length,
-            input_key="captions",
+            input_key="caption",
             output_key="caption_tokens",
         )
         self.max_caption_length = max_caption_length

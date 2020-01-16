@@ -58,6 +58,39 @@ class TransformImageForResNetLikeModels(df.ProxyDataFlow):
             yield datapoint
 
 
+class RandomHorizontalFlip(df.ProxyDataFlow):
+    r"""
+    Flip the image horizontally randomly (equally likely) and replace the
+    word "left" with "right" in the caption. In the data-loading pipeline, put
+    this after :class:`TransformImageForResnetLikeModels`.
+    """
+
+    def __init__(
+        self, ds: df.DataFlow, image_key: str = "image", caption_key: str = "caption"
+    ):
+        self.ds = ds
+        self._i = image_key
+        self._c = caption_key
+
+    def __iter__(self):
+        for datapoint in self.ds:
+            flag = random.random()
+            if flag < 0.5:
+                datapoint[self._i] = np.ascontiguousarray(
+                    datapoint[self._i][:, ::-1, ...]
+                )
+                caption = datapoint[self._c]
+
+                # Interchange words "left" and "right" if flipped.
+                caption = (
+                    caption.replace("left", "__TEMP__")
+                    .replace("right", "left")
+                    .replace("__TEMP__", "right")
+                )
+                datapoint[self._c] = caption
+            yield datapoint
+
+
 class TokenizeCaption(df.ProxyDataFlow):
     def __init__(
         self,
@@ -65,7 +98,7 @@ class TokenizeCaption(df.ProxyDataFlow):
         vocabulary: SentencePieceVocabulary,
         tokenizer: SentencePieceTokenizer,
         max_caption_length: int = 25,
-        input_key: str = "captions",
+        input_key: str = "caption",
         output_key: str = "caption_tokens",
     ):
         self.ds = ds
@@ -79,11 +112,10 @@ class TokenizeCaption(df.ProxyDataFlow):
     def __iter__(self):
 
         for datapoint in self.ds:
-
-            # Select a random caption, usually there may be only one caption.
-            caption = random.choice(datapoint[self._ik])
+            caption = datapoint[self._ik]
 
             # Tokenize caption (these are still strings).
+            caption = datapoint[self._ik]
             caption_tokens = self._tokenizer.tokenize(caption)
 
             # Add [CLS] and [SEP] tokens. [SEP] is simply EOS, or </S> token.
