@@ -1,5 +1,7 @@
 from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional
+
+import albumentations as alb
 from torch import nn, optim
 
 from viswsl.config import Config
@@ -60,9 +62,7 @@ class DatasetFactory(Factory):
             "lmdb_path": _C.DATA.VAL_LMDB if split == "val" else _C.DATA.TRAIN_LMDB,
             "vocabulary": vocabulary,
             "tokenizer": tokenizer,
-            "normalize_image": _C.DATA.NORMALIZE_IMAGE,
-            "image_resize_size": _C.DATA.IMAGE_RESIZE_SIZE,
-            "image_crop_size": _C.DATA.IMAGE_CROP_SIZE,
+            "random_horizontal_flip": _C.DATA.IMAGE.RANDOM_FLIP,
             "max_caption_length": _C.DATA.MAX_CAPTION_LENGTH,
             "shuffle": False if split == "val" else True,
         }
@@ -72,6 +72,37 @@ class DatasetFactory(Factory):
                 mask_probability=_C.PRETEXT.WORD_MASKING.MASK_PROBABILITY,
                 replace_probability=_C.PRETEXT.WORD_MASKING.REPLACE_PROBABILITY,
             )
+
+        # Add data augmentations to `image_transform`.
+        augmentation_list = [
+            alb.SmallestMaxSize(max_size=_C.DATA.IMAGE.RESIZE_SIZE),
+            alb.RandomResizedCrop(
+                _C.DATA.IMAGE.CROP_SIZE,
+                _C.DATA.IMAGE.CROP_SIZE,
+                scale=(0.08, 1.0),
+                ratio=(0.75, 1.333),
+            ),
+        ]
+        photometric_augmentation = [
+            alb.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2),
+            alb.HueSaturationValue(
+                hue_shift_limit=20, sat_shift_limit=20, val_shift_limit=20
+            ),
+            vdata.AlexNetPCA(),
+        ]
+        if _C.DATA.IMAGE.PHOTOMETRIC_AUG:
+            augmentation_list.extend(photometric_augmentation)
+
+        augmentation_list.append(alb.ToFloat(max_value=255.0))
+        if _C.DATA.IMAGE.COLOR_NORMALIZE:
+            augmentation_list.append(
+                alb.Normalize(
+                    mean=(0.485, 0.456, 0.406),
+                    std=(0.229, 0.224, 0.225),
+                    max_pixel_value=1.0,
+                )
+            )
+        kwargs["image_transform"] = alb.Compose(augmentation_list)
         # Dataset names match with model names (and ofcourse pretext names).
         return cls.create(_C.MODEL.NAME, **kwargs)
 

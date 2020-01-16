@@ -1,19 +1,36 @@
 from collections import defaultdict
 import os
 import glob
-from typing import Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
+import albumentations as alb
 import dataflow as df
 import numpy as np
 from PIL import Image
 import torch
 from torch.utils.data import IterableDataset
 
-from viswsl.data.dataflows import TransformImageForResNetLikeModels
-
 
 class VOC07ClassificationDataset(IterableDataset):
-    def __init__(self, voc_root: str, split: str = "train"):
+    def __init__(
+        self,
+        voc_root: str,
+        split: str = "train",
+        image_transform: Callable = alb.Compose(
+            [
+                alb.Resize(224, 224),
+                alb.ToFloat(max_value=255.0),
+                alb.Normalize(
+                    mean=(0.485, 0.456, 0.406),
+                    std=(0.229, 0.224, 0.225),
+                    max_pixel_value=1.0,
+                ),
+            ]
+        ),
+    ):
+        self.split = split
+        self.image_transform = image_transform
+
         ann_paths = sorted(
             glob.glob(os.path.join(voc_root, "ImageSets", "Main", f"*_{split}.txt"))
         )
@@ -48,17 +65,10 @@ class VOC07ClassificationDataset(IterableDataset):
             (os.path.join(voc_root, "JPEGImages", f"{image_name}.jpg"), label)
             for image_name, label in image_names_to_labels.items()
         ]
-
-        self._pipeline = df.DataFromList(instances, shuffle=split == "train")
-
         # Read image from file path.
+        self._pipeline = df.DataFromList(instances, shuffle=split == "train")
         self._pipeline = df.MapDataComponent(self._pipeline, Image.open, index=0)
         self._pipeline = df.MapDataComponent(self._pipeline, np.array, index=0)
-
-        # Transform image component as we are using a Resnet-like model.
-        self._pipeline = TransformImageForResNetLikeModels(
-            self._pipeline, index_or_key=0
-        )
 
     @property
     def class_names(self):
@@ -71,4 +81,10 @@ class VOC07ClassificationDataset(IterableDataset):
         self._pipeline.reset_state()
 
         for datapoint in self._pipeline:
-            yield {"image": datapoint[0], "label": datapoint[1]}
+            image, label = datapoint
+
+            # Transform and convert image from HWC to CHW format.
+            image = self.image_transform(image=image)["image"]
+            image = np.transpose(image, (2, 0, 1))
+
+            yield {"image": image, "label": label}

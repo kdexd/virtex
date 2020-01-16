@@ -8,10 +8,13 @@ DATA:
   TRAIN_LMDB: data/serialized/coco_train2017.lmdb
   VAL_LMDB: data/serialized/coco_val2017.lmdb
 
-  NORMALIZE_IMAGE: true
-  IMAGE_RESIZE_SIZE: 256 # 192
-  IMAGE_CROP_SIZE: 224 # 168
   MAX_CAPTION_LENGTH: 30
+  IMAGE:
+    RESIZE_SIZE: 256  # 192
+    CROP_SIZE: 224  # 168
+    COLOR_NORMALIZE: true
+    RANDOM_FLIP: true
+    PHOTOMETRIC_AUG: true
 
 PRETEXT:
   WORD_MASKING:

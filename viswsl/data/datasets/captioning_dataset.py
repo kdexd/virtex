@@ -1,14 +1,14 @@
-from typing import List
+from typing import Callable, List
 
+import albumentations as alb
+import numpy as np
 from torch.utils.data import IterableDataset
 
 from viswsl.data.dataflows import (
-    RandomHorizontalFlip,
     ReadDatapointsFromLmdb,
-    TransformImageForResNetLikeModels,
+    RandomHorizontalFlip,
     TokenizeCaption,
 )
-
 from viswsl.data.structures import CaptioningInstance, CaptioningBatch
 from viswsl.data.tokenizers import SentencePieceTokenizer
 from viswsl.data.vocabulary import SentencePieceVocabulary
@@ -20,28 +20,36 @@ class CaptioningDataset(IterableDataset):
         lmdb_path: str,
         vocabulary: SentencePieceVocabulary,
         tokenizer: SentencePieceTokenizer,
-        normalize_image: bool = False,
-        image_resize_size: int = 256,
-        image_crop_size: int = 224,
+        image_transform: Callable = alb.Compose(
+            [
+                alb.SmallestMaxSize(max_size=256),
+                alb.RandomCrop(224, 224),
+                alb.ToFloat(max_value=255.0),
+                alb.Normalize(
+                    mean=(0.485, 0.456, 0.406),
+                    std=(0.229, 0.224, 0.225),
+                    max_pixel_value=1.0,
+                ),
+            ]
+        ),
+        random_horizontal_flip: bool = True,
         max_caption_length: int = 30,
         shuffle: bool = False,
     ):
-        # keys: {"image_id", "image", "captions"}
+        self.image_transform = image_transform
+        # keys: {"image_id", "image", "caption"}
         self._pipeline = ReadDatapointsFromLmdb(lmdb_path, shuffle=shuffle)
-        self._pipeline = TransformImageForResNetLikeModels(
-            self._pipeline,
-            normalize=normalize_image,
-            image_resize_size=image_resize_size,
-            image_crop_size=image_crop_size,
-            index_or_key="image"
-        )
-        self._pipeline = RandomHorizontalFlip(self._pipeline)
+
+        # Random horizontal flip is kept separate from other data augmentation
+        # transforms because we need to change the caption if image is flipped.
+        if random_horizontal_flip:
+            self._pipeline = RandomHorizontalFlip(self._pipeline)
+
         # keys added: {"caption_tokens"}
         self._pipeline = TokenizeCaption(
             self._pipeline,
             vocabulary,
             tokenizer,
-            max_caption_length=max_caption_length,
             input_key="caption",
             output_key="caption_tokens",
         )
@@ -55,11 +63,15 @@ class CaptioningDataset(IterableDataset):
         self._pipeline.reset_state()
 
         for datapoint in self._pipeline:
-            yield CaptioningInstance(
-                datapoint["image_id"],
-                datapoint["image"],
-                datapoint["caption_tokens"],
-            )
+            # Transform and convert image from HWC to CHW format.
+            image = self.image_transform(image=datapoint["image"])["image"]
+            image = np.transpose(image, (2, 0, 1))
+
+            # Trim captions up to maximum length.
+            caption_tokens = datapoint["caption_tokens"]
+            caption_tokens = caption_tokens[: self.max_caption_length]
+
+            yield CaptioningInstance(datapoint["image_id"], image, caption_tokens)
 
     def collate_fn(self, instances: List[CaptioningInstance]) -> CaptioningBatch:
         return CaptioningBatch(instances, padding_value=self.padding_idx)
