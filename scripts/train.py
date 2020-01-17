@@ -255,6 +255,9 @@ if __name__ == "__main__":
         #   VALIDATION
         # ---------------------------------------------------------------------
         if iteration % _A.checkpoint_every == 0:
+            if dist.is_master_process():
+                checkpoint_manager.step(iteration)
+
             torch.set_grad_enabled(False)
             model.eval()
 
@@ -284,12 +287,13 @@ if __name__ == "__main__":
         #   TENSORBOARD LOGGING
         # ---------------------------------------------------------------------
         if iteration % _A.checkpoint_every == 0 and dist.is_master_process():
-            checkpoint_manager.step(iteration)
             logger.info(f"Iter: {iteration} | Val loss: {val_loss_dict}")
             tensorboard_writer.add_scalars("val", val_loss_dict, iteration)
 
-            if hasattr(model, "log_predictions"):
-                predstr = model.log_predictions(val_batch, vocabulary, tokenizer)
+            if (
+                dist.get_world_size() > 1 and hasattr(model.module, "log_predictions")
+            ):
+                predstr = model.module.log_predictions(val_batch, vocabulary, tokenizer)
                 tensorboard_writer.add_text("predictions", predstr, iteration)
 
         # All processes will wait till master process is done logging.

@@ -123,6 +123,10 @@ if __name__ == "__main__":
 
     device_id = dist.init_distributed_env(_A.dist_backend) if _A.slurm else -1
     device = torch.device(f"cuda:{device_id}" if device_id != -1 else "cpu")
+    if device_id != -1:
+        d2.utils.comm._LOCAL_PROCESS_GROUP = torch.distributed.new_group(
+            list(range(dist.get_world_size()))
+        )
 
     # Create config with default values, then override from config file.
     _C = Config(_A.config)

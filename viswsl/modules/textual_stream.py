@@ -83,9 +83,9 @@ class TransformerTextualStream(nn.Module):
         ones = torch.ones_like(caption_tokens)
         caption_mask = caption_lengths.unsqueeze(1) < ones.cumsum(dim=1)
 
-        # shape: (batch_size, max_caption_length, embedding_size)
+        # shape: (batch_size, max_caption_length, textual_feature_size)
         token_embeddings = self.embedding(caption_tokens)
 
-        # shape: (batch_size, max_caption_length, hidden_size)
+        # shape: (batch_size, max_caption_length, textual_feature_size)
         textual_features = self.encoder(token_embeddings, token_mask=caption_mask)
         return textual_features

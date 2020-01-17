@@ -147,21 +147,23 @@ class TextualStreamFactory(Factory):
         _C = config
 
         vocabulary = vdata.SentencePieceVocabulary(_C.DATA.VOCABULARY)
+        kwargs = {
+            "vocab_size": len(vocabulary),
+            "hidden_size": _C.MODEL.TEXTUAL.HIDDEN_SIZE,
+            "dropout": _C.MODEL.TEXTUAL.DROPOUT,
+            "padding_idx": vocabulary.pad_index,
+        }
+        if _C.MODEL.TEXTUAL.NAME != "embedding":
+            # Transformer will be bidirectional only for word masking pretext.
+            is_bidirectional = _C.MODEL.NAME == "word_masking"
+            kwargs.update(
+                feedforward_size=_C.MODEL.TEXTUAL.FEEDFORWARD_SIZE,
+                attention_heads=_C.MODEL.TEXTUAL.ATTENTION_HEADS,
+                num_layers=_C.MODEL.TEXTUAL.NUM_LAYERS,
+                is_bidirectional=is_bidirectional,
+            )
 
-        # Transformer will be bidirectional only for word masking pretext.
-        is_bidirectional = _C.MODEL.NAME == "word_masking"
-
-        return cls.create(
-            _C.MODEL.TEXTUAL.NAME.split("::")[0],
-            vocab_size=len(vocabulary),
-            hidden_size=_C.MODEL.TEXTUAL.HIDDEN_SIZE,
-            feedforward_size=_C.MODEL.TEXTUAL.FEEDFORWARD_SIZE,
-            attention_heads=_C.MODEL.TEXTUAL.ATTENTION_HEADS,
-            num_layers=_C.MODEL.TEXTUAL.NUM_LAYERS,
-            dropout=_C.MODEL.TEXTUAL.DROPOUT,
-            is_bidirectional=is_bidirectional,
-            padding_idx=vocabulary.pad_index,
-        )
+        return cls.create(_C.MODEL.TEXTUAL.NAME.split("::")[0], **kwargs)
 
 
 class FusionFactory(Factory):
@@ -223,15 +225,16 @@ class OptimizerFactory(Factory):
 
         # Form param groups on two criterions:
         #   1. no weight decay for some parameters (usually norm and bias)
-        #   2. different LR for visual stream.
+        #   2. different LR and weight decay for CNN and rest of model.
         # fmt: off
         param_groups: List[Dict[str, Any]] = []
         for name, param in named_parameters:
-            lr = _C.OPTIM.VISUAL_LR if "visual" in name else _C.OPTIM.LR
+            lr = _C.OPTIM.CNN_LR if "cnn" in name else _C.OPTIM.LR
             wd = (
-                _C.OPTIM.WEIGHT_DECAY
-                if not any(n in name for n in _C.OPTIM.NO_DECAY) else 0.0
+                _C.OPTIM.CNN_WEIGHT_DECAY if "cnn" in name else _C.OPTIM.WEIGHT_DECAY
             )
+            if any(n in name for n in _C.OPTIM.NO_DECAY):
+                wd = 0.0
             param_groups.append({"params": [param], "lr": lr, "weight_decay": wd})
         # fmt: on
 

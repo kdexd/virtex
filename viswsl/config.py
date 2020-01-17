@@ -154,9 +154,6 @@ class Config(object):
         _C.DATA.TOKENIZER = "data/coco_vocabulary.model"
         _C.DATA.TRAIN_LMDB = "data/serialized/coco_train2017.lmdb"
         _C.DATA.VAL_LMDB = "data/serialized/coco_val2017.lmdb"
-        _C.DATA.NORMALIZE_IMAGE = True
-        _C.DATA.IMAGE_RESIZE_SIZE = 256
-        _C.DATA.IMAGE_CROP_SIZE = 224
         _C.DATA.MAX_CAPTION_LENGTH = 30
 
         _C.DATA.IMAGE = CN()
@@ -195,9 +192,8 @@ class Config(object):
         _C.MODEL.FUSION.DROPOUT = 0.1
 
         _C.OPTIM = CN()
-        _C.OPTIM.NUM_ITERATIONS = 1000000
+        _C.OPTIM.NUM_ITERATIONS = 500000
         _C.OPTIM.OPTIMIZER_NAME = "adamw"
-        _C.OPTIM.WEIGHT_DECAY = 1e-4
         _C.OPTIM.NO_DECAY = [".bn", ".norm", ".bias"]
         _C.OPTIM.CLIP_GRAD_NORM = 10
 
@@ -212,8 +208,10 @@ class Config(object):
         _C.OPTIM.BATCH_SIZE_PER_GPU = 64
         _C.OPTIM.BATCH_SIZE_MULTIPLIER = 1
 
-        _C.OPTIM.VISUAL_LR = 1e-3
         _C.OPTIM.LR = 1e-4
+        _C.OPTIM.WEIGHT_DECAY = 1e-2
+        _C.OPTIM.CNN_LR = 1e-2
+        _C.OPTIM.CNN_WEIGHT_DECAY = 1e-4
         _C.OPTIM.WARMUP_STEPS = 10000
         _C.OPTIM.LR_DECAY_NAME = "cosine"
 
