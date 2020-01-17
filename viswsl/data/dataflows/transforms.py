@@ -106,7 +106,7 @@ class AlexNetPCA(alb.ImageOnlyTransform):
         alpha = np.random.normal(0.0, self.alpha, size=(3, 1)) * self.eigval
         add_vector = np.matrix(self.eigvec) * np.matrix(alpha)
 
-        img = img + add_vector[np.newaxis, np.newaxis, ...]
+        img = img + np.asarray(add_vector).squeeze()[np.newaxis, np.newaxis, ...]
         img = np.clip(img, 0.0, 255.0)
         return img
 

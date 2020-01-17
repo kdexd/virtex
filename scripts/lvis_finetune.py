@@ -164,6 +164,7 @@ if __name__ == "__main__":
         _A.serialization_dir, f"lvis_{CHECKPOINT_ITERATION}"
     )
     _D2C.freeze()
+    logger.info(_D2C)
 
     # Initialize from a checkpoint, but only keep the visual module.
     model = PretrainingModelFactory.from_config(_C).to(device)
