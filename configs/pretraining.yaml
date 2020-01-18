@@ -2,19 +2,21 @@ RANDOM_SEED: 0
 FP16_OPT: 0
 
 DATA:
-  VOCABULARY: data/coco_vocabulary.vocab
-  TOKENIZER: data/coco_vocabulary.model
-
   TRAIN_LMDB: data/serialized/coco_train2017.lmdb
   VAL_LMDB: data/serialized/coco_val2017.lmdb
+  CAPTION_CORPUS: data/coco_train2017_corpus.txt
 
-  MAX_CAPTION_LENGTH: 30
   IMAGE:
     RESIZE_SIZE: 256  # 192
     CROP_SIZE: 224  # 168
     COLOR_NORMALIZE: true
     RANDOM_FLIP: true
     PHOTOMETRIC_AUG: true
+
+  CAPTION:
+    VOCAB_SIZE: 10000
+    MAX_LENGTH: 30
+    TOKENIZER: SentencePieceBPETokenizer
 
 PRETEXT:
   WORD_MASKING:

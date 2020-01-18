@@ -58,13 +58,6 @@ class Config(object):
         these are assumed to be relative to project root directory. If
         elsewhere, symlinking is recommended.
 
-    DATA.VOCABULARY: "data/coco_vocabulary.vocab"
-        Path to a ``**.vocab`` file containing tokens. This file is used to
-        instantiate :class:`~viswsl.data.vocabulary.SentencePieceVocabulary`.
-    DATA.TOKENIZER: "data/coco_vocabulary.model"
-        Path to a ``**.model`` file containing tokenizer model trained by
-        `sentencepiece <https://www.github.com/google/sentencepiece>`_, used
-        to instantiate :class:`~viswsl.data.tokenizer.SentencePieceTokenizer`.
     DATA.TRAIN_LMDB: data/serialized/coco_train2017.lmdb
         Path to an LMDB file containing training examples serialized as
         ``(image: np.ndarray, captions: List[str])``.
@@ -150,11 +143,9 @@ class Config(object):
         _C.FP16_OPT = 0
 
         _C.DATA = CN()
-        _C.DATA.VOCABULARY = "data/coco_vocabulary.vocab"
-        _C.DATA.TOKENIZER = "data/coco_vocabulary.model"
         _C.DATA.TRAIN_LMDB = "data/serialized/coco_train2017.lmdb"
         _C.DATA.VAL_LMDB = "data/serialized/coco_val2017.lmdb"
-        _C.DATA.MAX_CAPTION_LENGTH = 30
+        _C.DATA.CAPTION_CORPUS = "data/coco_train2017_corpus.txt"
 
         _C.DATA.IMAGE = CN()
         _C.DATA.IMAGE.RESIZE_SIZE = 256
@@ -162,6 +153,11 @@ class Config(object):
         _C.DATA.IMAGE.COLOR_NORMALIZE = True
         _C.DATA.IMAGE.RANDOM_FLIP = True
         _C.DATA.IMAGE.PHOTOMETRIC_AUG = True
+
+        _C.DATA.CAPTION = CN()
+        _C.DATA.CAPTION.VOCAB_SIZE = 10000
+        _C.DATA.CAPTION.MAX_LENGTH = 30
+        _C.DATA.CAPTION.TOKENIZER = "SentencePieceBPETokenizer"
 
         _C.PRETEXT = CN()
         _C.PRETEXT.WORD_MASKING = CN()

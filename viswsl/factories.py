@@ -2,6 +2,7 @@ from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 import albumentations as alb
+import tokenizers as tkz
 from torch import nn, optim
 
 from viswsl.config import Config
@@ -39,6 +40,41 @@ class Factory(object):
         raise NotImplementedError
 
 
+class TokenizerFactory(Factory):
+    PRODUCTS = {
+        "SentencePieceBPETokenizer": tkz.SentencePieceBPETokenizer,
+        "ByteLevelBPETokenizer": tkz.ByteLevelBPETokenizer,
+    }
+
+    @classmethod
+    def from_config(cls, config: Config) -> tkz.implementations.BaseTokenizer:
+        _C = config
+
+        # Special tokens: padding/out-of-vocabulary token ([UNK]), mask token,
+        # and boundary token (SOS/EOS).
+        special_tokens = ["[UNK]", "[MASK]", "[B]"]
+
+        # Add a leading space only for SentencePiece.
+        kwargs: Dict[str, Any] = {}
+        if _C.DATA.CAPTION.TOKENIZER == "SentencePieceBPETokenizer":
+            kwargs = {"add_prefix_space": True, "unk_token": "[UNK]"}
+
+        tokenizer = cls.create(_C.DATA.CAPTION.TOKENIZER, **kwargs)
+
+        # Train tokenizer on given caption corpus. This will be determisitic
+        # for a fixed corpus, vocab size and tokenizer.
+        tokenizer.train(
+            files=_C.DATA.CAPTION_CORPUS,
+            vocab_size=_C.DATA.CAPTION.VOCAB_SIZE,
+            special_tokens=special_tokens,
+        )
+        # Tokenizers from huggingface provide support to handle truncation and
+        # padding up to maximum length, but we do it outside in our dataset
+        # class for better control (for example, we flip caption for backward
+        # captioning and it requires different side of truncation).
+        return tokenizer
+
+
 class DatasetFactory(Factory):
     PRODUCTS = {
         "word_masking": vdata.WordMaskingDataset,
@@ -50,20 +86,17 @@ class DatasetFactory(Factory):
     def from_config(
         cls,
         config: Config,
-        vocabulary: Optional[vdata.SentencePieceVocabulary] = None,
-        tokenizer: Optional[vdata.SentencePieceTokenizer] = None,
+        tokenizer: Optional[tkz.implementations.BaseTokenizer] = None,
         split: str = "train",  # one of {"train", "val"}
     ):
         _C = config
-        vocabulary = vocabulary or vdata.SentencePieceVocabulary(_C.DATA.VOCABULARY)
-        tokenizer = tokenizer or vdata.SentencePieceTokenizer(_C.DATA.TOKENIZER)
+        tokenizer = tokenizer or TokenizerFactory.from_config(_C)
 
         kwargs = {
             "lmdb_path": _C.DATA.VAL_LMDB if split == "val" else _C.DATA.TRAIN_LMDB,
-            "vocabulary": vocabulary,
             "tokenizer": tokenizer,
             "random_horizontal_flip": _C.DATA.IMAGE.RANDOM_FLIP,
-            "max_caption_length": _C.DATA.MAX_CAPTION_LENGTH,
+            "max_caption_length": _C.DATA.CAPTION.MAX_LENGTH,
             "shuffle": False if split == "val" else True,
         }
         if _C.MODEL.NAME == "word_masking":
@@ -143,15 +176,19 @@ class TextualStreamFactory(Factory):
     }
 
     @classmethod
-    def from_config(cls, config: Config) -> nn.Module:
-        _C = config
+    def from_config(
+        cls,
+        config: Config,
+        tokenizer: Optional[tkz.implementations.BaseTokenizer] = None,
+    ) -> nn.Module:
 
-        vocabulary = vdata.SentencePieceVocabulary(_C.DATA.VOCABULARY)
+        _C = config
+        tokenizer = tokenizer or TokenizerFactory.from_config(_C)
         kwargs = {
-            "vocab_size": len(vocabulary),
+            "vocab_size": _C.DATA.CAPTION.VOCAB_SIZE,
             "hidden_size": _C.MODEL.TEXTUAL.HIDDEN_SIZE,
             "dropout": _C.MODEL.TEXTUAL.DROPOUT,
-            "padding_idx": vocabulary.pad_index,
+            "padding_idx": tokenizer.token_to_id("[UNK]"),
         }
         if _C.MODEL.TEXTUAL.NAME != "embedding":
             # Transformer will be bidirectional only for word masking pretext.

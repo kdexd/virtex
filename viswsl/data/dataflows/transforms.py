@@ -1,11 +1,10 @@
 import random
+from typing import List
 
 import albumentations as alb
 import dataflow as df
+import tokenizers as tkz
 import numpy as np
-
-from viswsl.data.tokenizers import SentencePieceTokenizer
-from viswsl.data.vocabulary import SentencePieceVocabulary
 
 
 class RandomHorizontalFlip(df.ProxyDataFlow):
@@ -46,14 +45,15 @@ class TokenizeCaption(df.ProxyDataFlow):
     def __init__(
         self,
         ds: df.DataFlow,
-        vocabulary: SentencePieceVocabulary,
-        tokenizer: SentencePieceTokenizer,
+        tokenizer: tkz.implementations.BaseTokenizer,
         input_key: str = "caption",
         output_key: str = "caption_tokens",
     ):
         self.ds = ds
-        self._vocabulary = vocabulary
         self._tokenizer = tokenizer
+
+        # Short handle for convenience
+        self._boundary_index = self._tokenizer.token_to_id("[B]")
 
         self._ik = input_key
         self._ok = output_key
@@ -65,16 +65,11 @@ class TokenizeCaption(df.ProxyDataFlow):
 
             # Tokenize caption (these are still strings).
             caption = datapoint[self._ik]
-            caption_tokens = self._tokenizer.tokenize(caption)
+            token_indices: List[int] = self._tokenizer.encode(caption).ids
 
-            # Add [CLS] and [SEP] tokens. [SEP] is simply EOS, or </S> token.
-            caption_tokens.insert(0, self._vocabulary.cls_token)
-            caption_tokens.append(self._vocabulary.sep_token)
-
-            # Convert (string) tokens to (integer) token indices.
-            token_indices = [
-                self._vocabulary.get_token_index(t) for t in caption_tokens
-            ]
+            # Add boundary tokens, we use same token for start and end.
+            token_indices.insert(0, self._boundary_index)
+            token_indices.append(self._boundary_index)
             datapoint[self._ok] = token_indices
 
             yield datapoint
@@ -90,8 +85,8 @@ class AlexNetPCA(alb.ImageOnlyTransform):
     <https://github.com/pytorch/pytorch/blob/master/caffe2/image/image_input_op.h#L265>`_.
     """
 
-    def __init__(self, alpha: float = 0.1):
-        super().__init__()
+    def __init__(self, alpha: float = 0.1, p: float = 0.5):
+        super().__init__(p=p)
         self.alpha = alpha
         self.eigval = np.array([[0.2175], [0.0188], [0.0045]])
         self.eigvec = np.array(

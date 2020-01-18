@@ -1,10 +1,10 @@
 import copy
 from typing import Any, Dict
 
+import tokenizers as tkz
 import torch
 from torch import nn
 
-from viswsl.data import SentencePieceTokenizer, SentencePieceVocabulary
 from viswsl.data.structures import CaptioningBatch
 from viswsl.modules.fusion import Fusion
 
@@ -114,22 +114,24 @@ class CaptioningModel(nn.Module):
         # Predictions from forward transformer will be shifted right by one
         # time-step, and vice-versa.
         if not self.training:
-            predictions = torch.argmax(output_logits, dim=-1)
+            predictions = torch.argmax(output_logits, dim=-1)[:, :-1]
+            redundant_positions = caption_tokens[:, 1:] == self.textual.padding_idx
+            predictions[redundant_positions] = self.textual.padding_idx
             output_dict["predictions"] = {"forward": predictions}
 
             if self.bidirectional:
                 backward_predictions = backward_predictions = torch.argmax(
                     backward_output_logits, dim=-1
                 )
+                backward_predictions[redundant_positions] = self.textual.padding_idx
                 output_dict["predictions"]["backward"] = backward_predictions
+
+            output_dict["predictions"] = predictions
 
         return output_dict
 
     def log_predictions(
-        self,
-        batch: CaptioningBatch,
-        vocabulary: SentencePieceVocabulary,
-        tokenizer: SentencePieceTokenizer,
+        self, batch: CaptioningBatch, tokenizer: tkz.implementations.BaseTokenizer
     ) -> str:
 
         self.eval()
@@ -137,25 +139,21 @@ class CaptioningModel(nn.Module):
             predictions = self.forward(batch)["predictions"]
         self.train()
 
-        # fmt: off
-        to_strtokens = lambda token_indices: [  # noqa: E731
-            vocabulary.get_token_from_index(t.item())
-            for t in token_indices if t.item() != vocabulary.pad_index
-        ]
         predictions_str = ""
         for tokens, preds in zip(batch["caption_tokens"], predictions["forward"]):
             predictions_str += f"""
-                Caption tokens : {tokenizer.detokenize(to_strtokens(tokens))}
-                Predictions (f): {tokenizer.detokenize(to_strtokens(preds))}
+                Caption tokens : {tokenizer.decode(tokens)}
+                Predictions (f): {tokenizer.decode(preds)}
 
                 """
 
         if self.bidirectional:
-            for tokens, preds in zip(batch["noitpac_tokens"], predictions["backward"]):
+            for tokens, preds in zip(
+                batch["noitpac_tokens"], predictions["backward"]
+            ):
                 predictions_str += f"""
-                    Noitpac tokens : {tokenizer.detokenize(to_strtokens(tokens))}
-                    Predictions (b): {tokenizer.detokenize(to_strtokens(preds))}
+                Noitpac tokens : {tokenizer.decode(tokens)}
+                Predictions (b): {tokenizer.decode(preds)}
 
                     """
-        # fmt: on
         return predictions_str

@@ -4,6 +4,7 @@ from typing import Callable, List
 
 import albumentations as alb
 import numpy as np
+import tokenizers as tkz
 from torch.utils.data import IterableDataset
 
 from viswsl.data.dataflows import (
@@ -12,8 +13,6 @@ from viswsl.data.dataflows import (
     TokenizeCaption,
 )
 from viswsl.data.structures import WordMaskingInstance, WordMaskingBatch
-from viswsl.data.tokenizers import SentencePieceTokenizer
-from viswsl.data.vocabulary import SentencePieceVocabulary
 
 
 class WordMaskingDataset(IterableDataset):
@@ -32,8 +31,7 @@ class WordMaskingDataset(IterableDataset):
     def __init__(
         self,
         lmdb_path: str,
-        vocabulary: SentencePieceVocabulary,
-        tokenizer: SentencePieceTokenizer,
+        tokenizer: tkz.implementations.BaseTokenizer,
         mask_proportion: float = 0.15,
         mask_probability: float = 0.80,
         replace_probability: float = 0.10,
@@ -53,7 +51,6 @@ class WordMaskingDataset(IterableDataset):
         max_caption_length: int = 30,
         shuffle: bool = False,
     ):
-        self._vocabulary = vocabulary
         self._tokenizer = tokenizer
         self.image_transform = image_transform
 
@@ -68,17 +65,16 @@ class WordMaskingDataset(IterableDataset):
         # keys added: {"caption_tokens"}
         self._pipeline = TokenizeCaption(
             self._pipeline,
-            vocabulary,
             tokenizer,
             input_key="caption",
             output_key="caption_tokens",
         )
         self.max_caption_length = max_caption_length
-        self.padding_idx = vocabulary.pad_index
+        self.padding_idx = tokenizer.token_to_id("[UNK]")
 
         # Handles to commonly used variables for word masking.
-        self._mask_index = vocabulary.mask_index
-        self._pad_index = vocabulary.pad_index
+        self._mask_index = tokenizer.token_to_id("[MASK]")
+        self._pad_index = tokenizer.token_to_id("[UNK]")
         self._mask_proportion = mask_proportion
         self._mask_prob = mask_probability
         self._repl_prob = replace_probability
@@ -123,42 +119,6 @@ class WordMaskingDataset(IterableDataset):
                             caption_tokens[i] = self._mask_index
                         else:
                             caption_tokens[i] = self._random_token_index()
-
-            # At this point, caption tokens and masked labels are lists of
-            # same length. Do whole word masking now.
-            for i in range(len(caption_tokens)):
-                if caption_tokens[i] == self._mask_index:
-                    # Mask all following tokens until getting one which starts
-                    # with a space.
-                    for j in range(i + 1, len(caption_tokens)):
-                        tt = self._vocabulary.get_token_from_index(caption_tokens[j])
-                        if (
-                            tt.startswith(self._tokenizer.SP_SPACE)
-                            or tt in self._vocabulary.special_tokens
-                        ):
-                            break
-                        masked_labels[j] = caption_tokens[j]
-                        caption_tokens[j] = self._mask_index
-
-                    # Mask tokens before this one, if this one doesn't start
-                    # with a space.
-                    t = self._vocabulary.get_token_from_index(masked_labels[i])
-                    if (
-                        not t.startswith(self._tokenizer.SP_SPACE)
-                        and t not in self._vocabulary.special_tokens
-                    ):
-                        for j in range(i - 1, -1, -1):
-                            tt = self._vocabulary.get_token_from_index(
-                                caption_tokens[j]
-                            )
-                            if tt in self._vocabulary.special_tokens:
-                                break
-                            if tt.startswith(self._tokenizer.SP_SPACE):
-                                masked_labels[j] = caption_tokens[j]
-                                caption_tokens[j] = self._mask_index
-                                break
-                            masked_labels[j] = caption_tokens[j]
-                            caption_tokens[j] = self._mask_index
             # -----------------------------------------------------------------
 
             yield WordMaskingInstance(

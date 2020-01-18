@@ -1,9 +1,9 @@
 from typing import Any, Dict
 
+import tokenizers as tkz
 import torch
 from torch import nn
 
-from viswsl.data import SentencePieceTokenizer, SentencePieceVocabulary
 from viswsl.data.structures import WordMaskingBatch
 from viswsl.modules.fusion import Fusion
 
@@ -80,10 +80,7 @@ class WordMaskingModel(nn.Module):
         return output_dict
 
     def log_predictions(
-        self,
-        batch: WordMaskingBatch,
-        vocabulary: SentencePieceVocabulary,
-        tokenizer: SentencePieceTokenizer,
+        self, batch: WordMaskingBatch, tokenizer: tkz.implementations.BaseTokenizer
     ) -> str:
 
         self.eval()
@@ -91,20 +88,14 @@ class WordMaskingModel(nn.Module):
             predictions = self.forward(batch)["predictions"]
         self.train()
 
-        # fmt: off
-        to_strtokens = lambda token_indices: [  # noqa: E731
-            vocabulary.get_token_from_index(t.item())
-            for t in token_indices if t.item() != vocabulary.pad_index
-        ]
         predictions_str = ""
         for tokens, labels, preds in zip(
-            batch["caption_tokens"], batch["masked_labels"], predictions,
+            batch["caption_tokens"], batch["masked_labels"], predictions
         ):
             predictions_str += f"""
-                Caption tokens : {tokenizer.detokenize(to_strtokens(tokens))}
-                Masked Labels  : {tokenizer.detokenize(to_strtokens(labels))}
-                Predictions    : {tokenizer.detokenize(to_strtokens(preds))}
+                Caption tokens : {tokenizer.decode(tokens)}
+                Masked Labels  : {tokenizer.decode(labels)}
+                Predictions    : {tokenizer.decode(preds)}
 
                 """
-        # fmt: on
         return predictions_str

@@ -13,9 +13,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 # fmt: off
 from viswsl.config import Config
-from viswsl.data import SentencePieceVocabulary, SentencePieceTokenizer
 from viswsl.factories import (
-    DatasetFactory, PretrainingModelFactory, OptimizerFactory, LRSchedulerFactory,
+    TokenizerFactory, DatasetFactory, PretrainingModelFactory,
+    OptimizerFactory, LRSchedulerFactory,
 )
 from viswsl.utils.checkpointing import CheckpointManager
 from viswsl.utils.common import cycle, Timer
@@ -113,11 +113,8 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER
     # -------------------------------------------------------------------------
-    vocabulary = SentencePieceVocabulary(_C.DATA.VOCABULARY)
-    tokenizer = SentencePieceTokenizer(_C.DATA.TOKENIZER)
-    train_dataset = DatasetFactory.from_config(
-        _C, vocabulary=vocabulary, tokenizer=tokenizer, split="train"
-    )
+    tokenizer = TokenizerFactory.from_config(_C)
+    train_dataset = DatasetFactory.from_config(_C, tokenizer, split="train")
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
@@ -125,9 +122,7 @@ if __name__ == "__main__":
         pin_memory=True,
         collate_fn=train_dataset.collate_fn,
     )
-    val_dataset = DatasetFactory.from_config(
-        _C, vocabulary=vocabulary, tokenizer=tokenizer, split="val"
-    )
+    val_dataset = DatasetFactory.from_config(_C, tokenizer, split="val")
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
@@ -153,9 +148,7 @@ if __name__ == "__main__":
 
     if dist.get_world_size() > 1:
         dist.synchronize()
-        model = nn.parallel.DistributedDataParallel(
-            model, device_ids=[device], find_unused_parameters=True
-        )
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[device])
 
     # -------------------------------------------------------------------------
     #  BEFORE TRAINING STARTS
@@ -290,10 +283,10 @@ if __name__ == "__main__":
             logger.info(f"Iter: {iteration} | Val loss: {val_loss_dict}")
             tensorboard_writer.add_scalars("val", val_loss_dict, iteration)
 
-            if (
-                dist.get_world_size() > 1 and hasattr(model.module, "log_predictions")
+            if dist.get_world_size() > 1 and hasattr(
+                model.module, "log_predictions"
             ):
-                predstr = model.module.log_predictions(val_batch, vocabulary, tokenizer)
+                predstr = model.module.log_predictions(val_batch, tokenizer)
                 tensorboard_writer.add_text("predictions", predstr, iteration)
 
         # All processes will wait till master process is done logging.

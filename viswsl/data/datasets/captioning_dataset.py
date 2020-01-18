@@ -2,6 +2,7 @@ from typing import Callable, List
 
 import albumentations as alb
 import numpy as np
+import tokenizers as tkz
 from torch.utils.data import IterableDataset
 
 from viswsl.data.dataflows import (
@@ -10,16 +11,13 @@ from viswsl.data.dataflows import (
     TokenizeCaption,
 )
 from viswsl.data.structures import CaptioningInstance, CaptioningBatch
-from viswsl.data.tokenizers import SentencePieceTokenizer
-from viswsl.data.vocabulary import SentencePieceVocabulary
 
 
 class CaptioningDataset(IterableDataset):
     def __init__(
         self,
         lmdb_path: str,
-        vocabulary: SentencePieceVocabulary,
-        tokenizer: SentencePieceTokenizer,
+        tokenizer: tkz.implementations.BaseTokenizer,
         image_transform: Callable = alb.Compose(
             [
                 alb.SmallestMaxSize(max_size=256),
@@ -48,13 +46,12 @@ class CaptioningDataset(IterableDataset):
         # keys added: {"caption_tokens"}
         self._pipeline = TokenizeCaption(
             self._pipeline,
-            vocabulary,
             tokenizer,
             input_key="caption",
             output_key="caption_tokens",
         )
         self.max_caption_length = max_caption_length
-        self.padding_idx = vocabulary.pad_index
+        self.padding_idx = tokenizer.token_to_id("[UNK]")
 
     def __len__(self):
         return len(self._pipeline)
