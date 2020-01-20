@@ -1,5 +1,6 @@
 import random
 from typing import List
+import unicodedata
 
 import albumentations as alb
 import dataflow as df
@@ -53,7 +54,8 @@ class TokenizeCaption(df.ProxyDataFlow):
         self._tokenizer = tokenizer
 
         # Short handle for convenience
-        self._boundary_index = self._tokenizer.token_to_id("[B]")
+        self._sos_index = self._tokenizer.token_to_id("[SOS]")
+        self._eos_index = self._tokenizer.token_to_id("[EOS]")
 
         self._ik = input_key
         self._ok = output_key
@@ -63,13 +65,17 @@ class TokenizeCaption(df.ProxyDataFlow):
         for datapoint in self.ds:
             caption = datapoint[self._ik]
 
-            # Tokenize caption (these are still strings).
-            caption = datapoint[self._ik]
+            # Lowercase caption and strip accents from characters.
+            caption = caption.lower()
+            caption = unicodedata.normalize("NFKD", caption)
+            caption = "".join(
+                [chr for chr in caption if not unicodedata.combining(chr)]
+            )
             token_indices: List[int] = self._tokenizer.encode(caption).ids
 
             # Add boundary tokens, we use same token for start and end.
-            token_indices.insert(0, self._boundary_index)
-            token_indices.append(self._boundary_index)
+            token_indices.insert(0, self._sos_index)
+            token_indices.append(self._eos_index)
             datapoint[self._ok] = token_indices
 
             yield datapoint

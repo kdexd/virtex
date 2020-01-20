@@ -76,15 +76,6 @@ class Config(object):
         Parameters defining the architecture of the visual stream.
     MODEL.VISUAL.NAME: "torchvision::resnet50"
         Name of the visual stream model. Torchvision models supported for now.
-<<<<<<< HEAD
-=======
-    MODEL.VISUAL.NORM_LAYER: GN
-        One of ``["BN", "GN"]``. Instance Norm and Layer Norm are special cases
-        of Group Norm.
-    MODEL.VISUAL.NUM_GROUPS: 32
-        Number of groups for Group Norm. Ignored if ``MODEL.VISUAL.NORM_LAYER``
-        is ``BN``.
->>>>>>> 65d469f... Add D2 config and script for LVIS finetuning.
     MODEL.VISUAL.PRETRAINED:
         Whether to initialize model from ImageNet pre-trained weights.
     _____
@@ -124,12 +115,6 @@ class Config(object):
         5-10% of total number of iterations.
     OPTIM.WEIGHT_DECAY: 1e-4
         Weight decay co-efficient for optimizer.
-    OPTIM.SGD_MOMENTUM: 0.9
-        Value for momentum co-efficient, only used when ``OPTIM.OPTIMIZER_NAME``
-        is ``sgd``, else ignored.
-    OPTIM.SGD_NESTEROV: True
-        Whether to use Nesterive accelerated gradient, only used when
-        ``OPTIM.OPTIMIZER_NAME`` is ``sgd``, else ignored.
     OPTIM.CLIP_GRAD_NORM: 10
         Threshold to clamp gradients for avoiding exploding gradients.
     """
@@ -165,8 +150,8 @@ class Config(object):
         _C.PRETEXT.WORD_MASKING.REPLACE_PROBABILITY = 0.10
 
         _C.MODEL = CN()
-        _C.MODEL.NAME = "word_masking"
-        _C.MODEL.TIE_EMBEDDINGS = True
+        _C.MODEL.NAME = "bicaptioning"
+        _C.MODEL.DROPOUT = 0.1
 
         _C.MODEL.VISUAL = CN()
         _C.MODEL.VISUAL.NAME = "torchvision::resnet50"
@@ -174,18 +159,16 @@ class Config(object):
         _C.MODEL.VISUAL.PRETRAINED = False
 
         _C.MODEL.TEXTUAL = CN()
-        _C.MODEL.TEXTUAL.NAME = "postnorm_gelu"
+        _C.MODEL.TEXTUAL.NAME = "memoryless_prenorm"
+        _C.MODEL.TEXTUAL.DO_EARLY_FUSION = False
         _C.MODEL.TEXTUAL.HIDDEN_SIZE = 512
         _C.MODEL.TEXTUAL.ATTENTION_HEADS = 8
         _C.MODEL.TEXTUAL.FEEDFORWARD_SIZE = 2048
         _C.MODEL.TEXTUAL.NUM_LAYERS = 6
-        _C.MODEL.TEXTUAL.DROPOUT = 0.1
 
-        _C.MODEL.FUSION = CN()
-        _C.MODEL.FUSION.NAME = "multihead"
-        _C.MODEL.FUSION.PROJECTION_SIZE = 512
-        _C.MODEL.FUSION.ATTENTION_HEADS = 8
-        _C.MODEL.FUSION.DROPOUT = 0.1
+        _C.MODEL.LATE_FUSION = CN()
+        _C.MODEL.LATE_FUSION.NAME = "multihead"
+        _C.MODEL.LATE_FUSION.ATTENTION_HEADS = 8
 
         _C.OPTIM = CN()
         _C.OPTIM.NUM_ITERATIONS = 500000
@@ -193,10 +176,7 @@ class Config(object):
         _C.OPTIM.NO_DECAY = [".bn", ".norm", ".bias"]
         _C.OPTIM.CLIP_GRAD_NORM = 10
 
-        _C.OPTIM.ADAM_BETA1 = 0.9
-        _C.OPTIM.ADAM_BETA2 = 0.98
-        _C.OPTIM.SGD_MOMENTUM = 0.9
-        _C.OPTIM.SGD_NESTEROV = True
+        _C.OPTIM.ADAM_BETAS = [0.9, 0.98]
         _C.OPTIM.USE_LOOKAHEAD = False
         _C.OPTIM.LOOKAHEAD_STEPS = 5
         _C.OPTIM.LOOKAHEAD_ALPHA = 0.5
@@ -207,7 +187,7 @@ class Config(object):
         _C.OPTIM.LR = 1e-4
         _C.OPTIM.WEIGHT_DECAY = 1e-2
         _C.OPTIM.CNN_LR = 1e-2
-        _C.OPTIM.CNN_WEIGHT_DECAY = 1e-4
+        _C.OPTIM.CNN_WEIGHT_DECAY = 1e-2
         _C.OPTIM.WARMUP_STEPS = 10000
         _C.OPTIM.LR_DECAY_NAME = "cosine"
 
@@ -282,17 +262,10 @@ class Config(object):
         # ---------------------------------------------------------------------
 
         # ---------------------------------------------------------------------
-        # For simplicity, set size and heads for fusion to be same as transformer.
-        # This might be temporary, can possibly remove it later.
-        if (
-            self._C.MODEL.FUSION.PROJECTION_SIZE != self._C.MODEL.TEXTUAL.HIDDEN_SIZE
-            or self._C.MODEL.FUSION.ATTENTION_HEADS
-            != self._C.MODEL.TEXTUAL.ATTENTION_HEADS
-        ):
-            logger.warning("Setting hyperparams for fusion to be same as textual.")
-
-        self._C.MODEL.FUSION.PROJECTION_SIZE = self._C.MODEL.TEXTUAL.HIDDEN_SIZE
-        self._C.MODEL.FUSION.ATTENTION_HEADS = self._C.MODEL.TEXTUAL.ATTENTION_HEADS
+        # For simplicity, attention heads for fusion to be same as transformer.
+        self._C.MODEL.LATE_FUSION.ATTENTION_HEADS = (
+            self._C.MODEL.TEXTUAL.ATTENTION_HEADS
+        )
         # ---------------------------------------------------------------------
 
     def __getattr__(self, attr: str):

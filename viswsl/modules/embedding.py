@@ -9,39 +9,44 @@ class WordAndPositionalEmbedding(nn.Module):
     def __init__(
         self,
         vocab_size: int,
-        embedding_size: int = 512,
+        hidden_size: int = 512,
         max_sequence_length: int = 30,
         dropout: float = 0.0,
         padding_idx: int = 0,
     ):
         super().__init__()
-
-        self.word_embedding = nn.Embedding(
-            vocab_size, embedding_size, padding_idx=padding_idx
-        )
-        # We provide no "padding index" for position embeddigs. We zero-out
-        # the positional embeddings of padded positions as a post-processing,
-        self.position_embedding = nn.Embedding(max_sequence_length, embedding_size)
-        self.layer_norm = nn.LayerNorm(
-            embedding_size, eps=1e-8, elementwise_affine=True
-        )
-        self.dropout = nn.Dropout(p=dropout)
+        self.vocab_size = vocab_size
         self.padding_idx = padding_idx
 
-    def forward(self, tokens: torch.LongTensor):
+        self.words = nn.Embedding(vocab_size, hidden_size, padding_idx=padding_idx)
+        # We provide no "padding index" for position embeddigs. We zero-out
+        # the positional embeddings of padded positions as a post-processing,
+        self.positions = nn.Embedding(max_sequence_length, hidden_size)
+        self.layer_norm = nn.LayerNorm(
+            hidden_size, eps=1e-8, elementwise_affine=True
+        )
+        self.dropout = nn.Dropout(p=dropout)
+
+    def forward(self, tokens: torch.LongTensor, visual_features: Optional[torch.Tensor] = None):
         batch_size, max_sequence_length = tokens.size()
-
-        # shape: (batch_size, max_sequence_length, embedding_size)
-        word_embeddings = self.word_embedding(tokens)
-
-        positions = self.make_positions(
+        position_indices = self.make_position_indices(
             batch_size, max_sequence_length, tokens.device
         )
-        # shape: (batch_size, max_sequence_length, embedding_size)
-        position_embeddings = self.position_embedding(positions)
+        # shape: (batch_size, max_sequence_length, hidden_size)
+        word_embeddings = self.words(tokens)
+        position_embeddings = self.positions(position_indices)
+        joint_embeddings = word_embeddings + position_embeddings
 
-        # Add the word and position embeddings, normalize them, and apply dropout.
-        # shape: (batch_size, max_sequence_length, embedding_size)
+        # Add visual features with word and position embeddings if provided
+        # (for early fusion).
+        if visual_features is not None:
+            # Visual features provided here would be (projected) grid features
+            # from CNN, so perform global average pooling.
+            # shape: (batch_size, hidden_size)
+            visual_features = torch.mean(visual_features, dim=1)
+            joint_embeddings = joint_embeddings + visual_features.unsqueeze(1)
+
+        # shape: (batch_size, max_sequence_length, hidden_size)
         embeddings = self.layer_norm(word_embeddings + position_embeddings)
         embeddings = self.dropout(embeddings)
 
@@ -49,12 +54,12 @@ class WordAndPositionalEmbedding(nn.Module):
         # shape: (batch_size, max_sequence_length, 1)
         token_mask = (tokens != self.padding_idx).unsqueeze(-1)
 
-        # shape: (batch_size, max_sequence_length, embedding_size)
+        # shape: (batch_size, max_sequence_length, hidden_size)
         embeddings = embeddings * token_mask.type(embeddings.dtype)
         return embeddings
 
     @functools.lru_cache(maxsize=128)
-    def make_positions(
+    def make_position_indices(
         self, batch_size: int, max_sequence_length: int, device: torch.device
     ):
         r"""

@@ -2,26 +2,58 @@ from typing import Dict, Union
 
 import torch
 from torch import nn
-from torchvision import models as tv_models
+import torchvision
 
 
-class TorchvisionVisualStream(nn.Module):
-    def __init__(self, name: str, pretrained: bool = False, **kwargs):
+class VisualStream(nn.Module):
+    r"""
+    A simple base class for all visual streams. We mainly add it for uniformity
+    in type annotations. All child classes can simply inherit from
+    :class:`~torch.nn.Module` otherwise.
+    """
+
+    def __init__(self, visual_feature_size: int):
         super().__init__()
-        self.visual_feature_size = 2048
+        self._visual_feature_size = visual_feature_size
 
-        try:
-            model_creation_method = getattr(tv_models, name)
-        except AttributeError as err:
-            raise AttributeError(f"{name} if not a torchvision model.")
+    @property
+    def visual_feature_size(self) -> int:
+        return self._visual_feature_size
 
-        self._cnn = model_creation_method(
-            pretrained, zero_init_residual=True, **kwargs
+
+class BlindVisualStream(VisualStream):
+    r"""A visual stream which cannot see the image."""
+
+    def __init__(self, visual_feature_size: int = 2048, bias_value: float = 1.0):
+        super().__init__(visual_feature_size)
+
+        # We never update the bias because a blind model cannot learn anything
+        # about the image. Add an axis for proper broadcasting.
+        self._bias = nn.Parameter(
+            torch.full((1, self.visual_feature_size), fill_value=bias_value),
+            requires_grad=False,
         )
 
-        # Do nothing after the final residual stage.	
-        self._cnn.avgpool = nn.Identity()	
-        self._cnn.fc = nn.Identity()	
+    def forward(self, image: torch.Tensor):
+        batch_size = image.size(0)
+        return self._bias.unsqueeze(0).repeat(batch_size, 1, 1)
+
+
+class TorchvisionVisualStream(VisualStream):
+    def __init__(
+        self,
+        name: str,
+        visual_feature_size: int = 2048,
+        pretrained: bool = False,
+        **kwargs,
+    ):
+        super().__init__(visual_feature_size)
+
+        self.cnn = getattr(torchvision.models, name)(
+            pretrained, zero_init_residual=True, **kwargs
+        )
+        # Do nothing after the final residual stage.
+        self.cnn.fc = nn.Identity()
 
         # Keep a list of intermediate layer names.
         self._stage_names = [f"layer{i}" for i in range(1, 5)]
@@ -33,7 +65,7 @@ class TorchvisionVisualStream(nn.Module):
         # Iterate through the modules in sequence and collect feature
         # vectors for last layers in each stage.
         intermediate_outputs: Dict[str, torch.Tensor] = {}
-        for idx, (name, layer) in enumerate(self._cnn.named_children()):
+        for idx, (name, layer) in enumerate(self.cnn.named_children()):
             out = layer(image) if idx == 0 else layer(out)
             if name in self._stage_names:
                 intermediate_outputs[name] = out
@@ -66,7 +98,7 @@ class TorchvisionVisualStream(nn.Module):
         # Populate this dict by renaming module names.
         d2_backbone_dict: Dict[str, torch.Tensor] = {}
 
-        for name, param in self._cnn.state_dict().items():
+        for name, param in self.cnn.state_dict().items():
             for old, new in DETECTRON2_RENAME_MAPPING.items():
                 name = name.replace(old, new)
 
@@ -81,19 +113,3 @@ class TorchvisionVisualStream(nn.Module):
             "__author__": "Karan Desai",
             "matching_heuristics": True,
         }
-
-
-class BlindVisualStream(nn.Module):
-    r"""A visual stream which cannot see the image."""
-
-    def __init__(self, bias: torch.Tensor = torch.ones(49, 2048)):
-        super().__init__()
-        self.visual_feature_size = 2048
-
-        # We never update the bias because a blind model cannot learn anything
-        # about the image.
-        self._bias = nn.Parameter(bias, requires_grad=False)
-
-    def forward(self, image: torch.Tensor):
-        batch_size = image.size(0)
-        return self._bias.unsqueeze(0).repeat(batch_size, 1, 1)

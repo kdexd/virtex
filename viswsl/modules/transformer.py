@@ -1,6 +1,3 @@
-import functools
-
-import torch
 from torch import nn
 
 
@@ -15,7 +12,7 @@ class PreNormTransformerEncoderLayer(nn.TransformerEncoderLayer):
     def forward(self, src, src_mask=None, src_key_padding_mask=None):
         # fmt: off
         # We use the members (modules) from super-class, just the order of
-        # operations is changed here. Layernorm first, then self-attention.
+        # operations is changed here. First layernorm, then attention.
         src2 = self.norm1(src)
         src2, _ = self.self_attn(
             src2, src2, src2, attn_mask=src_mask,
@@ -31,68 +28,36 @@ class PreNormTransformerEncoderLayer(nn.TransformerEncoderLayer):
         return src
 
 
-class BidirectionalTransformerEncoder(nn.TransformerEncoder):
-    def __init__(self, encoder_layer: nn.TransformerEncoderLayer, num_layers: int):
-        super().__init__(encoder_layer, num_layers)
+class PreNormTransformerDecoderLayer(nn.TransformerDecoderLayer):
+    r"""
+    A variant of :class:`torch.nn.TransformerDecoderLayer` where layernorm is
+    performed before self-attention and feedforward layers. This ``pre-norm``
+    variant is used in GPT-2 and similar works, and is similar to pre-act
+    variant of ResNet.
+    """
 
-    def forward(
-        self, token_embeddings: torch.Tensor, token_mask: torch.Tensor
-    ) -> torch.Tensor:
-        # `TransformerEncoder` requires the sequence input as
-        # (sequence_length, batch_size, hidden_size). So we transpose the
-        # first two dimensions of tokens embeddings, pass through encoder, and
-        # later undo the transpose.
-        token_embeddings = token_embeddings.transpose(0, 1)
-
-        # shape: (sequence_length, batch_size, hidden_size)
-        outputs = super().forward(token_embeddings, src_key_padding_mask=token_mask)
-        # shape: (batch_size, sequence_length, hidden_size)
-        outputs = outputs.transpose(0, 1)
-        return outputs
-
-
-class UnidirectionalTransformerEncoder(nn.TransformerEncoder):
-    def __init__(self, encoder_layer: nn.TransformerEncoderLayer, num_layers: int):
-        super().__init__(encoder_layer, num_layers)
-
-    def forward(
-        self, token_embeddings: torch.Tensor, token_mask: torch.Tensor
-    ) -> torch.Tensor:
-        # `TransformerEncoder` requires the sequence input as
-        # (sequence_length, batch_size, hidden_size). So we transpose the
-        # first two dimensions of tokens embeddings, pass through encoder, and
-        # later undo the transpose.
-        token_embeddings = token_embeddings.transpose(0, 1)
-        sequence_length = token_embeddings.size(0)
-
-        # Generate an additive mask based on direction of encoder: forward
-        # encoder will mask the future, backward encoder will mask the past.
-        # shape: (sequence_length, sequence_length)
-        subsequent_mask = self._generate_square_subsequent_mask(
-            sequence_length, token_embeddings.device
+    def forward(self, tgt, memory, tgt_mask=None, memory_mask=None,
+                tgt_key_padding_mask=None, memory_key_padding_mask=None):
+        # fmt: off
+        # We use the members (modules) from super-class, just the order of
+        # operations is changed here. First layernorm, then attention.
+        tgt2 = self.norm1(tgt)
+        tgt2, _ = self.self_attn(
+            tgt2, tgt2, tgt2, attn_mask=tgt_mask,
+            key_padding_mask=tgt_key_padding_mask
         )
-        # shape: (sequence_length, batch_size, hidden_size)
-        outputs = super().forward(
-            token_embeddings, mask=subsequent_mask, src_key_padding_mask=token_mask
+        tgt = tgt + self.dropout1(tgt2)
+
+        # Layernorm first, then decoder attention.
+        tgt2 = self.norm2(tgt)
+        tgt2, _ = self.multihead_attn(
+            tgt2, memory, memory, attn_mask=memory_mask,
+            key_padding_mask=memory_key_padding_mask
         )
+        tgt = tgt + self.dropout2(tgt2)
 
-        # shape: (batch_size, sequence_length, hidden_size)
-        outputs = outputs.transpose(0, 1)
-        return outputs
-
-    @functools.lru_cache(maxsize=10)
-    def _generate_square_subsequent_mask(
-        self, size: int, device: torch.device
-    ) -> torch.Tensor:
-        r"""
-        Generate a mask for "future" positions, useful when using this module
-        for language modeling.
-
-        Parameters
-        ----------
-        size: int
-        """
-        # Default mask is for forward direction. Flip for backward direction.
-        mask = torch.tril(torch.ones(size, size), diagonal=-1)
-        mask = mask.masked_fill(mask == 1, float("-inf"))
-        return mask
+        # Layernorm first, then transformation through feedforward network.
+        tgt2 = self.norm3(tgt)
+        tgt2 = self.linear2(self.dropout(self.activation(self.linear1(tgt2))))
+        tgt = tgt + self.dropout3(tgt2)
+        return tgt

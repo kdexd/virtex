@@ -1,7 +1,5 @@
 import argparse
 import json
-import os
-import tempfile
 import unicodedata
 from typing import List
 
@@ -67,11 +65,6 @@ if __name__ == "__main__":
     # Lower case the captions and remove accents according to arguments.
     for i, caption in enumerate(captions):
         caption = caption.lower() if _A.do_lower_case else caption
-
-        # Strip period at the end if present, because it is equivalent to a
-        # boundary token if it frequently appears in the end, and we will be
-        # using boundary tokens anyway.
-        caption = caption[:-1] if caption[-1] == "." else caption
 
         if not _A.keep_accents:
             caption = unicodedata.normalize("NFKD", caption)

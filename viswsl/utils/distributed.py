@@ -48,10 +48,9 @@ def init_distributed_env(backend: str = "nccl") -> int:
         "WORLD_SIZE", os.environ.get("SLURM_NTASKS", "1")
     )
     try:
-        if int(os.environ["WORLD_SIZE"]) > 1:
-            dist.init_process_group(backend, init_method="env://")
-            # Wait for all processes to initialize, necessary to avoid timeout.
-            synchronize()
+        dist.init_process_group(backend, init_method="env://")
+        # Wait for all processes to initialize, necessary to avoid timeout.
+        synchronize()
     except Exception as e:
         logger.error(
             f"Dist URL: {os.environ['MASTER_ADDR']}:{os.environ['MASTER_PORT']}"

@@ -20,7 +20,7 @@ class VOC07ClassificationFeatureExtractor(nn.Module):
 
     def __init__(self, trained_model, mode: str = "avg", normalize: bool = True):
         super().__init__()
-        self._cnn = trained_model.visual
+        self.visual = trained_model.visual
 
         layer = nn.AdaptiveAvgPool2d if mode == "avg" else nn.AdaptiveMaxPool2d
         self._normalize = normalize
@@ -45,7 +45,7 @@ class VOC07ClassificationFeatureExtractor(nn.Module):
     ) -> Dict[str, torch.Tensor]:
 
         layer_names = layer_names or list(self._pool.keys())
-        features = self._cnn(image, return_intermediate_outputs=True)
+        features = self.visual(image, return_intermediate_outputs=True)
 
         # keys: {"layer1", "layer2", "layer3", "layer4"}
         for layer_name in features:

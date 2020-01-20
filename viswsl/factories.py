@@ -8,6 +8,7 @@ from torch import nn, optim
 from viswsl.config import Config
 import viswsl.data as vdata
 import viswsl.models as vmodels
+from viswsl.modules.embedding import WordAndPositionalEmbedding
 from viswsl.modules import visual_stream as vs, textual_stream as ts
 from viswsl.modules import fusion
 from viswsl.optim import Lookahead, lr_scheduler
@@ -51,13 +52,13 @@ class TokenizerFactory(Factory):
         _C = config
 
         # Special tokens: padding/out-of-vocabulary token ([UNK]), mask token,
-        # and boundary token (SOS/EOS).
-        special_tokens = ["[UNK]", "[MASK]", "[B]"]
+        # and boundary tokens (SOS/EOS).
+        special_tokens = ["[UNK]", "[SOS]", "[EOS]", "[MASK]"]
 
         # Add a leading space only for SentencePiece.
-        kwargs: Dict[str, Any] = {}
+        kwargs: Dict[str, Any] = {"add_prefix_space": True}
         if _C.DATA.CAPTION.TOKENIZER == "SentencePieceBPETokenizer":
-            kwargs = {"add_prefix_space": True, "unk_token": "[UNK]"}
+            kwargs["unk_token"] = "[UNK]"
 
         tokenizer = cls.create(_C.DATA.CAPTION.TOKENIZER, **kwargs)
 
@@ -68,10 +69,6 @@ class TokenizerFactory(Factory):
             vocab_size=_C.DATA.CAPTION.VOCAB_SIZE,
             special_tokens=special_tokens,
         )
-        # Tokenizers from huggingface provide support to handle truncation and
-        # padding up to maximum length, but we do it outside in our dataset
-        # class for better control (for example, we flip caption for backward
-        # captioning and it requires different side of truncation).
         return tokenizer
 
 
@@ -148,31 +145,24 @@ class VisualStreamFactory(Factory):
     }
 
     @classmethod
-    def from_config(cls, config: Config) -> nn.Module:
+    def from_config(cls, config: Config) -> vs.VisualStream:
         _C = config
+        kwargs = {"visual_feature_size": _C.MODEL.VISUAL.FEATURE_SIZE}
         if "torchvision" in _C.MODEL.VISUAL.NAME:
-            cnn_name = _C.MODEL.VISUAL.NAME.split("::")[-1]
-            kwargs = {"pretrained": _C.MODEL.VISUAL.PRETRAINED}
-            return cls.create("torchvision", cnn_name, **kwargs)
+            zoo_name, cnn_name = _C.MODEL.VISUAL.NAME.split("::")
+            kwargs["pretrained"] = _C.MODEL.VISUAL.PRETRAINED
 
-        return cls.create(_C.MODEL.VISUAL.NAME)
+            return cls.create(zoo_name, cnn_name, **kwargs)
+        return cls.create(_C.MODEL.VISUAL.NAME, **kwargs)
 
 
 class TextualStreamFactory(Factory):
 
-    PRODUCTS: Dict[str, Callable[..., ts.TransformerTextualStream]] = {
-        "postnorm_gelu": partial(
-            ts.TransformerTextualStream, norm_type="post", activation="gelu"
-        ),
-        "postnorm_relu": partial(
-            ts.TransformerTextualStream, norm_type="post", activation="relu"
-        ),
-        "prenorm_gelu": partial(
-            ts.TransformerTextualStream, norm_type="pre", activation="gelu"
-        ),
-        "prenorm_relu": partial(
-            ts.TransformerTextualStream, norm_type="pre", activation="relu"
-        ),
+    PRODUCTS: Dict[str, Callable] = {
+        "memless_postnorm": partial(ts.MemorylessTextualStream, norm_type="post"),
+        "memless_prenorm": partial(ts.MemorylessTextualStream, norm_type="pre"),
+        "vismem_postnorm": partial(ts.VisualMemoryTextualStream, norm_type="post"),
+        "vismem_prenorm": partial(ts.VisualMemoryTextualStream, norm_type="pre"),
     }
 
     @classmethod
@@ -183,29 +173,31 @@ class TextualStreamFactory(Factory):
     ) -> nn.Module:
 
         _C = config
+        name = _C.MODEL.TEXTUAL.NAME.split("::")[0]
         tokenizer = tokenizer or TokenizerFactory.from_config(_C)
+
+        # Transformer will be bidirectional only for word masking pretext.
         kwargs = {
-            "vocab_size": _C.DATA.CAPTION.VOCAB_SIZE,
+            "vocab_size": tokenizer.get_vocab_size(),
             "hidden_size": _C.MODEL.TEXTUAL.HIDDEN_SIZE,
-            "dropout": _C.MODEL.TEXTUAL.DROPOUT,
+            "dropout": _C.MODEL.DROPOUT,
+            "do_early_fusion": _C.MODEL.TEXTUAL.DO_EARLY_FUSION,
+            "is_bidirectional": _C.MODEL.NAME == "word_masking",
             "padding_idx": tokenizer.token_to_id("[UNK]"),
         }
         if _C.MODEL.TEXTUAL.NAME != "embedding":
-            # Transformer will be bidirectional only for word masking pretext.
-            is_bidirectional = _C.MODEL.NAME == "word_masking"
             kwargs.update(
                 feedforward_size=_C.MODEL.TEXTUAL.FEEDFORWARD_SIZE,
                 attention_heads=_C.MODEL.TEXTUAL.ATTENTION_HEADS,
                 num_layers=_C.MODEL.TEXTUAL.NUM_LAYERS,
-                is_bidirectional=is_bidirectional,
             )
 
-        return cls.create(_C.MODEL.TEXTUAL.NAME.split("::")[0], **kwargs)
+        return cls.create(name, **kwargs)
 
 
-class FusionFactory(Factory):
+class LateFusionFactory(Factory):
 
-    PRODUCTS: Dict[str, Callable[..., fusion.Fusion]] = {
+    PRODUCTS: Dict[str, Callable] = {
         "none": fusion.NoFusion,
         "concatenate": fusion.ConcatenateFusion,
         "additive": partial(fusion.ElementwiseFusion, operation="additive"),
@@ -218,42 +210,39 @@ class FusionFactory(Factory):
     @classmethod
     def from_config(cls, config: Config) -> fusion.Fusion:
         _C = config
+        # We will project image features to `TEXTUAL.HIDDEN_SIZE` in model.
         kwargs = {
-            "visual_feature_size": _C.MODEL.VISUAL.FEATURE_SIZE,
-            "textual_feature_size": _C.MODEL.TEXTUAL.HIDDEN_SIZE,
-            "projection_size": _C.MODEL.FUSION.PROJECTION_SIZE,
-            "dropout": _C.MODEL.FUSION.DROPOUT,
+            "feature_size": _C.MODEL.TEXTUAL.HIDDEN_SIZE,
+            "dropout": _C.MODEL.DROPOUT,
         }
-        if _C.MODEL.FUSION.NAME == "multihead":
-            kwargs["attention_heads"] = _C.MODEL.FUSION.ATTENTION_HEADS
+        if _C.MODEL.LATE_FUSION.NAME == "multihead":
+            kwargs["attention_heads"] = _C.MODEL.LATE_FUSION.ATTENTION_HEADS
 
-        return cls.create(_C.MODEL.FUSION.NAME, **kwargs)
+        return cls.create(_C.MODEL.LATE_FUSION.NAME, **kwargs)
 
 
 class PretrainingModelFactory(Factory):
 
     PRODUCTS = {
         "word_masking": vmodels.WordMaskingModel,
-        "captioning": partial(vmodels.CaptioningModel, bidirectional=False),
-        "bicaptioning": partial(vmodels.CaptioningModel, bidirectional=True),
+        "captioning": partial(vmodels.CaptioningModel, is_bidirectional=False),
+        "bicaptioning": partial(vmodels.CaptioningModel, is_bidirectional=True),
     }
 
     @classmethod
     def from_config(cls, config: Config) -> nn.Module:
         _C = config
+
         visual = VisualStreamFactory.from_config(_C)
         textual = TextualStreamFactory.from_config(_C)
-        fusion = FusionFactory.from_config(_C)
+        late_fusion = LateFusionFactory.from_config(_C)
 
-        # Form kwargs according to the model name, different models require
-        # different sets of kwargs in their constructor.
-        kwargs = {"tie_embeddings": _C.MODEL.TIE_EMBEDDINGS}
-        return cls.create(_C.MODEL.NAME, visual, textual, fusion, **kwargs)
+        return cls.create(_C.MODEL.NAME, visual, textual, late_fusion)
 
 
 class OptimizerFactory(Factory):
 
-    PRODUCTS = {"sgd": optim.SGD, "adam": optim.Adam, "adamw": optim.AdamW}
+    PRODUCTS = {"adam": optim.Adam, "adamw": optim.AdamW}
 
     @classmethod
     def from_config(  # type: ignore
@@ -276,18 +265,9 @@ class OptimizerFactory(Factory):
             param_groups.append({"params": [param], "lr": lr, "weight_decay": wd})
         # fmt: on
 
-        # Form kwargs according to the optimizer name, different optimizers
-        # may require different hyperparams in their constructor, for example:
-        # `SGD` accepts "momentum" while `Adam` doesn't.
-        if "sgd" in _C.OPTIM.OPTIMIZER_NAME:
-            kwargs = {
-                "momentum": _C.OPTIM.SGD_MOMENTUM,
-                "nesterov": _C.OPTIM.SGD_NESTEROV,
-            }
-        elif "adam" in _C.OPTIM.OPTIMIZER_NAME:
-            kwargs = {"betas": (_C.OPTIM.ADAM_BETA1, _C.OPTIM.ADAM_BETA2)}
-
-        optimizer = cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
+        optimizer = cls.create(
+            _C.OPTIM.OPTIMIZER_NAME, param_groups, betas=tuple(_C.OPTIM.ADAM_BETAS)
+        )
         if _C.OPTIM.USE_LOOKAHEAD:
             optimizer = Lookahead(
                 optimizer, k=_C.OPTIM.LOOKAHEAD_STEPS, alpha=_C.OPTIM.LOOKAHEAD_ALPHA

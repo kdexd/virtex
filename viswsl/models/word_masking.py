@@ -6,43 +6,59 @@ from torch import nn
 
 from viswsl.data.structures import WordMaskingBatch
 from viswsl.modules.fusion import Fusion
+from viswsl.modules.textual_stream import TextualStream
+from viswsl.modules.visual_stream import VisualStream
 
 
 class WordMaskingModel(nn.Module):
-    def __init__(self, visual, textual, fusion: Fusion, tie_embeddings: bool = True):
+    def __init__(
+        self, visual: VisualStream, textual: TextualStream, late_fusion: Fusion
+    ):
         super().__init__()
         self.visual = visual
         self.textual = textual
-        self.fusion = fusion
+        self.late_fusion = late_fusion
 
-        self.tie_embeddings = tie_embeddings
-        self.loss = nn.CrossEntropyLoss(ignore_index=textual.padding_idx)
+        # Linear layer to project image features to `textual_feature_size` to
+        # facilitate decoder multi-head attention, fusion etc.
+        self.visual_projection = nn.Linear(
+            self.visual.visual_feature_size, self.textual.textual_feature_size
+        )
+        self.output = nn.Linear(
+            self.late_fusion.fused_feature_size, self.textual.vocab_size
+        )
+        self.padding_idx = self.textual.padding_idx
 
+        self.loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
         self._tie_weights()
 
     def _tie_weights(self):
         r"""
         Tie weights at a few places to either save parameters, or simply where
         it makes more sense to have the same weights. For example, tie input
-        and output word embeddings to save parameters. Have a same set of
-        weights to project visual features (agnostic to textual components).
-        This method is only called from :meth:`__init__`. Do not use it from
-        outside the class definition.
+        and output word embeddings to save parameters. This method is only
+        called from :meth:`__init__`. Do not use it from outside.
         """
 
         # Tie input and output word embeddings to reduce parameters.
         # However, output embedding layer will learn its own bias.
-        if (
-            self.tie_embeddings
-            and self.textual.textual_feature_size == self.fusion.fused_feature_size
-        ):
-            self.output.weight = self.textual.embedding.word_embedding.weight
+        if self.textual.textual_feature_size == self.late_fusion.fused_feature_size:
+            self.output.weight = self.textual.embedding.words.weight
         else:
-            raise ValueError(
-                "Expect input and output embeddings to be of same size for "
-                f"tying weights, found {self.textual.textual_feature_size} and"
-                f" {self.fusion.fused_feature_size} respectively."
+            # Add an intermediate projection layer to `textual_feature_size`
+            # if fused features have different size than textual features.
+            self.output = nn.Sequential(
+                nn.Linear(
+                    self.late_fusion.fused_feature_size,
+                    self.textual.textual_feature_size,
+                    bias=False,
+                ),
+                nn.Linear(
+                    self.textual.textual_feature_size, self.textual.vocab_size
+                ),
             )
+            self.output[0].weight.data.normal_(mean=0.0, std=0.02)
+            self.output[-1].weight = self.textual.embedding.words.weight
 
     def forward(self, batch: WordMaskingBatch):
         # shape: (batch_size, visual_feature_size, ...)
@@ -53,16 +69,22 @@ class WordMaskingModel(nn.Module):
             batch["image"].size(0), self.visual.visual_feature_size, -1
         ).permute(0, 2, 1)
 
+        # Now visual and textual features are of same size.
+        # shape: (batch_size, ..., textual_feature_size)
+        projected_visual_features = self.visual_projection(visual_features)
+
         caption_tokens = batch["caption_tokens"]
         caption_lengths = batch["caption_lengths"]
         masked_labels = batch["masked_labels"]
 
-        # shape: (batch_size, num_caption_tokens, textual_feature_size)
-        textual_features = self.textual(caption_tokens, caption_lengths)
-
-        # shape: (batch_size, num_caption_tokens, fused_feature_size)
-        fused_features = self.fusion(visual_features, textual_features)
-
+        # shape: (batch_size, max_caption_length, textual_feature_size)
+        textual_features = self.textual(
+            caption_tokens, caption_lengths, projected_visual_features
+        )
+        # shape: (batch_size, max_caption_length, fused_feature_size)
+        fused_features = self.late_fusion(
+            projected_visual_features, textual_features
+        )
         # shape: (batch_size, num_caption_tokens, vocab_size)
         output_logits = self.output(fused_features)
 
@@ -80,8 +102,8 @@ class WordMaskingModel(nn.Module):
         # Only the predictions at [MASK]ed positions are relevant.
         if not self.training:
             predictions = torch.argmax(output_logits, dim=-1)
-            redundant_positions = masked_labels == self.textual.padding_idx
-            predictions[redundant_positions] = self.textual.padding_idx
+            redundant_positions = masked_labels == self.padding_idx
+            predictions[redundant_positions] = self.padding_idx
 
             output_dict["predictions"] = predictions
 
@@ -101,9 +123,9 @@ class WordMaskingModel(nn.Module):
             batch["caption_tokens"], batch["masked_labels"], predictions
         ):
             predictions_str += f"""
-                Caption tokens : {tokenizer.decode(tokens)}
-                Masked Labels  : {tokenizer.decode(labels)}
-                Predictions    : {tokenizer.decode(preds)}
+                Caption tokens : {tokenizer.decode(tokens.tolist())}
+                Masked Labels  : {tokenizer.decode(labels.tolist())}
+                Predictions    : {tokenizer.decode(preds.tolist())}
 
                 """
         return predictions_str
