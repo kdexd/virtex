@@ -9,32 +9,40 @@ from viswsl.modules.fusion import Fusion
 
 
 class WordMaskingModel(nn.Module):
-    def __init__(self, visual, textual, fusion: Fusion):
+    def __init__(self, visual, textual, fusion: Fusion, tie_embeddings: bool = True):
         super().__init__()
         self.visual = visual
         self.textual = textual
         self.fusion = fusion
 
+        self.tie_embeddings = tie_embeddings
+        self.loss = nn.CrossEntropyLoss(ignore_index=textual.padding_idx)
+
+        self._tie_weights()
+
+    def _tie_weights(self):
+        r"""
+        Tie weights at a few places to either save parameters, or simply where
+        it makes more sense to have the same weights. For example, tie input
+        and output word embeddings to save parameters. Have a same set of
+        weights to project visual features (agnostic to textual components).
+        This method is only called from :meth:`__init__`. Do not use it from
+        outside the class definition.
+        """
+
         # Tie input and output word embeddings to reduce parameters.
-        # Output embedding layer will also learn a bias.
-        if textual.textual_feature_size == fusion.fused_feature_size:
-            self.output = nn.Linear(fusion.fused_feature_size, textual.vocab_size)
+        # However, output embedding layer will learn its own bias.
+        if (
+            self.tie_embeddings
+            and self.textual.textual_feature_size == self.fusion.fused_feature_size
+        ):
             self.output.weight = self.textual.embedding.word_embedding.weight
         else:
-            # Add an intermediate projection layer to `textual_feature_size`
-            # if fused features have different size than textual features.
-            self.output = nn.Sequential(
-                nn.Linear(
-                    fusion.fused_feature_size,
-                    textual.textual_feature_size,
-                    bias=False,
-                ),
-                nn.Linear(textual.textual_feature_size, textual.vocab_size),
+            raise ValueError(
+                "Expect input and output embeddings to be of same size for "
+                f"tying weights, found {self.textual.textual_feature_size} and"
+                f" {self.fusion.fused_feature_size} respectively."
             )
-            self.output[0].weight.data.normal_(mean=0.0, std=0.02)
-            self.output[-1].weight = self.textual.embedding.word_embedding.weight
-
-        self.loss = nn.CrossEntropyLoss(ignore_index=textual.padding_idx)
 
     def forward(self, batch: WordMaskingBatch):
         # shape: (batch_size, visual_feature_size, ...)

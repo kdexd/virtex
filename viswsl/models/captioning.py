@@ -10,50 +10,65 @@ from viswsl.modules.fusion import Fusion
 
 
 class CaptioningModel(nn.Module):
-    def __init__(self, visual, textual, fusion: Fusion, bidirectional: bool = False):
+    def __init__(
+        self,
+        visual,
+        textual,
+        fusion: Fusion,
+        bidirectional: bool = False,
+        tie_embeddings: bool = True,
+    ):
         super().__init__()
         self.visual = visual
         self.textual = textual
         self.fusion = fusion
 
+        self.bidirectional = bidirectional
+        self.tie_embeddings = tie_embeddings
+
         # Clone the textual and fusion modules for backward direction if
         # doing captioning in both directions (separately).
-        self.bidirectional = bidirectional
-
         if self.bidirectional:
-            # Clone the textual branch and fusion branch.
             self.backward_textual = copy.deepcopy(self.textual)
             self.backward_fusion = copy.deepcopy(self.fusion)
 
-            # Tie the visual projection for both directions.
-            self.fusion.projections._v_projection = (
-                self.backward_fusion.projections._v_projection
-            )
-            # Tie word and position embeddings for both directions.
-            self.backward_textual.embedding = self.textual.embedding
+        self.output: nn.Module = nn.Linear(
+            self.fusion.fused_feature_size, self.textual.vocab_size
+        )
+        self.loss = nn.CrossEntropyLoss(ignore_index=textual.padding_idx)
+
+        self._tie_weights()
+
+    def _tie_weights(self):
+        r"""
+        Tie weights at a few places to either save parameters, or simply where
+        it makes more sense to have the same weights. For example, tie input
+        and output word embeddings to save parameters. Have a same set of
+        weights to project visual features (agnostic to textual components).
+        This method is only called from :meth:`__init__`. Do not use it from
+        outside the class definition.
+        """
 
         # Tie input and output word embeddings to reduce parameters.
-        # Output embedding layer will also learn a bias.
-        if textual.textual_feature_size == fusion.fused_feature_size:
-            self.output: nn.Module = nn.Linear(
-                fusion.fused_feature_size, textual.vocab_size
-            )
+        # However, output embedding layer will learn its own bias.
+        if (
+            self.tie_embeddings
+            and self.textual.textual_feature_size == self.fusion.fused_feature_size
+        ):
             self.output.weight = self.textual.embedding.word_embedding.weight
         else:
-            # Add an intermediate projection layer to `textual_feature_size`
-            # if fused features have different size than textual features.
-            self.output = nn.Sequential(
-                nn.Linear(
-                    fusion.fused_feature_size, textual.textual_feature_size, bias=False
-                ),
-                nn.Linear(
-                    textual.textual_feature_size, textual.vocab_size
-                )
+            raise ValueError(
+                "Expect input and output embeddings to be of same size for "
+                f"tying weights, found {self.textual.textual_feature_size} and"
+                f" {self.fusion.fused_feature_size} respectively."
             )
-            self.output[0].weight.data.normal_(mean=0.0, std=0.02)
-            self.output[-1].weight = self.textual.embedding.word_embedding.weight
 
-        self.loss = nn.CrossEntropyLoss(ignore_index=textual.padding_idx)
+        if self.bidirectional:
+            # Tie the visual projection for forward and backward directions.
+            self.fusion.projections.visual = self.backward_fusion.projections.visual
+
+            # Tie word and position embeddings for both directions.
+            self.backward_textual.embedding = self.textual.embedding
 
     def forward(self, batch: CaptioningBatch):
 

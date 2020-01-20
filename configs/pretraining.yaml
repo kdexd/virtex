@@ -26,6 +26,7 @@ PRETEXT:
 
 MODEL:
   NAME: bicaptioning
+  TIE_EMBEDDINGS: True
   VISUAL:
     NAME: torchvision::resnet50
     PRETRAINED: false

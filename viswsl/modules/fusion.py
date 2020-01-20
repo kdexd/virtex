@@ -70,6 +70,30 @@ class Fusion(nn.Module):
         raise NotImplementedError
 
 
+class NoFusion(Fusion):
+    r"""
+    Perform no fusion between visual and textual features. Given our pretext
+    tasks are all about producing a distribution over vocabulary tokens, this
+    class ignores the visual features and only returns textual features, so it
+    is _almost_ a no-op ("almost" because we throw away visual features).
+    """
+
+    def __init__(
+        self, visual_feature_size: int, textual_feature_size: int, *args, **kwargs
+    ):
+        super().__init__(visual_feature_size, textual_feature_size)
+
+    @property
+    def fused_feature_size(self):
+        return self.textual_feature_size
+
+    def forward(
+        self, visual_features: torch.Tensor, textual_features: torch.Tensor
+    ) -> torch.Tensor:
+        # shape: (batch_size, num_caption_tokens, textual_feature_size)
+        return textual_features
+
+
 class ConcatenateFusion(Fusion):
     r"""
     Fuse visual and textual features by concatenating them. Visual features are
@@ -291,16 +315,17 @@ class _VisualAndTextualProjections(nn.Module):
         projection_size: int,
     ):
         super().__init__()
-        self._v_projection = (
+        self.visual = (
             nn.Linear(visual_feature_size, projection_size, bias=False)
             if visual_feature_size != projection_size
             else nn.Identity()
         )
-        self._t_projection = (
+        self.textual = (
             nn.Linear(textual_feature_size, projection_size, bias=False)
             if textual_feature_size != projection_size
             else nn.Identity()
         )
+
     def forward(
         self, visual_features: torch.Tensor, textual_features: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -321,7 +346,7 @@ class _VisualAndTextualProjections(nn.Module):
             ``(batch_size, ..., projection_size)``.
         """
         # shape: (batch_size, projection_size)
-        visual_features = self._v_projection(visual_features)
-        textual_features = self._t_projection(textual_features)
+        visual_features = self.visual(visual_features)
+        textual_features = self.textual(textual_features)
 
         return visual_features, textual_features

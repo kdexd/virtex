@@ -206,6 +206,7 @@ class TextualStreamFactory(Factory):
 class FusionFactory(Factory):
 
     PRODUCTS: Dict[str, Callable[..., fusion.Fusion]] = {
+        "none": fusion.NoFusion,
         "concatenate": fusion.ConcatenateFusion,
         "additive": partial(fusion.ElementwiseFusion, operation="additive"),
         "multiplicative": partial(
@@ -246,7 +247,7 @@ class PretrainingModelFactory(Factory):
 
         # Form kwargs according to the model name, different models require
         # different sets of kwargs in their constructor.
-        kwargs = {}
+        kwargs = {"tie_embeddings": _C.MODEL.TIE_EMBEDDINGS}
         return cls.create(_C.MODEL.NAME, visual, textual, fusion, **kwargs)
 
 
