@@ -64,3 +64,8 @@ DOWNSTREAM:
     BATCH_SIZE: 64
     LAYER_NAMES: ["layer3", "layer4"]
     SVM_COSTS: [0.01, 0.1, 1.0, 10.0]
+
+  LVIS:
+    D2_CONFIG: configs/lvis_d2.yaml
+    NORM_LAYER: FrozenBN
+    SCHEDULE_X: 1

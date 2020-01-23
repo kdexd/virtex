@@ -201,6 +201,7 @@ class Config(object):
         _C.DOWNSTREAM.LVIS = CN()
         _C.DOWNSTREAM.LVIS.D2_CONFIG = "configs/lvis_d2.yaml"
         _C.DOWNSTREAM.LVIS.NORM_LAYER = "FrozenBN"
+        _C.DOWNSTREAM.LVIS.SCHEDULE_X = 2
 
         # Placeholders, set these values after merging from file.
         _C.OPTIM.BATCH_SIZE_PER_ITER = 0

@@ -15,6 +15,7 @@ TEST:
 
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
+  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
   BACKBONE:
     NAME: "build_resnet_fpn_backbone"
   MASK_ON: True
