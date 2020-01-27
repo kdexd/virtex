@@ -79,9 +79,6 @@ class WordMaskingDataset(IterableDataset):
         self._mask_prob = mask_probability
         self._repl_prob = replace_probability
 
-    def __len__(self):
-        return len(self._pipeline)
-
     def __iter__(self):
         self._pipeline.reset_state()
 

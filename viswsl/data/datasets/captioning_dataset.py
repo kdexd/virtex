@@ -54,9 +54,6 @@ class CaptioningDataset(IterableDataset):
         self.max_caption_length = max_caption_length
         self.padding_idx = tokenizer.token_to_id("[UNK]")
 
-    def __len__(self):
-        return len(self._pipeline)
-
     def __iter__(self):
         self._pipeline.reset_state()
 

@@ -55,9 +55,6 @@ class ReadDatapointsFromLmdb(df.DataFlow):
         # the read through starts again.
         self._read_epoch = 0
 
-    def __len__(self):
-        return len(self._keys)
-
     def __iter__(self):
 
         self._read_epoch += 1
@@ -106,9 +103,9 @@ class ReadDatapointsFromLmdb(df.DataFlow):
 
         keys_per_worker = [self._keys[i] for i in indices[start:end]]
 
-        # Shuffle controlled outside, set False here.
+        # Set shuffle to use `keys` - that's how this class works.
         pipeline = df.LMDBData(
-            self._lmdb_path, keys=keys_per_worker, shuffle=False
+            self._lmdb_path, keys=keys_per_worker, shuffle=True
         )
         # Decode bytes read from LMDB to Python objects.
         pipeline = df.MapData(pipeline, self._deserialize)

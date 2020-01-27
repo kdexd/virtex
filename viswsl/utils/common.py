@@ -2,6 +2,8 @@ import datetime
 import time
 from typing import Optional
 
+from loguru import logger
+
 
 def cycle(dataloader, device):
     r"""
@@ -10,11 +12,14 @@ def cycle(dataloader, device):
     not have the notion of 'epochs'. Using ``itertools.cycle`` with dataloader
     is harmful and may cause unexpeced memory leaks.
     """
+    epoch = 1
     while True:
+        logger.info(f"Starting epoch {epoch}.")
         for batch in dataloader:
             for key in batch:
                 batch[key] = batch[key].to(device)
             yield batch
+        epoch += 1
 
 
 class Timer(object):
