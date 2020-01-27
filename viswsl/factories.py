@@ -68,6 +68,7 @@ class TokenizerFactory(Factory):
             files=_C.DATA.CAPTION_CORPUS,
             vocab_size=_C.DATA.CAPTION.VOCAB_SIZE,
             special_tokens=special_tokens,
+            split_by_unicode_script=True,
         )
         return tokenizer
 

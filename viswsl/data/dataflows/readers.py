@@ -6,8 +6,9 @@ from typing import Any, List, Tuple
 import dataflow as df
 import lmdb
 import torch
-from torch import distributed as dist
 from torch.utils.data import get_worker_info
+
+from viswsl.utils.distributed import dist
 
 
 class ReadDatapointsFromLmdb(df.DataFlow):
@@ -74,8 +75,8 @@ class ReadDatapointsFromLmdb(df.DataFlow):
         # --------------------------------------------------------------------
         # If we are doing distributed training, then first shard the LMDB
         # according to the number of GPU processes.
-        world_size: int = dist.get_world_size() if dist.is_initialized() else 1
-        world_rank: int = dist.get_rank() if dist.is_initialized() else 0
+        world_size: int = dist.get_world_size()
+        world_rank: int = dist.get_rank()
 
         # If not doing distributed training, this would be `len(self._keys)`.
         samples_per_gpu_process = int(math.ceil(len(self._keys) / world_size))
@@ -105,7 +106,7 @@ class ReadDatapointsFromLmdb(df.DataFlow):
 
         keys_per_worker = [self._keys[i] for i in indices[start:end]]
 
-        # Shuffle controlled outsie, set False here.
+        # Shuffle controlled outside, set False here.
         pipeline = df.LMDBData(
             self._lmdb_path, keys=keys_per_worker, shuffle=False
         )

@@ -11,6 +11,7 @@ from viswsl.data.dataflows import (
     TokenizeCaption,
 )
 from viswsl.data.structures import CaptioningInstance, CaptioningBatch
+import viswsl.utils.distributed as dist
 
 
 class CaptioningDataset(IterableDataset):

@@ -26,22 +26,6 @@ parser.add_argument(
     default="data/serialized/coco_train2017.lmdb",
     help="Path to store the file containing serialized dataset.",
 )
-parser.add_argument(
-    "--num-procs",
-    type=int,
-    default=1,
-    help="Number of processes for parallelization. Note that this may not "
-    "preserve the order of instances as in annotations. Use 1 process to "
-    "preserve order (might be slow).",
-)
-parser.add_argument(
-    "--buffer-size",
-    type=int,
-    default=256,
-    help="Number of datapoints to accumulate in a memory buffer. Should be "
-    "ideally less than number of examples in dataset and take less memory "
-    "than available RAM.",
-)
 
 
 class CocoCaptionsRawDataFlow(df.DataFlow):
@@ -78,41 +62,30 @@ class CocoCaptionsRawDataFlow(df.DataFlow):
             )
             captions = self._id_to_captions[image_id]
 
-            if self._dont_read_images:
-                yield image_path, captions
-            else:
-                yield self.read_image([image_path, captions])
+            try:
+                image = self.read_image(image_path)
+                yield image, captions
+            except Exception as e:
+                print(f"Failed image {image_id} with {e.__class__.__name__}")
+                continue
 
     def __len__(self):
         return len(self._id_to_filename)
 
     @staticmethod
-    def read_image(image_path_and_captions: List[Any]):
-
+    def read_image(image_path: str):
         # shape: (height, width, channels), dtype: uint8
-        pil_image = Image.open(image_path_and_captions[0]).convert("RGB")
+        pil_image = Image.open(image_path).convert("RGB")
         image = np.asarray(pil_image)
         pil_image.close()
-
-        # Return image (numpy array) and list of captions (as-is).
-        return [image, image_path_and_captions[1]]
+        return image
 
 
 if __name__ == "__main__":
 
     _A = parser.parse_args()
 
-    dflow = CocoCaptionsRawDataFlow(
-        _A.images, _A.captions, dont_read_images=True
-    )
-
-    dflow = df.MultiProcessMapDataZMQ(
-        dflow,
-        num_proc=_A.num_procs,
-        map_func=CocoCaptionsRawDataFlow.read_image,
-        buffer_size=_A.buffer_size,
-        strict=True,
-    )
+    dflow = CocoCaptionsRawDataFlow(_A.images, _A.captions)
 
     # Resize shortest edge of image to 256 pixels.
     # Image is the first member in returned list by dataflow above.
