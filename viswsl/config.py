@@ -199,9 +199,13 @@ class Config(object):
         _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.01, 0.1, 1.0, 10.0]
 
         _C.DOWNSTREAM.LVIS = CN()
-        _C.DOWNSTREAM.LVIS.D2_CONFIG = "configs/lvis_d2.yaml"
-        _C.DOWNSTREAM.LVIS.NORM_LAYER = "FrozenBN"
-        _C.DOWNSTREAM.LVIS.SCHEDULE_X = 2
+        _C.DOWNSTREAM.LVIS.D2_CONFIG = "configs/detectron2/lvis.yaml"
+        _C.DOWNSTREAM.LVIS.NORM_LAYER = "SyncBN"
+
+        _C.DOWNSTREAM.VOC = CN()
+        _C.DOWNSTREAM.VOC.D2_CONFIG = "configs/detectron2/voc.yaml"
+        _C.DOWNSTREAM.VOC.NORM_LAYER = "SyncBN"
+        _C.DOWNSTREAM.VOC.RES5_DILATION = 1
 
         # Placeholders, set these values after merging from file.
         _C.OPTIM.BATCH_SIZE_PER_ITER = 0

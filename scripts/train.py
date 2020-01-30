@@ -148,7 +148,9 @@ if __name__ == "__main__":
 
     if dist.get_world_size() > 1:
         dist.synchronize()
-        model = nn.parallel.DistributedDataParallel(model, device_ids=[device])
+        model = nn.parallel.DistributedDataParallel(
+            model, device_ids=[device], find_unused_parameters=True
+        )
 
     # -------------------------------------------------------------------------
     #  BEFORE TRAINING STARTS

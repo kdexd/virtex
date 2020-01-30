@@ -7,8 +7,8 @@ DATA:
   CAPTION_CORPUS: data/coco_train2017_corpus.txt
 
   IMAGE:
-    RESIZE_SIZE: 256  # 192
-    CROP_SIZE: 224  # 168
+    RESIZE_SIZE: 256
+    CROP_SIZE: 224
     COLOR_NORMALIZE: true
     RANDOM_FLIP: true
     PHOTOMETRIC_AUG: true
@@ -66,6 +66,10 @@ DOWNSTREAM:
     SVM_COSTS: [0.01, 0.1, 1.0, 10.0]
 
   LVIS:
-    D2_CONFIG: configs/lvis_d2.yaml
-    NORM_LAYER: FrozenBN
-    SCHEDULE_X: 1
+    D2_CONFIG: configs/detectron2/lvis.yaml
+    NORM_LAYER: SyncBN
+
+  VOC:
+    D2_CONFIG: configs/detectron2/voc.yaml
+    NORM_LAYER: SyncBN
+    RES5_DILATION: 1
