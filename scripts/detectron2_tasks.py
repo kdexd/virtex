@@ -1,6 +1,7 @@
 """
 Finetune a pre-trained model on a downstream task, one of those available in
-Detectron2. Supported downstream for now:
+Detectron2. Optionally use gradient checkpointing for saving memory.
+Supported downstream:
   - LVIS Instance Segmentation
   - Pascal VOC 2007+12 Object Detection
 
@@ -9,13 +10,18 @@ Thanks to the developers of Detectron2!
 """
 import argparse
 import os
+import random
 import re
+from typing import Any, Dict, Optional, Union
 
+import numpy as np
 import torch
 from torch import nn
-from apex import amp
+from apex.parallel import DistributedDataParallel as ApexDDP
 
 import detectron2 as d2
+from detectron2.checkpoint import DetectionCheckpointer
+from detectron2.config import global_cfg
 from detectron2.engine import SimpleTrainer, DefaultTrainer, default_setup, EvalHook
 from detectron2.evaluation import LVISEvaluator, PascalVOCDetectionEvaluator
 
@@ -24,20 +30,28 @@ from viswsl.factories import PretrainingModelFactory
 import viswsl.utils.distributed as dist
 
 
-parser = argparse.ArgumentParser(description="LVIS Fine-tuning with detectron2")
+parser = argparse.ArgumentParser(description="""
+    Finetune our pre-trained model on Detectron2 supported tasks.
+""")
 # fmt: off
 parser.add_argument(
-    "--task", required=True, choices=["lvis", "voc"],
+    "--task", required=True, choices=["lvis", "voc_moco", "voc_pirl"],
 )
 parser.add_argument(
-    "--config", required=True,
-    help="""Path to a config file used to train the model whose checkpoint will
-    be loaded (not Detectron2 config)."""
+    "--pretext-config", required=True,
+    help="""Path to a config file used to pre-train the model whose checkpoint
+    will be loaded."""
 )
 parser.add_argument(
-    "--config-override", nargs="*", default=[],
-    help="""A sequence of key-value pairs specifying certain config arguments
-    (with dict-like nesting) using a dot operator.""",
+    "--d2-config", required=True,
+    help="Path to a detectron2 config for downstream task finetuning."
+)
+parser.add_argument(
+    "--d2-config-override", nargs="*", default=[],
+    help="""Key-value pairs from Detectron2 config to override from file.
+    Some keys will be ignored because they are set from other args:
+    [DATALOADER.NUM_WORKERS, SOLVER.EVAL_PERIOD, SOLVER.CHECKPOINT_PERIOD,
+    TEST.EVAL_PERIOD, OUTPUT_DIR]""",
 )
 parser.add_argument(
     "--cpu-workers", type=int, default=2, help="Number of CPU workers."
@@ -62,13 +76,13 @@ parser.add_argument(
 parser.add_argument(
     "--checkpoint-path",
     help="""Path to load checkpoint and run downstream task evaluation. The
-    name of checkpoint file is required to be `checkpoint_*.pth`, where * is
+    name of checkpoint file is required to be `model_*.pth`, where * is
     iteration number from which the checkpoint was serialized."""
 )
 parser.add_argument(
     "--serialization-dir", default=None,
-    help="""Path to a directory to save results log as a Tensorboard event
-    file. If not provided, this will be the parent directory of checkpoint."""
+    help="""Path to a directory to save checkpoints and log stats. If not
+    provided, this will be the parent directory of checkpoint."""
 )
 parser.add_argument(
     "--checkpoint-every", type=int, default=5000,
@@ -82,10 +96,8 @@ def build_detectron2_config(_C: Config, _A: argparse.Namespace):
     _D2C = d2.config.get_cfg()
 
     # Override some default values based on our config file.
-    if _A.task == "lvis":
-        _D2C.merge_from_file(_C.DOWNSTREAM.LVIS.D2_CONFIG)
-    elif _A.task == "voc":
-        _D2C.merge_from_file(_C.DOWNSTREAM.VOC.D2_CONFIG)
+    _D2C.merge_from_file(_A.d2_config)
+    _D2C.merge_from_list(_A.d2_config_override)
 
     # Set random seed, workers etc. from args.
     _D2C.SEED = _C.RANDOM_SEED
@@ -94,11 +106,6 @@ def build_detectron2_config(_C: Config, _A: argparse.Namespace):
     _D2C.SOLVER.CHECKPOINT_PERIOD = _A.checkpoint_every
     _D2C.TEST.EVAL_PERIOD = _A.checkpoint_every
     _D2C.OUTPUT_DIR = _A.serialization_dir
-
-    # Adjust learning rate and batch size by number of GPUs (linear scaling).
-    # Config file has these set according to single GPU.
-    _D2C.SOLVER.BASE_LR *= dist.get_world_size()
-    _D2C.SOLVER.IMS_PER_BATCH *= dist.get_world_size()
 
     # Set ResNet depth to override in Detectron2's config.
     _D2C.MODEL.RESNETS.DEPTH = int(
@@ -118,18 +125,19 @@ def build_detectron2_config(_C: Config, _A: argparse.Namespace):
         _D2C.MODEL.PIXEL_STD = [1.0, 1.0, 1.0]
         _D2C.INPUT.FORMAT = "BGR"
 
-    # Task-specific adjustments in config.
+    # Task specific adjustments.
     if _A.task == "lvis":
-        _D2C.MODEL.RESNETS.NORM = _C.DOWNSTREAM.LVIS.NORM_LAYER
-        _D2C.MODEL.FPN.NORM = _C.DOWNSTREAM.LVIS.NORM_LAYER
-        # If using LVIS and ImageNet backbone, use FrozenBN and no BN in FPN.
         if _A.imagenet_backbone:
+            # If using LVIS and ImageNet backbone, use FrozenBN and no BN in FPN.
             _D2C.MODEL.RESNETS.NORM = "FrozenBN"
             _D2C.MODEL.FPN.NORM = ""
-    elif _A.task == "voc":
-        _D2C.MODEL.RESNETS.NORM = _C.DOWNSTREAM.VOC.NORM_LAYER
-        _D2C.MODEL.RESNETS.RES5_DILATION = _C.DOWNSTREAM.VOC.RES5_DILATION
+    elif _A.task in {"voc_moco", "voc_pirl"}:
+        # Need gradient checkpointing for non-FPN backbones to fit two images
+        # per GPU. Add it in GLOBAL config because it is a custon hack not in D2.
+        global_cfg.GRADIENT_CHECKPOINT = True
 
+    if _A.task in {"lvis", "voc_moco"}:
+        global_cfg.NORM_BEFORE_HEADS = _D2C.MODEL.RESNETS.NORM
     return _D2C
 
 
@@ -146,9 +154,21 @@ class LazyEvalHook(EvalHook):
 
 
 class DownstreamTrainer(DefaultTrainer):
-    r"""Extension of detectron2's ``DefaultTrainer``: custom evaluator and hooks."""
+    r"""
+    Extension of detectron2's ``DefaultTrainer``: custom evaluator and hooks.
 
-    def __init__(self, cfg):
+    Parameters
+    ----------
+    cfg: detectron2.config.CfgNode
+        Detectron2 config object containing all config params.
+    weights: Union[str, Dict[str, Any] (optional, default = None)
+        Weights to load in the initialized model. If ``None`` (default), then
+        random init, if ``str``, then we assume path to a checkpoint, or D2 url,
+        or if a ``dict``, we assume a state dict.
+    """
+
+    def __init__(self, cfg, weights: Optional[Union[str, Dict[str, Any]]] = None):
+
         # We do not make any super call here and implement `__init__` from
         #  `DefaultTrainer`: we need to initialize mixed precision model before
         # wrapping to DDP, so we need to do it this way.
@@ -156,21 +176,31 @@ class DownstreamTrainer(DefaultTrainer):
         optimizer = self.build_optimizer(cfg, model)
         data_loader = self.build_train_loader(cfg)
 
-        # Initialize model and optimizer for mixed precision training.
-        # model.backbone, optimizer = amp.initialize(
-        #     model.backbone, optimizer, opt_level=f"O2"
-        # )
-        # Enable distributed training if we have multiple GPUs.
+        # Load pre-trained weights before wrapping to DDP because `ApexDDP` has
+        # some weird issue with `DetectionCheckpointer`.
+        if isinstance(weights, str):
+            # weights are ``str`` means ImageNet init.
+            DetectionCheckpointer(model).load(weights)
+        elif isinstance(weights, dict):
+            # weights are a state dict means our pretext init.
+            DetectionCheckpointer(model)._load_model(weights)
+
+        # Enable distributed training if we have multiple GPUs. Use Apex DDP for
+        # non-FPN backbones because its `delay_allreduce` functionality helps with
+        # gradient checkpointing.
         if dist.get_world_size() > 1:
-            model = nn.parallel.DistributedDataParallel(
-                model, device_ids=[dist.get_rank()], broadcast_buffers=False,
-            )
+            if global_cfg.get("GRADIENT_CHECKPOINT", False):
+                model = ApexDDP(model, delay_allreduce=True)
+            else:
+                model = nn.parallel.DistributedDataParallel(
+                     model, device_ids=[dist.get_rank()], broadcast_buffers=False,
+                )
 
         # Call `__init__` from grandparent class: `SimpleTrainer`.
         SimpleTrainer.__init__(self, model, data_loader, optimizer)
 
         self.scheduler = self.build_lr_scheduler(cfg, optimizer)
-        self.checkpointer = d2.checkpoint.DetectionCheckpointer(
+        self.checkpointer = DetectionCheckpointer(
             model,
             cfg.OUTPUT_DIR,
             optimizer=optimizer,
@@ -208,7 +238,7 @@ class DownstreamTrainer(DefaultTrainer):
             d2.engine.hooks.PeriodicCheckpointer(
                 self.checkpointer, __C.SOLVER.CHECKPOINT_PERIOD
             ),
-            LazyEvalHook(__C.SOLVER.MAX_ITER // 2, __C.TEST.EVAL_PERIOD, _eval),
+            LazyEvalHook(__C.SOLVER.MAX_ITER // 4, __C.TEST.EVAL_PERIOD, _eval),
             d2.engine.hooks.PeriodicWriter(self.build_writers())
         ]
         # We need checkpointer and writer only for master process.
@@ -232,9 +262,6 @@ class DownstreamTrainer(DefaultTrainer):
 
         self.optimizer.zero_grad()
         losses.backward()
-        # with amp.scale_loss(losses, self.optimizer) as scaled_losses:
-        #     scaled_losses.backward()
-
         self.optimizer.step()
 
 
@@ -257,30 +284,37 @@ if __name__ == "__main__":
     device_id = dist.init_distributed_env(_A.dist_backend) if _A.slurm else -1
     device = torch.device(f"cuda:{device_id}" if device_id != -1 else "cpu")
     if device_id != -1:
-        d2.utils.comm._LOCAL_PROCESS_GROUP = torch.distributed.new_group(
-            list(range(dist.get_world_size()))
-        )
+        local_pg = list(range(dist.get_world_size()))
+        d2.utils.comm._LOCAL_PROCESS_GROUP = torch.distributed.new_group(local_pg)
 
     # Create config with default values, then override from config file.
     # This is our config, not Detectron2 config.
-    _C = Config(_A.config, _A.config_override)
+    _C = Config(_A.pretext_config)
 
     # We use `default_setup` from detectron2 to do some common setup, such as
     # logging, setting up serialization etc. For more info, look into source.
     _D2C = build_detectron2_config(_C, _A)
     default_setup(_D2C, _A)
+    print(global_cfg)
 
-    trainer = DownstreamTrainer(_D2C)
+    # We override the random seeds set by Detectron2 and set the same seed
+    # for all workers to completely control randomness.
+    # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
+    random.seed(_C.RANDOM_SEED)
+    np.random.seed(_C.RANDOM_SEED)
+    torch.manual_seed(_C.RANDOM_SEED)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
 
     # Load either imagenet weights or our pretrained weights.
     if _A.imagenet_backbone:
-        trainer.checkpointer.load(_D2C.MODEL.WEIGHTS)
+        weights = _D2C.MODEL.WEIGHTS
     else:
         # Initialize from a checkpoint, but only keep the visual module.
         model = PretrainingModelFactory.from_config(_C)
         model.load_state_dict(torch.load(_A.checkpoint_path))
-        d2_weights = model.visual.detectron2_backbone_state_dict()
-        trainer.checkpointer._load_model(d2_weights)
+        weights = model.visual.detectron2_backbone_state_dict()
         del model
 
+    trainer = DownstreamTrainer(_D2C, weights)
     trainer.train()

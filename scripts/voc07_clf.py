@@ -212,20 +212,6 @@ if __name__ == "__main__":
     targets_train = torch.cat(targets_train, dim=0).numpy().astype(np.int32)
     targets_test = torch.cat(targets_test, dim=0).numpy().astype(np.int32)
 
-    # Log class distribution.
-    for cls_idx in range(NUM_CLASSES):
-
-        targets_train_cls = targets_train[:, cls_idx]
-        num_positives = len(np.where(targets_train_cls == 1)[0])
-        num_negatives = len(targets_train_cls) - num_positives
-
-        logger.info(
-            f"""Class {train_dataset.class_names[cls_idx]}:
-                Positive Examples: {num_positives}
-                Negative Examples: {num_negatives}
-                Ratio: {num_positives / num_negatives}"""
-        )
-
     # -------------------------------------------------------------------------
     #   TRAIN AND TEST SVMs WITH EXTRACTED FEATURES
     # -------------------------------------------------------------------------

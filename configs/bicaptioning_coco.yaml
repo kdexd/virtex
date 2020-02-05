@@ -30,7 +30,7 @@ MODEL:
     NAME: torchvision::resnet50
     PRETRAINED: false
   TEXTUAL:
-    NAME: memless_prenorm::L2_H512_A8_F2048
+    NAME: vismem_prenorm::L1_H512_A8_F2048
     DO_EARLY_FUSION: False
     HIDDEN_SIZE: 512
     ATTENTION_HEADS: 8
@@ -42,7 +42,7 @@ MODEL:
   DROPOUT: 0.1
 
 OPTIM:
-  NUM_ITERATIONS: 500000
+  NUM_ITERATIONS: 800000
   OPTIMIZER_NAME: adamw
   ADAM_BETAS: [0.9, 0.98]
   USE_LOOKAHEAD: True
@@ -50,8 +50,8 @@ OPTIM:
   BATCH_SIZE_PER_GPU: 64
   BATCH_SIZE_MULTIPLIER: 1
 
-  LR: 1e-4
-  CNN_LR: 1e-2
+  LR: 2e-4
+  CNN_LR: 8e-3
   WEIGHT_DECAY: 1e-2
   CNN_WEIGHT_DECAY: 1e-2
   LR_DECAY_NAME: cosine
@@ -62,14 +62,5 @@ DOWNSTREAM:
   VOC07_CLF:
     DATA_ROOT: data/VOC2007
     BATCH_SIZE: 64
-    LAYER_NAMES: ["layer3", "layer4"]
+    LAYER_NAMES: ["layer4"]
     SVM_COSTS: [0.01, 0.1, 1.0, 10.0]
-
-  LVIS:
-    D2_CONFIG: configs/detectron2/lvis.yaml
-    NORM_LAYER: SyncBN
-
-  VOC:
-    D2_CONFIG: configs/detectron2/voc.yaml
-    NORM_LAYER: SyncBN
-    RES5_DILATION: 1
