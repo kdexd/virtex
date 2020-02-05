@@ -176,6 +176,7 @@ class Config(object):
         _C.OPTIM.NO_DECAY = [".bn", ".norm", ".bias"]
         _C.OPTIM.CLIP_GRAD_NORM = 10
 
+        _C.OPTIM.SGD_MOMENTUM = 0.9
         _C.OPTIM.ADAM_BETAS = [0.9, 0.98]
         _C.OPTIM.USE_LOOKAHEAD = False
         _C.OPTIM.LOOKAHEAD_STEPS = 5

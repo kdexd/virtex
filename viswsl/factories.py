@@ -243,7 +243,7 @@ class PretrainingModelFactory(Factory):
 
 class OptimizerFactory(Factory):
 
-    PRODUCTS = {"adam": optim.Adam, "adamw": optim.AdamW}
+    PRODUCTS = {"sgd": optim.SGD, "adam": optim.Adam, "adamw": optim.AdamW}
 
     @classmethod
     def from_config(  # type: ignore
@@ -266,9 +266,12 @@ class OptimizerFactory(Factory):
             param_groups.append({"params": [param], "lr": lr, "weight_decay": wd})
         # fmt: on
 
-        optimizer = cls.create(
-            _C.OPTIM.OPTIMIZER_NAME, param_groups, betas=tuple(_C.OPTIM.ADAM_BETAS)
-        )
+        if "adam" in _C.OPTIM.OPTIMIZER_NAME:
+            kwargs = {"betas": tuple(_C.OPTIM.ADAM_BETAS)}
+        else:
+            kwargs = {"momentum": _C.OPTIM.SGD_MOMENTUM}
+
+        optimizer = cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
         if _C.OPTIM.USE_LOOKAHEAD:
             optimizer = Lookahead(
                 optimizer, k=_C.OPTIM.LOOKAHEAD_STEPS, alpha=_C.OPTIM.LOOKAHEAD_ALPHA
