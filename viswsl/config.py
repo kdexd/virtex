@@ -159,16 +159,11 @@ class Config(object):
         _C.MODEL.VISUAL.PRETRAINED = False
 
         _C.MODEL.TEXTUAL = CN()
-        _C.MODEL.TEXTUAL.NAME = "memoryless_prenorm"
-        _C.MODEL.TEXTUAL.DO_EARLY_FUSION = False
+        _C.MODEL.TEXTUAL.NAME = "allfuse_prenorm"
         _C.MODEL.TEXTUAL.HIDDEN_SIZE = 512
         _C.MODEL.TEXTUAL.ATTENTION_HEADS = 8
         _C.MODEL.TEXTUAL.FEEDFORWARD_SIZE = 2048
-        _C.MODEL.TEXTUAL.NUM_LAYERS = 6
-
-        _C.MODEL.LATE_FUSION = CN()
-        _C.MODEL.LATE_FUSION.NAME = "multihead"
-        _C.MODEL.LATE_FUSION.ATTENTION_HEADS = 8
+        _C.MODEL.TEXTUAL.NUM_LAYERS = 1
 
         _C.OPTIM = CN()
         _C.OPTIM.NUM_ITERATIONS = 500000
@@ -182,7 +177,7 @@ class Config(object):
         _C.OPTIM.LOOKAHEAD_STEPS = 5
         _C.OPTIM.LOOKAHEAD_ALPHA = 0.5
 
-        _C.OPTIM.BATCH_SIZE_PER_GPU = 64
+        _C.OPTIM.BATCH_SIZE_PER_GPU = 32
         _C.OPTIM.BATCH_SIZE_MULTIPLIER = 1
 
         _C.OPTIM.LR = 1e-4
@@ -198,15 +193,6 @@ class Config(object):
         _C.DOWNSTREAM.VOC07_CLF.BATCH_SIZE = 64
         _C.DOWNSTREAM.VOC07_CLF.LAYER_NAMES = ["layer3", "layer4"]
         _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.01, 0.1, 1.0, 10.0]
-
-        _C.DOWNSTREAM.LVIS = CN()
-        _C.DOWNSTREAM.LVIS.D2_CONFIG = "configs/detectron2/lvis.yaml"
-        _C.DOWNSTREAM.LVIS.NORM_LAYER = "SyncBN"
-
-        _C.DOWNSTREAM.VOC = CN()
-        _C.DOWNSTREAM.VOC.D2_CONFIG = "configs/detectron2/voc.yaml"
-        _C.DOWNSTREAM.VOC.NORM_LAYER = "SyncBN"
-        _C.DOWNSTREAM.VOC.RES5_DILATION = 1
 
         # Placeholders, set these values after merging from file.
         _C.OPTIM.BATCH_SIZE_PER_ITER = 0
@@ -265,13 +251,6 @@ class Config(object):
                 self._C.MODEL.TEXTUAL.ATTENTION_HEADS = int(name_part[1:])
             elif name_part[0] == "F":
                 self._C.MODEL.TEXTUAL.FEEDFORWARD_SIZE = int(name_part[1:])
-        # ---------------------------------------------------------------------
-
-        # ---------------------------------------------------------------------
-        # For simplicity, attention heads for fusion to be same as transformer.
-        self._C.MODEL.LATE_FUSION.ATTENTION_HEADS = (
-            self._C.MODEL.TEXTUAL.ATTENTION_HEADS
-        )
         # ---------------------------------------------------------------------
 
     def __getattr__(self, attr: str):

@@ -16,16 +16,18 @@ class TextualStream(nn.Module):
         self,
         vocab_size: int,
         hidden_size: int,
-        do_early_fusion: bool = False,
         is_bidirectional: bool = True,
         padding_idx: int = 0,
+        sos_index: int = 1,
+        eos_index: int = 2,
     ):
         super().__init__()
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
-        self.do_early_fusion = do_early_fusion
         self.is_bidirectional = is_bidirectional
         self.padding_idx = padding_idx
+        self.sos_index = sos_index
+        self.eos_index = eos_index
 
     @property
     def textual_feature_size(self):
@@ -71,7 +73,7 @@ class TextualStream(nn.Module):
         return mask
 
 
-class MemorylessTextualStream(TextualStream):
+class AllLayersFusionTextualStream(TextualStream):
     def __init__(
         self,
         vocab_size: int,
@@ -80,108 +82,19 @@ class MemorylessTextualStream(TextualStream):
         attention_heads: int,
         num_layers: int,
         dropout: float = 0.1,
-        do_early_fusion: bool = False,
         is_bidirectional: bool = True,
         norm_type: str = "pre",
         padding_idx: int = 0,
+        sos_index: int = 1,
+        eos_index: int = 2,
     ):
         super().__init__(
             vocab_size,
             hidden_size,
-            do_early_fusion=do_early_fusion,
             is_bidirectional=is_bidirectional,
             padding_idx=padding_idx,
-        )
-        self.feedforward_size = feedforward_size
-        self.attention_heads = attention_heads
-        self.num_layers = num_layers
-
-        self.embedding = WordAndPositionalEmbedding(
-            self.vocab_size, self.textual_feature_size, dropout=dropout
-        )
-        # Make encoder layer depending on whether it's a Pre-Norm or Post-Norm.
-        LayerClass = (
-            nn.TransformerEncoderLayer
-            if norm_type == "post"
-            else PreNormTransformerEncoderLayer
-        )
-        _layer = LayerClass(
-            self.textual_feature_size,
-            self.attention_heads,
-            dim_feedforward=self.feedforward_size,
-            dropout=dropout,
-            activation="gelu",
-        )
-        self.encoder = nn.TransformerEncoder(_layer, self.num_layers)
-        self.apply(self._init_weights)
-
-    def forward(
-        self,
-        caption_tokens: torch.Tensor,
-        caption_lengths: torch.Tensor,
-        visual_features: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        batch_size, max_caption_length = caption_tokens.size()
-
-        # Create a mask based on caption lengths, shape: (batch_size, )
-        # Form a binary mask: it is True for padding positions.
-        # These positions will be ignored for multi-headed attention.
-        ones = torch.ones_like(caption_tokens)
-        caption_mask = caption_lengths.unsqueeze(1) < ones.cumsum(dim=1)
-
-        # shape: (batch_size, max_caption_length, textual_feature_size)
-        if self.do_early_fusion:
-            caption_embeddings = self.embedding(caption_tokens)
-        else:
-            caption_embeddings = self.embedding(caption_tokens, visual_features)
-
-        # An additive mask for masking the future (one direction) if textual
-        # stream is unidirectional. For bidirectional stream, it is `None`.
-        unidirectional_mask = (
-            None
-            if self.is_bidirectional
-            else self._generate_square_subsequent_mask(
-                max_caption_length, caption_embeddings.device
-            )
-        )
-        # `TransformerEncoder` requires the sequence input as
-        # (sequence_length, batch_size, hidden_size). So we transpose the
-        # first two dimensions of tokens embeddings, pass through encoder, and
-        # later undo the transpose.
-        caption_embeddings = caption_embeddings.transpose(0, 1)
-
-        # shape: (sequence_length, batch_size, hidden_size)
-        textual_features = self.encoder(
-            caption_embeddings,
-            mask=unidirectional_mask,
-            src_key_padding_mask=caption_mask,
-        )
-        # Undo the transpose and bring batch to dim 0.
-        # shape: (batch_size, sequence_length, hidden_size)
-        textual_features = textual_features.transpose(0, 1)
-        return textual_features
-
-
-class VisualMemoryTextualStream(TextualStream):
-    def __init__(
-        self,
-        vocab_size: int,
-        hidden_size: int,
-        feedforward_size: int,
-        attention_heads: int,
-        num_layers: int,
-        dropout: float = 0.1,
-        do_early_fusion: bool = False,
-        is_bidirectional: bool = True,
-        norm_type: str = "pre",
-        padding_idx: int = 0,
-    ):
-        super().__init__(
-            vocab_size,
-            hidden_size,
-            do_early_fusion=do_early_fusion,
-            is_bidirectional=is_bidirectional,
-            padding_idx=padding_idx,
+            sos_index=sos_index,
+            eos_index=eos_index,
         )
         self.feedforward_size = feedforward_size
         self.attention_heads = attention_heads
@@ -203,8 +116,8 @@ class VisualMemoryTextualStream(TextualStream):
             dropout=dropout,
             activation="gelu",
         )
-        # We still call this member as "encoder" for consistent API, and
-        # because it still "encodes" the caption for us.
+        # We call this member as "encoder" for consistent naming, and because
+        # it still "encodes" the caption for us.
         self.encoder = nn.TransformerDecoder(_layer, self.num_layers)
         self.apply(self._init_weights)
 
@@ -216,17 +129,17 @@ class VisualMemoryTextualStream(TextualStream):
     ) -> torch.Tensor:
         batch_size, max_caption_length = caption_tokens.size()
 
-        # All of the method body here is same as `MemorylessTextualStream`,
-        # except the call to `self.encoder`.
+        # Create a mask based on caption lengths, shape: (batch_size, )
+        # Form a binary mask: it is True for padding positions.
+        # These positions will be ignored for multi-headed attention.
         ones = torch.ones_like(caption_tokens)
         caption_mask = caption_lengths.unsqueeze(1) < ones.cumsum(dim=1)
 
         # shape: (batch_size, max_caption_length, textual_feature_size)
-        if self.do_early_fusion:
-            caption_embeddings = self.embedding(caption_tokens)
-        else:
-            caption_embeddings = self.embedding(caption_tokens, visual_features)
+        caption_embeddings = self.embedding(caption_tokens)
 
+        # An additive mask for masking the future (one direction) if textual
+        # stream is unidirectional. For bidirectional stream, it is `None`.
         unidirectional_mask = (
             None
             if self.is_bidirectional
@@ -234,8 +147,11 @@ class VisualMemoryTextualStream(TextualStream):
                 max_caption_length, caption_embeddings.device
             )
         )
+        # We transpose the first two dimensions of tokens embeddings and visual
+        # features, as required by encoder.
         caption_embeddings = caption_embeddings.transpose(0, 1)
         visual_features = visual_features.transpose(0, 1)
+
         # shape: (max_caption_length, batch_size, hidden_size)
         textual_features = self.encoder(
             caption_embeddings,
@@ -243,6 +159,7 @@ class VisualMemoryTextualStream(TextualStream):
             tgt_mask=unidirectional_mask,
             tgt_key_padding_mask=caption_mask,
         )
-        # shape: (batch_size, max_caption_length, hidden_size)
+        # Undo the transpose and bring batch to dim 0.
+        # shape: (batch_size, sequence_length, hidden_size)
         textual_features = textual_features.transpose(0, 1)
         return textual_features

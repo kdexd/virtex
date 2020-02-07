@@ -21,9 +21,6 @@ MODEL:
     NORM: SyncBN
     STRIDE_IN_1X1: False
 
-  FPN:
-    NORM: SyncBN
-
   # res5 is in head for C4 backbone. MoCo adds extra SyncBN after res5.
   # Refer `scripts/detectron2_tasks.py` for global config hack.
   # Patched D2 built from https://github.com/kdexd/detectron2 (moco-patch branch)

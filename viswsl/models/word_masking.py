@@ -5,60 +5,30 @@ import torch
 from torch import nn
 
 from viswsl.data.structures import WordMaskingBatch
-from viswsl.modules.fusion import Fusion
 from viswsl.modules.textual_stream import TextualStream
 from viswsl.modules.visual_stream import VisualStream
 
 
 class WordMaskingModel(nn.Module):
-    def __init__(
-        self, visual: VisualStream, textual: TextualStream, late_fusion: Fusion
-    ):
+    def __init__(self, visual: VisualStream, textual: TextualStream):
         super().__init__()
         self.visual = visual
         self.textual = textual
-        self.late_fusion = late_fusion
 
         # Linear layer to project image features to `textual_feature_size` to
-        # facilitate decoder multi-head attention, fusion etc.
+        # facilitate decoder multi-head attention etc.
         self.visual_projection = nn.Linear(
             self.visual.visual_feature_size, self.textual.textual_feature_size
         )
         self.output = nn.Linear(
-            self.late_fusion.fused_feature_size, self.textual.vocab_size
+            self.textual.textual_feature_size, self.textual.vocab_size
         )
         self.padding_idx = self.textual.padding_idx
-
         self.loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
-        self._tie_weights()
-
-    def _tie_weights(self):
-        r"""
-        Tie weights at a few places to either save parameters, or simply where
-        it makes more sense to have the same weights. For example, tie input
-        and output word embeddings to save parameters. This method is only
-        called from :meth:`__init__`. Do not use it from outside.
-        """
 
         # Tie input and output word embeddings to reduce parameters.
         # However, output embedding layer will learn its own bias.
-        if self.textual.textual_feature_size == self.late_fusion.fused_feature_size:
-            self.output.weight = self.textual.embedding.words.weight
-        else:
-            # Add an intermediate projection layer to `textual_feature_size`
-            # if fused features have different size than textual features.
-            self.output = nn.Sequential(
-                nn.Linear(
-                    self.late_fusion.fused_feature_size,
-                    self.textual.textual_feature_size,
-                    bias=False,
-                ),
-                nn.Linear(
-                    self.textual.textual_feature_size, self.textual.vocab_size
-                ),
-            )
-            self.output[0].weight.data.normal_(mean=0.0, std=0.02)
-            self.output[-1].weight = self.textual.embedding.words.weight
+        self.output.weight = self.textual.embedding.words.weight
 
     def forward(self, batch: WordMaskingBatch):
         # shape: (batch_size, visual_feature_size, ...)
@@ -81,12 +51,8 @@ class WordMaskingModel(nn.Module):
         textual_features = self.textual(
             caption_tokens, caption_lengths, projected_visual_features
         )
-        # shape: (batch_size, max_caption_length, fused_feature_size)
-        fused_features = self.late_fusion(
-            projected_visual_features, textual_features
-        )
         # shape: (batch_size, num_caption_tokens, vocab_size)
-        output_logits = self.output(fused_features)
+        output_logits = self.output(textual_features)
 
         output_dict: Dict[str, Any] = {
             "loss": self.loss(

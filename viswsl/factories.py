@@ -8,9 +8,7 @@ from torch import nn, optim
 from viswsl.config import Config
 import viswsl.data as vdata
 import viswsl.models as vmodels
-from viswsl.modules.embedding import WordAndPositionalEmbedding
 from viswsl.modules import visual_stream as vs, textual_stream as ts
-from viswsl.modules import fusion
 from viswsl.optim import Lookahead, lr_scheduler
 
 
@@ -159,12 +157,12 @@ class VisualStreamFactory(Factory):
 
 class TextualStreamFactory(Factory):
 
+    # fmt: off
     PRODUCTS: Dict[str, Callable] = {
-        "memless_postnorm": partial(ts.MemorylessTextualStream, norm_type="post"),
-        "memless_prenorm": partial(ts.MemorylessTextualStream, norm_type="pre"),
-        "vismem_postnorm": partial(ts.VisualMemoryTextualStream, norm_type="post"),
-        "vismem_prenorm": partial(ts.VisualMemoryTextualStream, norm_type="pre"),
+        "allfuse_prenorm": partial(ts.AllLayersFusionTextualStream, norm_type="pre"),
+        "allfuse_postnorm": partial(ts.AllLayersFusionTextualStream, norm_type="post"),
     }
+    # fmt: on
 
     @classmethod
     def from_config(
@@ -182,9 +180,10 @@ class TextualStreamFactory(Factory):
             "vocab_size": tokenizer.get_vocab_size(),
             "hidden_size": _C.MODEL.TEXTUAL.HIDDEN_SIZE,
             "dropout": _C.MODEL.DROPOUT,
-            "do_early_fusion": _C.MODEL.TEXTUAL.DO_EARLY_FUSION,
             "is_bidirectional": _C.MODEL.NAME == "word_masking",
             "padding_idx": tokenizer.token_to_id("[UNK]"),
+            "sos_index": tokenizer.token_to_id("[SOS]"),
+            "eos_index": tokenizer.token_to_id("[EOS]"),
         }
         if _C.MODEL.TEXTUAL.NAME != "embedding":
             kwargs.update(
@@ -194,32 +193,6 @@ class TextualStreamFactory(Factory):
             )
 
         return cls.create(name, **kwargs)
-
-
-class LateFusionFactory(Factory):
-
-    PRODUCTS: Dict[str, Callable] = {
-        "none": fusion.NoFusion,
-        "concatenate": fusion.ConcatenateFusion,
-        "additive": partial(fusion.ElementwiseFusion, operation="additive"),
-        "multiplicative": partial(
-            fusion.ElementwiseFusion, operation="multiplicative"
-        ),
-        "multihead": fusion.MultiheadAttentionFusion,
-    }
-
-    @classmethod
-    def from_config(cls, config: Config) -> fusion.Fusion:
-        _C = config
-        # We will project image features to `TEXTUAL.HIDDEN_SIZE` in model.
-        kwargs = {
-            "feature_size": _C.MODEL.TEXTUAL.HIDDEN_SIZE,
-            "dropout": _C.MODEL.DROPOUT,
-        }
-        if _C.MODEL.LATE_FUSION.NAME == "multihead":
-            kwargs["attention_heads"] = _C.MODEL.LATE_FUSION.ATTENTION_HEADS
-
-        return cls.create(_C.MODEL.LATE_FUSION.NAME, **kwargs)
 
 
 class PretrainingModelFactory(Factory):
@@ -236,9 +209,11 @@ class PretrainingModelFactory(Factory):
 
         visual = VisualStreamFactory.from_config(_C)
         textual = TextualStreamFactory.from_config(_C)
-        late_fusion = LateFusionFactory.from_config(_C)
-
-        return cls.create(_C.MODEL.NAME, visual, textual, late_fusion)
+        if _C.MODEL.NAME == "captioning":
+            kwargs = {"max_decoding_steps": _C.DATA.CAPTION.MAX_LENGTH}
+        else:
+            kwargs = {}
+        return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
 
 
 class OptimizerFactory(Factory):

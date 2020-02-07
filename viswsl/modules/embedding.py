@@ -1,5 +1,4 @@
 import functools
-from typing import Optional
 
 import torch
 from torch import nn
@@ -27,7 +26,7 @@ class WordAndPositionalEmbedding(nn.Module):
         )
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, tokens: torch.LongTensor, visual_features: Optional[torch.Tensor] = None):
+    def forward(self, tokens: torch.LongTensor):
         batch_size, max_sequence_length = tokens.size()
         position_indices = self.make_position_indices(
             batch_size, max_sequence_length, tokens.device
@@ -35,16 +34,6 @@ class WordAndPositionalEmbedding(nn.Module):
         # shape: (batch_size, max_sequence_length, hidden_size)
         word_embeddings = self.words(tokens)
         position_embeddings = self.positions(position_indices)
-        joint_embeddings = word_embeddings + position_embeddings
-
-        # Add visual features with word and position embeddings if provided
-        # (for early fusion).
-        if visual_features is not None:
-            # Visual features provided here would be (projected) grid features
-            # from CNN, so perform global average pooling.
-            # shape: (batch_size, hidden_size)
-            visual_features = torch.mean(visual_features, dim=1)
-            joint_embeddings = joint_embeddings + visual_features.unsqueeze(1)
 
         # shape: (batch_size, max_sequence_length, hidden_size)
         embeddings = self.layer_norm(word_embeddings + position_embeddings)

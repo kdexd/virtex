@@ -247,6 +247,7 @@ class DownstreamTrainer(DefaultTrainer):
     def run_step(self):
         r"""Extend ``run_step`` from ``SimpleTrainer``: support mixed precision."""
 
+        torch.cuda.empty_cache()
         # All this is similar to the super class method.
         assert self.model.training, "[DownstreamTrainer] is in eval mode!"
         data = next(self._data_loader_iter)
