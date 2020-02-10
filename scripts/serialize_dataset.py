@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import dataflow as df
 import numpy as np
@@ -13,17 +13,17 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument(
     "--images",
-    default="data/coco/images/train2017",
+    default="datasets/coco/images/train2017",
     help="Path to a directory containing images of a dataset split.",
 )
 parser.add_argument(
     "--captions",
-    default="data/coco/annotations/captions_train2017.json",
+    default="datasets/coco/annotations/captions_train2017.json",
     help="Path to annotations file with captions for corresponding images.",
 )
 parser.add_argument(
     "--output",
-    default="data/serialized/coco_train2017.lmdb",
+    default="datasets/serialized/coco_train2017.lmdb",
     help="Path to store the file containing serialized dataset.",
 )
 

@@ -126,7 +126,4 @@ class WordMaskingDataset(IterableDataset):
         return WordMaskingBatch(instances, padding_value=self.padding_idx)
 
     def _random_token_index(self) -> int:
-        while True:
-            token_index = random.randint(0, len(self._vocabulary) - 1)
-            if token_index not in self._vocabulary.special_indices:
-                return token_index
+        return random.randint(0, self._tokenizer.get_vocab_size() - 1)

@@ -9,28 +9,35 @@ DATALOADER:
 INPUT:
   FORMAT: RGB
   MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
+  MIN_SIZE_TEST: 800
 
 TEST:
-  DETECTIONS_PER_IMAGE: 300
+  DETECTIONS_PER_IMAGE: 300  # LVIS allows up to 300.
 
 MODEL:
-  PIXEL_MEAN: [123.675, 116.280, 103.530]
-  PIXEL_STD: [58.395, 57.120, 57.375]
   META_ARCHITECTURE: GeneralizedRCNN
   BACKBONE:
     NAME: build_resnet_fpn_backbone
     FREEZE_AT: 0
-  MASK_ON: True
+
+  # LVIS finetuning on our backbone is on tuned BN, all layers.
   RESNETS:
     DEPTH: 50
     NORM: SyncBN
+    STRIDE_IN_1X1: False  # For torchvision backbones.
     OUT_FEATURES: ["res2", "res3", "res4", "res5"]
+
+  # FPN also has SyncBN, as opposed to no norm (usually).
   FPN:
     IN_FEATURES: ["res2", "res3", "res4", "res5"]
     NORM: SyncBN
+
   ANCHOR_GENERATOR:
+    # One size for each in feature map
     SIZES: [[32], [64], [128], [256], [512]]
+    # Three aspect ratios (same for all in feature maps)
     ASPECT_RATIOS: [[0.5, 1.0, 2.0]]
+
   RPN:
     IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
     PRE_NMS_TOPK_TRAIN: 2000
@@ -38,25 +45,38 @@ MODEL:
 
     POST_NMS_TOPK_TRAIN: 1000
     POST_NMS_TOPK_TEST: 1000
+
   ROI_HEADS:
     NAME: StandardROIHeads
     IN_FEATURES: ["p2", "p3", "p4", "p5"]
     NUM_CLASSES: 1230
     SCORE_THRESH_TEST: 0.0001
+
   ROI_BOX_HEAD:
     NAME: FastRCNNConvFCHead
     NUM_FC: 2
     POOLER_RESOLUTION: 7
+
   ROI_MASK_HEAD:
     NAME: MaskRCNNConvUpsampleHead
     NUM_CONV: 4
     POOLER_RESOLUTION: 14
 
-SOLVER:
-  IMS_PER_BATCH: 2
-  BASE_LR: 0.0025
+  # Pre-trained weights are loaded in script, refer `scripts/detectron2_tasks.py`
+  WEIGHTS: ""
+  MASK_ON: True
 
+  # Color mean from torchvision multiplied by 255.
+  PIXEL_MEAN: [123.675, 116.280, 103.530]
+  PIXEL_STD: [58.395, 57.120, 57.375]
+
+SOLVER:
+  # For 8 GPUs, scale linearly for different number of GPUs.
+  IMS_PER_BATCH: 16
+  BASE_LR: 0.02
+  
   GAMMA: 0.1
+  # 2X schedule
   STEPS: (120000, 160000)
   MAX_ITER: 180000
 

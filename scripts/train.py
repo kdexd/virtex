@@ -259,7 +259,7 @@ if __name__ == "__main__":
             val_loss_counter: Counter = Counter()
 
             for val_iteration, val_batch in enumerate(val_dataloader, start=1):
-                for key in batch:
+                for key in val_batch:
                     val_batch[key] = val_batch[key].to(device)
                 output_dict = model(val_batch)
 

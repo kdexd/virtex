@@ -74,6 +74,10 @@ parser.add_argument(
     weights from `--checkpoint-path`."""
 )
 parser.add_argument(
+    "--resume", action="store_true", help="""Resume training from a D2
+    checkpoint. Provide path in `--checkpoint-path`."""
+)
+parser.add_argument(
     "--checkpoint-path",
     help="""Path to load checkpoint and run downstream task evaluation. The
     name of checkpoint file is required to be `model_*.pth`, where * is
@@ -125,18 +129,23 @@ def build_detectron2_config(_C: Config, _A: argparse.Namespace):
         _D2C.MODEL.PIXEL_STD = [1.0, 1.0, 1.0]
         _D2C.INPUT.FORMAT = "BGR"
 
+    # Always turn on gradient checkpointing. MoCo models were trained on V100s. They
+    # don't fit two images per GPU as-is on smaller GPUs.
+    global_cfg.GRADIENT_CHECKPOINT = True
+
     # Task specific adjustments.
     if _A.task == "lvis":
         if _A.imagenet_backbone:
             # If using LVIS and ImageNet backbone, use FrozenBN and no BN in FPN.
             _D2C.MODEL.RESNETS.NORM = "FrozenBN"
             _D2C.MODEL.FPN.NORM = ""
+        global_cfg.GRADIENT_CHECKPOINT = True
     elif _A.task in {"voc_moco", "voc_pirl"}:
         # Need gradient checkpointing for non-FPN backbones to fit two images
         # per GPU. Add it in GLOBAL config because it is a custon hack not in D2.
         global_cfg.GRADIENT_CHECKPOINT = True
 
-    if _A.task in {"lvis", "voc_moco"}:
+    if _A.task in {"voc_moco"}:
         global_cfg.NORM_BEFORE_HEADS = _D2C.MODEL.RESNETS.NORM
     return _D2C
 
@@ -167,7 +176,15 @@ class DownstreamTrainer(DefaultTrainer):
         or if a ``dict``, we assume a state dict.
     """
 
-    def __init__(self, cfg, weights: Optional[Union[str, Dict[str, Any]]] = None):
+    def __init__(
+        self,
+        cfg,
+        weights: Optional[Union[str, Dict[str, Any]]] = None,
+        resume: bool = False,
+    ):
+        self.start_iter = 0
+        self.max_iter = cfg.SOLVER.MAX_ITER
+        self.cfg = cfg
 
         # We do not make any super call here and implement `__init__` from
         #  `DefaultTrainer`: we need to initialize mixed precision model before
@@ -175,15 +192,22 @@ class DownstreamTrainer(DefaultTrainer):
         model = self.build_model(cfg)
         optimizer = self.build_optimizer(cfg, model)
         data_loader = self.build_train_loader(cfg)
+        scheduler = self.build_lr_scheduler(cfg, optimizer)
 
         # Load pre-trained weights before wrapping to DDP because `ApexDDP` has
         # some weird issue with `DetectionCheckpointer`.
+        # fmt: off
         if isinstance(weights, str):
-            # weights are ``str`` means ImageNet init.
-            DetectionCheckpointer(model).load(weights)
+            # weights are ``str`` means ImageNet init or resume training.
+            self.start_iter = (
+                DetectionCheckpointer(
+                    model, optimizer=optimizer, scheduler=scheduler
+                ).resume_or_load(weights, resume=resume).get("iteration", -1) + 1
+            )
         elif isinstance(weights, dict):
             # weights are a state dict means our pretext init.
             DetectionCheckpointer(model)._load_model(weights)
+        # fmt: on
 
         # Enable distributed training if we have multiple GPUs. Use Apex DDP for
         # non-FPN backbones because its `delay_allreduce` functionality helps with
@@ -199,17 +223,13 @@ class DownstreamTrainer(DefaultTrainer):
         # Call `__init__` from grandparent class: `SimpleTrainer`.
         SimpleTrainer.__init__(self, model, data_loader, optimizer)
 
-        self.scheduler = self.build_lr_scheduler(cfg, optimizer)
+        self.scheduler = scheduler
         self.checkpointer = DetectionCheckpointer(
             model,
             cfg.OUTPUT_DIR,
             optimizer=optimizer,
             scheduler=self.scheduler,
         )
-        self.start_iter = 0
-        self.max_iter = cfg.SOLVER.MAX_ITER
-        self.cfg = cfg
-
         self.register_hooks(self.build_hooks())
 
     @classmethod
@@ -252,8 +272,6 @@ class DownstreamTrainer(DefaultTrainer):
         assert self.model.training, "[DownstreamTrainer] is in eval mode!"
         data = next(self._data_loader_iter)
 
-        # Pass one image at a time due to GPU constraints. Only do syncs in the
-        # last iteration.
         loss_dict = self.model(data)
         losses = sum(loss for loss in loss_dict.values())
         self._detect_anomaly(losses, loss_dict)
@@ -310,6 +328,8 @@ if __name__ == "__main__":
     # Load either imagenet weights or our pretrained weights.
     if _A.imagenet_backbone:
         weights = _D2C.MODEL.WEIGHTS
+    elif _A.resume:
+        weights = _A.checkpoint_path
     else:
         # Initialize from a checkpoint, but only keep the visual module.
         model = PretrainingModelFactory.from_config(_C)

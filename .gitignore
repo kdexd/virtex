@@ -45,10 +45,10 @@ ENV/
 
 # Temporary scripts to (smoke) test out bits and pieces of code.
 scripts/test_*
-*.sh
 
 # Data (symlinks) directory, model checkpoints, tensorboard logs etc.
-data
-datasets
-!viswsl/data/
+data/
+datasets/
 checkpoints/
+viswsl/utils/assets/
+!viswsl/data/

@@ -13,11 +13,11 @@ parser = argparse.ArgumentParser(
     """
 )
 parser.add_argument(
-    "-c", "--captions", default="data/coco/annotations/captions_train2017.json",
+    "-c", "--captions", default="datasets/coco/annotations/captions_train2017.json",
     help="Path to an annotation file containing captions (COCO format).",
 )
 parser.add_argument(
-    "-o", "--output", default="data/coco_train2017_corpus.txt",
+    "-o", "--output", default="datasets/coco_train2017_corpus.txt",
     help="Path to save the caption corpus.",
 )
 

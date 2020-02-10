@@ -9,7 +9,7 @@ class WordAndPositionalEmbedding(nn.Module):
         self,
         vocab_size: int,
         hidden_size: int = 512,
-        max_sequence_length: int = 30,
+        max_caption_length: int = 30,
         dropout: float = 0.0,
         padding_idx: int = 0,
     ):
@@ -20,17 +20,15 @@ class WordAndPositionalEmbedding(nn.Module):
         self.words = nn.Embedding(vocab_size, hidden_size, padding_idx=padding_idx)
         # We provide no "padding index" for position embeddigs. We zero-out
         # the positional embeddings of padded positions as a post-processing,
-        self.positions = nn.Embedding(max_sequence_length, hidden_size)
+        self.positions = nn.Embedding(max_caption_length, hidden_size)
         self.layer_norm = nn.LayerNorm(
             hidden_size, eps=1e-8, elementwise_affine=True
         )
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, tokens: torch.LongTensor):
-        batch_size, max_sequence_length = tokens.size()
-        position_indices = self.make_position_indices(
-            batch_size, max_sequence_length, tokens.device
-        )
+        position_indices = self.make_position_indices(tokens)
+
         # shape: (batch_size, max_sequence_length, hidden_size)
         word_embeddings = self.words(tokens)
         position_embeddings = self.positions(position_indices)
@@ -48,16 +46,14 @@ class WordAndPositionalEmbedding(nn.Module):
         return embeddings
 
     @functools.lru_cache(maxsize=128)
-    def make_position_indices(
-        self, batch_size: int, max_sequence_length: int, device: torch.device
-    ):
-        r"""
-        Make position indices for a tensor containing sequence. We wrap it in
-        functools' ``lru_cache`` for a slight speedup.
-        """
-        # Create position indices of the same size as token indices.
-        positions = torch.arange(max_sequence_length, device=device)
+    def make_position_indices(self, tokens: torch.Tensor):
+        r"""Make position indices for a tensor containing sequence."""
 
+        # Create position indices of the same size as token indices.
+        batch_size, max_caption_length = tokens.size()
+        positions = torch.arange(
+            max_caption_length, dtype=tokens.dtype, device=tokens.device
+        )
         # shape: (batch_size, max_sequence_length)
-        positions = positions.unsqueeze(0).expand(batch_size, max_sequence_length)
+        positions = positions.unsqueeze(0).expand(batch_size, max_caption_length)
         return positions

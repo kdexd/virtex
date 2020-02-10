@@ -2,9 +2,10 @@ RANDOM_SEED: 0
 FP16_OPT: 0
 
 DATA:
-  TRAIN_LMDB: data/serialized/coco_train2017.lmdb
-  VAL_LMDB: data/serialized/coco_val2017.lmdb
-  CAPTION_CORPUS: data/coco_train2017_corpus.txt
+  TRAIN_LMDB: datasets/serialized/coco_train2017.lmdb
+  VAL_LMDB: datasets/serialized/coco_val2017.lmdb
+  CAPTION_CORPUS: datasets/coco_train2017_corpus.txt
+  SHUFFLE_TRAIN: True
 
   IMAGE:
     RESIZE_SIZE: 256
@@ -38,25 +39,25 @@ MODEL:
   DROPOUT: 0.1
 
 OPTIM:
-  NUM_ITERATIONS: 500000
-  OPTIMIZER_NAME: adamw
-  ADAM_BETAS: [0.9, 0.98]
+  NUM_ITERATIONS: 1000000
+  OPTIMIZER_NAME: sgd
+  SGD_MOMENTUM: 0.9
   USE_LOOKAHEAD: True
 
   BATCH_SIZE_PER_GPU: 32
   BATCH_SIZE_MULTIPLIER: 1
 
-  LR: 2e-4
-  CNN_LR: 8e-3
-  WEIGHT_DECAY: 1e-2
-  CNN_WEIGHT_DECAY: 1e-2
+  LR: 0.01
+  CNN_LR: 0.1
+  WEIGHT_DECAY: 1e-4
+  CNN_WEIGHT_DECAY: 1e-4
   LR_DECAY_NAME: cosine
   WARMUP_STEPS: 10000
   CLIP_GRAD_NORM: 10
 
 DOWNSTREAM:
   VOC07_CLF:
-    DATA_ROOT: data/VOC2007
+    DATA_ROOT: datasets/VOC2007
     BATCH_SIZE: 64
     LAYER_NAMES: ["layer4"]
     SVM_COSTS: [0.01, 0.1, 1.0, 10.0]

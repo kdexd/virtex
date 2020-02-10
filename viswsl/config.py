@@ -57,10 +57,10 @@ class Config(object):
         these are assumed to be relative to project root directory. If
         elsewhere, symlinking is recommended.
 
-    DATA.TRAIN_LMDB: data/serialized/coco_train2017.lmdb
+    DATA.TRAIN_LMDB: datasets/serialized/coco_train2017.lmdb
         Path to an LMDB file containing training examples serialized as
         ``(image: np.ndarray, captions: List[str])``.
-    DATA.VAL_LMDB: data/serialized/coco_val2017.lmdb
+    DATA.VAL_LMDB: datasets/serialized/coco_val2017.lmdb
         Path to an LMDB file containing validation examples serialized as
         ``(image: np.ndarray, captions: List[str])``.
     DATA.NORMALIZE_IMAGE: True
@@ -127,9 +127,10 @@ class Config(object):
         _C.FP16_OPT = 0
 
         _C.DATA = CN()
-        _C.DATA.TRAIN_LMDB = "data/serialized/coco_train2017.lmdb"
-        _C.DATA.VAL_LMDB = "data/serialized/coco_val2017.lmdb"
-        _C.DATA.CAPTION_CORPUS = "data/coco_train2017_corpus.txt"
+        _C.DATA.TRAIN_LMDB = "datasets/serialized/coco_train2017.lmdb"
+        _C.DATA.VAL_LMDB = "datasets/serialized/coco_val2017.lmdb"
+        _C.DATA.CAPTION_CORPUS = "datasets/coco_train2017_corpus.txt"
+        _C.DATA.SHUFFLE_TRAIN = True
 
         _C.DATA.IMAGE = CN()
         _C.DATA.IMAGE.RESIZE_SIZE = 256
@@ -189,7 +190,7 @@ class Config(object):
 
         _C.DOWNSTREAM = CN()
         _C.DOWNSTREAM.VOC07_CLF = CN()
-        _C.DOWNSTREAM.VOC07_CLF.DATA_ROOT = "data/VOC2007"
+        _C.DOWNSTREAM.VOC07_CLF.DATA_ROOT = "datasets/VOC2007"
         _C.DOWNSTREAM.VOC07_CLF.BATCH_SIZE = 64
         _C.DOWNSTREAM.VOC07_CLF.LAYER_NAMES = ["layer3", "layer4"]
         _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.01, 0.1, 1.0, 10.0]
