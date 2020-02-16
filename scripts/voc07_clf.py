@@ -70,8 +70,9 @@ def train_test_single_svm(args):
     cls_labels[np.where(cls_labels == 0)] = -1
 
     # See which cost maximizes the AP for this class.
-    max_crossval_ap: float = 0.0
+    best_crossval_ap: float = 0.0
     best_crossval_clf = None
+    best_cost: float = 0.0
 
     # fmt: off
     for cost in costs:
@@ -85,13 +86,14 @@ def train_test_single_svm(args):
         clf.fit(feats_train, cls_labels)
 
         # Keep track of best SVM (based on cost) for each (layer, cls).
-        if ap_scores.mean() > max_crossval_ap:
-            max_ap = ap_scores.mean()
+        if ap_scores.mean() > best_crossval_ap:
+            best_crossval_ap = ap_scores.mean()
             best_crossval_clf = clf
+            best_cost = cost
 
-        logger.info(
-            f"SVM for: {layer_name}, {cls_name}, cost {cost}, mAP {ap_scores.mean()}"
-        )
+    logger.info(
+        f"Best SVM for: {layer_name}, {cls_name}, cost {best_cost}, mAP {best_crossval_ap}"
+    )
     # fmt: on
 
     # -------------------------------------------------------------------------
@@ -154,11 +156,17 @@ if __name__ == "__main__":
         _C_DOWNSTREAM.DATA_ROOT, split="train"
     )
     train_dataloader = DataLoader(
-        train_dataset, batch_size=_C_DOWNSTREAM.BATCH_SIZE, pin_memory=True
+        train_dataset,
+        batch_size=2 * _C_DOWNSTREAM.BATCH_SIZE,
+        num_workers=_A.cpu_workers,
+        pin_memory=True,
     )
     test_dataset = VOC07ClassificationDataset(_C_DOWNSTREAM.DATA_ROOT, split="val")
     test_dataloader = DataLoader(
-        test_dataset, batch_size=_C_DOWNSTREAM.BATCH_SIZE, pin_memory=True
+        test_dataset,
+        batch_size=2 * _C_DOWNSTREAM.BATCH_SIZE,
+        num_workers=_A.cpu_workers,
+        pin_memory=True,
     )
     NUM_CLASSES = len(train_dataset.class_names)
 
@@ -166,7 +174,7 @@ if __name__ == "__main__":
     model = PretrainingModelFactory.from_config(_C).to(device)
     model.load_state_dict(torch.load(_A.checkpoint_path))
 
-    feature_extractor = VOC07ClassificationFeatureExtractor(model, mode="avg")
+    feature_extractor = VOC07ClassificationFeatureExtractor(model, mode="avg").to(device)
     del model
 
     # Possible keys: {"layer1", "layer2", "layer3", "layer4"}

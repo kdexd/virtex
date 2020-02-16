@@ -4,14 +4,13 @@ import glob
 from typing import Callable, Dict, List, Tuple
 
 import albumentations as alb
-import dataflow as df
 import numpy as np
 from PIL import Image
 import torch
-from torch.utils.data import IterableDataset
+from torch.utils.data import Dataset
 
 
-class VOC07ClassificationDataset(IterableDataset):
+class VOC07ClassificationDataset(Dataset):
     def __init__(
         self,
         voc_root: str,
@@ -61,30 +60,24 @@ class VOC07ClassificationDataset(IterableDataset):
 
         # Convert the dict to a list of tuples for easy indexing.
         # Replace image name with full image path.
-        instances: List[Tuple[str, torch.Tensor]] = [
+        self.instances: List[Tuple[str, torch.Tensor]] = [
             (os.path.join(voc_root, "JPEGImages", f"{image_name}.jpg"), label)
             for image_name, label in image_names_to_labels.items()
         ]
-        # Read image from file path.
-        self._pipeline = df.DataFromList(instances, shuffle=split == "train")
-        self._pipeline = df.MapDataComponent(self._pipeline, Image.open, index=0)
-        self._pipeline = df.MapDataComponent(self._pipeline, np.array, index=0)
 
     @property
     def class_names(self):
         return self._class_names
 
     def __len__(self):
-        return len(self._pipeline)
+        return len(self.instances)
 
-    def __iter__(self):
-        self._pipeline.reset_state()
+    def __getitem__(self, idx: int):
+        image_path, label = self.instances[idx]
 
-        for datapoint in self._pipeline:
-            image, label = datapoint
+        # Open image from path and apply transformation, convert to CHW format.
+        image = np.array(Image.open(image_path).convert("RGB"))
+        image = self.image_transform(image=image)["image"]
+        image = np.transpose(image, (2, 0, 1))
 
-            # Transform and convert image from HWC to CHW format.
-            image = self.image_transform(image=image)["image"]
-            image = np.transpose(image, (2, 0, 1))
-
-            yield {"image": image, "label": label}
+        return {"image": image, "label": label}
