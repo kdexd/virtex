@@ -12,7 +12,7 @@ import argparse
 import os
 import random
 import re
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 import numpy as np
 import torch
@@ -69,13 +69,14 @@ parser.add_argument(
 
 parser.add_argument_group("Checkpointing and Logging")
 parser.add_argument(
-    "--imagenet-backbone", action="store_true",
-    help="""Whether to load ImageNet pre-trained weights. This flag will ignore
-    weights from `--checkpoint-path`."""
+    "--weight-init", choices=["random", "imagenet", "checkpoint"],
+    default="checkpoint", help="""How to initialize weights: 'random' initializes
+    all weights randomly, 'imagenet' initializes backbone weights from torchvision
+    model zoo, and 'checkpoint' loads state dict from `--checkpoint-path`."""
 )
 parser.add_argument(
-    "--resume", action="store_true", help="""Resume training from a D2
-    checkpoint. Provide path in `--checkpoint-path`."""
+    "--resume", action="store_true", help="""Specify this flag when resuming
+    training from a checkpoint saved by Detectron2."""
 )
 parser.add_argument(
     "--checkpoint-path",
@@ -84,12 +85,11 @@ parser.add_argument(
     iteration number from which the checkpoint was serialized."""
 )
 parser.add_argument(
-    "--serialization-dir", default=None,
-    help="""Path to a directory to save checkpoints and log stats. If not
-    provided, this will be the parent directory of checkpoint."""
+    "--serialization-dir", required=True,
+    help="Path to a directory to save checkpoints and log stats."
 )
 parser.add_argument(
-    "--checkpoint-every", type=int, default=5000,
+    "--checkpoint-every", type=int, default=2000,
     help="Serialize model to a checkpoint after every these many iterations.",
 )
 # fmt: on
@@ -119,23 +119,14 @@ def build_detectron2_config(_C: Config, _A: argparse.Namespace):
         if "detectron2" in _C.MODEL.VISUAL.NAME
         else 0
     )
-    # Override some config values if initializing by ImageNet backbone.
-    if _A.imagenet_backbone:
-        # Weights path, BGR format and ImageNet mean and std.
-        _D2C.MODEL.WEIGHTS = (
-            f"detectron2://ImageNetPretrained/MSRA/R-{_D2C.MODEL.RESNETS.DEPTH}.pkl"
-        )
-        _D2C.MODEL.PIXEL_MEAN = [103.530, 116.280, 123.675]
-        _D2C.MODEL.PIXEL_STD = [1.0, 1.0, 1.0]
-        _D2C.INPUT.FORMAT = "BGR"
 
     # Always turn on gradient checkpointing. MoCo models were trained on V100s. They
     # don't fit two images per GPU as-is on smaller GPUs.
-    global_cfg.GRADIENT_CHECKPOINT = True
+    # global_cfg.GRADIENT_CHECKPOINT = True
 
     # Task specific adjustments.
     if _A.task == "lvis":
-        if _A.imagenet_backbone:
+        if _A.weight_init == "imagenet":
             # If using LVIS and ImageNet backbone, use FrozenBN and no BN in FPN.
             _D2C.MODEL.RESNETS.NORM = "FrozenBN"
             _D2C.MODEL.FPN.NORM = ""
@@ -170,18 +161,13 @@ class DownstreamTrainer(DefaultTrainer):
     ----------
     cfg: detectron2.config.CfgNode
         Detectron2 config object containing all config params.
-    weights: Union[str, Dict[str, Any] (optional, default = None)
-        Weights to load in the initialized model. If ``None`` (default), then
-        random init, if ``str``, then we assume path to a checkpoint, or D2 url,
-        or if a ``dict``, we assume a state dict.
+    weights: Union[str, Dict[str, Any]]
+        Weights to load in the initialized model. If ``str``, then we assume path
+        to a checkpoint, or if a ``dict``, we assume a state dict. This will be
+        an ``str`` only if we resume training from a Detectron2 checkpoint.
     """
 
-    def __init__(
-        self,
-        cfg,
-        weights: Optional[Union[str, Dict[str, Any]]] = None,
-        resume: bool = False,
-    ):
+    def __init__(self, cfg, weights: Union[str, Dict[str, Any]]):
         self.start_iter = 0
         self.max_iter = cfg.SOLVER.MAX_ITER
         self.cfg = cfg
@@ -202,7 +188,7 @@ class DownstreamTrainer(DefaultTrainer):
             self.start_iter = (
                 DetectionCheckpointer(
                     model, optimizer=optimizer, scheduler=scheduler
-                ).resume_or_load(weights, resume=resume).get("iteration", -1) + 1
+                ).resume_or_load(weights, resume=True).get("iteration", -1) + 1
             )
         elif isinstance(weights, dict):
             # weights are a state dict means our pretext init.
@@ -287,16 +273,9 @@ class DownstreamTrainer(DefaultTrainer):
 if __name__ == "__main__":
 
     _A = parser.parse_args()
-    if not _A.serialization_dir:
-        if _A.imagenet_backbone:
-            raise ValueError("--serialization-dir required with --imagenet-backbone")
-
-        CHECKPOINT_ITERATION = int(
-            os.path.basename(_A.checkpoint_path).split("_")[-1][:-4]
-        )
-        _A.serialization_dir = os.path.join(
-            os.path.dirname(_A.checkpoint_path), f"lvis_{CHECKPOINT_ITERATION}"
-        )
+    config_override = (
+        ["MODEL.VISUAL.PRETRAINED", True] if _A.weight_init == "imagenet" else []
+    )
 
     # Set up distributed environment - we use our `dist` utilities instead of
     # detectron2's utilities because it's easier with slurm.
@@ -308,7 +287,7 @@ if __name__ == "__main__":
 
     # Create config with default values, then override from config file.
     # This is our config, not Detectron2 config.
-    _C = Config(_A.pretext_config)
+    _C = Config(_A.pretext_config, config_override)
 
     # We use `default_setup` from detectron2 to do some common setup, such as
     # logging, setting up serialization etc. For more info, look into source.
@@ -325,17 +304,21 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-    # Load either imagenet weights or our pretrained weights.
-    if _A.imagenet_backbone:
-        weights = _D2C.MODEL.WEIGHTS
-    elif _A.resume:
-        weights = _A.checkpoint_path
+    # Prepare weights to pass in instantiation call of trainer.
+    if _A.weight_init == "checkpoint":
+        if _A.resume:
+            # If resuming training, let Detectron2 load weights by providing path.
+            weights = _A.checkpoint_path
+        else:
+            # Load backbone weights from our pre-trained checkpoint.
+            model = PretrainingModelFactory.from_config(_C)
+            model.load_state_dict(torch.load(_A.checkpoint_path, map_location="cpu"))
+            weights = model.visual.detectron2_backbone_state_dict()
+            del model
     else:
-        # Initialize from a checkpoint, but only keep the visual module.
+        # If random or imagenet init, just load weights after initializing model.
         model = PretrainingModelFactory.from_config(_C)
-        model.load_state_dict(torch.load(_A.checkpoint_path))
         weights = model.visual.detectron2_backbone_state_dict()
-        del model
 
     trainer = DownstreamTrainer(_D2C, weights)
     trainer.train()
