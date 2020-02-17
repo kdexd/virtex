@@ -103,8 +103,7 @@ def build_detectron2_config(_C: Config, _A: argparse.Namespace):
     _D2C.merge_from_file(_A.d2_config)
     _D2C.merge_from_list(_A.d2_config_override)
 
-    # Set random seed, workers etc. from args.
-    _D2C.SEED = _C.RANDOM_SEED
+    # Set workers etc. from args.
     _D2C.DATALOADER.NUM_WORKERS = _A.cpu_workers
     _D2C.SOLVER.EVAL_PERIOD = _A.checkpoint_every
     _D2C.SOLVER.CHECKPOINT_PERIOD = _A.checkpoint_every
@@ -298,9 +297,9 @@ if __name__ == "__main__":
     # We override the random seeds set by Detectron2 and set the same seed
     # for all workers to completely control randomness.
     # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
-    random.seed(_C.RANDOM_SEED)
-    np.random.seed(_C.RANDOM_SEED)
-    torch.manual_seed(_C.RANDOM_SEED)
+    random.seed(_D2C.SEED)
+    np.random.seed(_D2C.SEED)
+    torch.manual_seed(_D2C.SEED)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
