@@ -3,7 +3,7 @@ from typing import Callable, List
 import albumentations as alb
 import numpy as np
 import tokenizers as tkz
-from torch.utils.data import IterableDataset
+from torch.utils.data import Dataset, IterableDataset
 
 from viswsl.data.dataflows import (
     ReadDatapointsFromLmdb,
@@ -69,3 +69,45 @@ class CaptioningDataset(IterableDataset):
 
     def collate_fn(self, instances: List[CaptioningInstance]) -> CaptioningBatch:
         return CaptioningBatch(instances, padding_value=self.padding_idx)
+
+
+class CocoCaptionsEvalDataset(Dataset):
+    def __init__(
+        self,
+        image_dir: str,
+        image_transform: Callable = alb.Compose(
+            [
+                alb.Resize(224, 224),
+                alb.ToFloat(max_value=255.0),
+                alb.Normalize(
+                    mean=(0.485, 0.456, 0.406),
+                    std=(0.229, 0.224, 0.225),
+                    max_pixel_value=1.0,
+                ),
+            ]
+        ),
+    ):
+        self.image_transform = image_transform
+        image_filenames = glob.glob(os.path.join(image_dir, "*.jpg"))
+
+        # Make a tuple of image id and its filename, get image_id from its
+        # filename (assuming directory has images with names in COCO 2017 format).
+        self.id_filename: Tuple[int, str] = [
+            (int(os.path.basename(name)[:-4]), name) for name in image_filenames
+        ]
+
+    def __len__(self):
+        return len(self.id_filename)
+
+    def __getitem__(self, idx: int):
+        image_id, filename = self.id_filename[idx]
+
+        # Open image from path and apply transformation, convert to CHW format.
+        image = np.array(Image.open(filename).convert("RGB"))
+        image = self.image_transform(image=image)["image"]
+        image = np.transpose(image, (2, 0, 1))
+
+        return CaptioningInstance(image_id, image)
+
+    def collate_fn(self, instances: List[CaptioningInstance]) -> CaptioningBatch:
+        return CaptioningBatch(instances)
