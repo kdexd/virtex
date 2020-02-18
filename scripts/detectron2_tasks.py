@@ -12,6 +12,7 @@ import argparse
 import os
 import random
 import re
+import time
 from typing import Any, Dict, Union
 
 import numpy as np
@@ -35,7 +36,7 @@ parser = argparse.ArgumentParser(description="""
 """)
 # fmt: off
 parser.add_argument(
-    "--task", required=True, choices=["lvis", "voc_moco", "voc_pirl"],
+    "--task", required=True, choices=["lvis", "voc"],
 )
 parser.add_argument(
     "--pretext-config", required=True,
@@ -121,7 +122,7 @@ def build_detectron2_config(_C: Config, _A: argparse.Namespace):
 
     # Always turn on gradient checkpointing. MoCo models were trained on V100s. They
     # don't fit two images per GPU as-is on smaller GPUs.
-    # global_cfg.GRADIENT_CHECKPOINT = True
+    global_cfg.GRADIENT_CHECKPOINT = True
 
     # Task specific adjustments.
     if _A.task == "lvis":
@@ -135,8 +136,8 @@ def build_detectron2_config(_C: Config, _A: argparse.Namespace):
         # per GPU. Add it in GLOBAL config because it is a custon hack not in D2.
         global_cfg.GRADIENT_CHECKPOINT = True
 
-    if _A.task in {"voc_moco"}:
-        global_cfg.NORM_BEFORE_HEADS = _D2C.MODEL.RESNETS.NORM
+    if _A.task == "voc":
+        global_cfg.SYNCBN_AFTER_RES5 = _D2C.MODEL.RESNETS.NORM
     return _D2C
 
 
@@ -243,7 +244,7 @@ class DownstreamTrainer(DefaultTrainer):
             d2.engine.hooks.PeriodicCheckpointer(
                 self.checkpointer, __C.SOLVER.CHECKPOINT_PERIOD
             ),
-            LazyEvalHook(__C.SOLVER.MAX_ITER // 4, __C.TEST.EVAL_PERIOD, _eval),
+            LazyEvalHook(__C.SOLVER.STEPS[0], __C.TEST.EVAL_PERIOD, _eval),
             d2.engine.hooks.PeriodicWriter(self.build_writers())
         ]
         # We need checkpointer and writer only for master process.
@@ -253,15 +254,17 @@ class DownstreamTrainer(DefaultTrainer):
         r"""Extend ``run_step`` from ``SimpleTrainer``: support mixed precision."""
 
         torch.cuda.empty_cache()
-        # All this is similar to the super class method.
-        assert self.model.training, "[DownstreamTrainer] is in eval mode!"
+        # All this is similar to super class method.
+        start = time.perf_counter()
         data = next(self._data_loader_iter)
+        data_time = time.perf_counter() - start
 
         loss_dict = self.model(data)
-        losses = sum(loss for loss in loss_dict.values())
+        losses = sum(loss_dict.values())
         self._detect_anomaly(losses, loss_dict)
 
         metrics_dict = loss_dict
+        metrics_dict["data_time"] = data_time
         self._write_metrics(metrics_dict)
 
         self.optimizer.zero_grad()
@@ -307,17 +310,27 @@ if __name__ == "__main__":
     if _A.weight_init == "checkpoint":
         if _A.resume:
             # If resuming training, let Detectron2 load weights by providing path.
+            model = None
             weights = _A.checkpoint_path
         else:
             # Load backbone weights from our pre-trained checkpoint.
             model = PretrainingModelFactory.from_config(_C)
             model.load_state_dict(torch.load(_A.checkpoint_path, map_location="cpu"))
             weights = model.visual.detectron2_backbone_state_dict()
-            del model
     else:
         # If random or imagenet init, just load weights after initializing model.
         model = PretrainingModelFactory.from_config(_C)
         weights = model.visual.detectron2_backbone_state_dict()
 
+    # Back up pretext config and model checkpoint (if provided).
+    _C.dump(os.path.join(_A.serialization_dir, "pretext_config.yml"))
+    if _A.weight_init == "checkpoint" and not _A.resume:
+        torch.save(
+            model.state_dict(), os.path.join(_A.serialization_dir, "pretext_model.pth")
+        )
+
+    del model
+
+    # Instantiate trainer and start training.
     trainer = DownstreamTrainer(_D2C, weights)
     trainer.train()

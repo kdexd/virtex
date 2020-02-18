@@ -38,12 +38,12 @@ MODEL:
 
 SOLVER:
   # For 8 GPUs, scale linearly for different number of GPUs.
-  IMS_PER_BATCH: 8
-  BASE_LR: 0.01
+  IMS_PER_BATCH: 16
+  BASE_LR: 0.02
 
   GAMMA: 0.1
-  STEPS: (24000, 32000)
-  MAX_ITER: 36000  # 34.8 epochs
+  STEPS: (12000, 24000)
+  MAX_ITER: 18000  # 17.9 epochs
   WARMUP_ITERS: 100
 
 VERSION: 2
