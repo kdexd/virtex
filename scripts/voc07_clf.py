@@ -19,7 +19,7 @@ from tqdm import tqdm
 from viswsl.config import Config
 from viswsl.data import VOC07ClassificationDataset
 from viswsl.factories import PretrainingModelFactory
-from viswsl.models import VOC07ClassificationFeatureExtractor
+from viswsl.models import FeatureExtractor9k
 
 
 # fmt: off
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     _A = parser.parse_args()
     _C = Config(_A.config, _A.config_override)
-    _C_DOWNSTREAM = _C.DOWNSTREAM.VOC07_CLF
+    _DOWNC = _C.DOWNSTREAM.VOC07_CLF
 
     # Set random seeds for reproucibility.
     random.seed(_C.RANDOM_SEED)
@@ -152,19 +152,17 @@ if __name__ == "__main__":
     #   EXTRACT FEATURES FOR TRAINING SVMs
     # -------------------------------------------------------------------------
 
-    train_dataset = VOC07ClassificationDataset(
-        _C_DOWNSTREAM.DATA_ROOT, split="train"
-    )
+    train_dataset = VOC07ClassificationDataset(_DOWNC.DATA_ROOT, split="train")
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=2 * _C_DOWNSTREAM.BATCH_SIZE,
+        batch_size=_DOWNC.BATCH_SIZE,
         num_workers=_A.cpu_workers,
         pin_memory=True,
     )
-    test_dataset = VOC07ClassificationDataset(_C_DOWNSTREAM.DATA_ROOT, split="val")
+    test_dataset = VOC07ClassificationDataset(_DOWNC.DATA_ROOT, split="val")
     test_dataloader = DataLoader(
         test_dataset,
-        batch_size=2 * _C_DOWNSTREAM.BATCH_SIZE,
+        batch_size=_DOWNC.BATCH_SIZE,
         num_workers=_A.cpu_workers,
         pin_memory=True,
     )
@@ -174,7 +172,7 @@ if __name__ == "__main__":
     model = PretrainingModelFactory.from_config(_C).to(device)
     model.load_state_dict(torch.load(_A.checkpoint_path))
 
-    feature_extractor = VOC07ClassificationFeatureExtractor(model, mode="avg").to(device)
+    feature_extractor = FeatureExtractor9k(model, _DOWNC.LAYER_NAMES).to(device)
     del model
 
     # Possible keys: {"layer1", "layer2", "layer3", "layer4"}
@@ -193,9 +191,7 @@ if __name__ == "__main__":
             # Keep features from only those layers which will be used to
             # train SVMs.
             # keys: {"layer1", "layer2", "layer3", "layer4"}
-            features = feature_extractor(
-                batch["image"].to(device), _C_DOWNSTREAM.LAYER_NAMES
-            )
+            features = feature_extractor(batch["image"].to(device))
             for layer_name in features:
                 features_train[layer_name].append(
                     features[layer_name].detach().cpu()
@@ -204,9 +200,8 @@ if __name__ == "__main__":
         # Similarly extract test features.
         for batch in tqdm(test_dataloader, desc="Extracting test features:"):
             targets_test.append(batch["label"])
-            features = feature_extractor(
-                batch["image"].to(device), _C_DOWNSTREAM.LAYER_NAMES
-            )
+
+            features = feature_extractor(batch["image"].to(device))
             for layer_name in features:
                 features_test[layer_name].append(features[layer_name].detach().cpu())
 
@@ -226,21 +221,17 @@ if __name__ == "__main__":
 
     input_args: List[Any] = []
     # Possible keys: {"layer1", "layer2", "layer3", "layer4"}
-    for layer_idx, layer_name in enumerate(_C_DOWNSTREAM.LAYER_NAMES):
+    for layer_idx, layer_name in enumerate(_DOWNC.LAYER_NAMES):
 
         # Iterate over all VOC classes and train one-vs-all linear SVMs.
         for cls_idx in range(NUM_CLASSES):
-            input_args.append(
-                (
-                    features_train[layer_name],
-                    targets_train[:, cls_idx],
-                    features_test[layer_name],
-                    targets_test[:, cls_idx],
-                    layer_name,
-                    train_dataset.class_names[cls_idx],
-                    _C_DOWNSTREAM.SVM_COSTS,
-                )
-            )
+            # fmt: off
+            input_args.append((
+                features_train[layer_name], targets_train[:, cls_idx],
+                features_test[layer_name], targets_test[:, cls_idx],
+                layer_name, train_dataset.class_names[cls_idx], _DOWNC.SVM_COSTS,
+            ))
+            # fmt: on
 
     pool = mp.Pool(processes=_A.cpu_workers)
     pool_output = pool.map(train_test_single_svm, input_args)
@@ -249,14 +240,15 @@ if __name__ == "__main__":
     # shape: (num_layers, num_classes)
     test_ap = torch.tensor(pool_output).view(-1, NUM_CLASSES)
 
-    for layer_idx, layer_name in enumerate(_C_DOWNSTREAM.LAYER_NAMES):
-        layer_test_map = torch.mean(test_ap, dim=-1)[layer_idx]
-        logger.info(f"mAP for {layer_name}: {layer_test_map}")
-        tensorboard_writer.add_scalars(
-            "metrics/voc07_clf",
-            {f"{layer_name}_mAP": layer_test_map},
-            CHECKPOINT_ITERATION,
-        )
+    if len(_DOWNC.LAYER_NAMES) > 1:
+        for layer_idx, layer_name in enumerate(_DOWNC.LAYER_NAMES):
+            layer_test_map = torch.mean(test_ap, dim=-1)[layer_idx]
+            logger.info(f"mAP for {layer_name}: {layer_test_map}")
+            tensorboard_writer.add_scalars(
+                "metrics/voc07_clf",
+                {f"{layer_name}_mAP": layer_test_map},
+                CHECKPOINT_ITERATION,
+            )
 
     best_test_map = torch.max(torch.mean(test_ap, dim=-1)).item()
     logger.info(f"Best mAP: {best_test_map}")

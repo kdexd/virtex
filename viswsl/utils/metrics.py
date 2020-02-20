@@ -6,7 +6,7 @@ import tempfile
 from typing import Any, Dict, List, Union
 
 import numpy as np
-
+import torch
 
 # Some type annotations for better readability
 ImageID = int
@@ -72,7 +72,13 @@ def tokenize(
     the presence of Stanford CoreNLP JAR file in directory of this module.
     """
     # Path to the Stanford CoreNLP JAR file.
+<<<<<<< HEAD
     CORENLP_JAR = "stanford-corenlp-3.4.1.jar"
+=======
+    CORENLP_JAR = (
+        "assets/stanford-corenlp-full-2014-08-27/stanford-corenlp-3.4.1.jar"
+    )
+>>>>>>> 6d7803c... Add evaluation for imagenet linear classification protocol.
 
     # Prepare data for Tokenizer: write captions to a text file, one per line.
     image_ids = [k for k, v in image_id_to_captions.items() for _ in range(len(v))]
@@ -236,3 +242,58 @@ def spice(
         np.array(item["scores"]["All"]["f"]).astype(float) for item in results
     ]
     return np.mean(spice_scores)
+
+
+class ImageNetTopkAccuracy(object):
+    r"""
+    An accumulator for imagenet Top-K accuracy. This can accumulate per-batch
+    accuracy during validation and the final accuracy can be retrieved at the
+    end of validation. Assumes integer labels (0-1000) and predictions for
+    ImageNet categories.
+
+    Note
+    ----
+    If used in :class:`~torch.nn.parallel.DistributedDataParallel`, results
+    need to be aggregated across GPU processes outside this class.
+    """
+
+    def __init__(self, top_k: int = 1):
+        self._top_k = top_k
+        self.reset()
+
+    def reset(self):
+        self.num_total = 0.0
+        self.num_correct = 0.0
+
+    def __call__(self, ground_truth: torch.Tensor, predictions: torch.Tensor):
+        r"""
+        Accumulate accuracy of current batch.
+
+        Parameters
+        ----------
+        ground_truth: torch.Tensor
+            A tensor of shape (batch_size, ), an integer label per example.
+        predictions : torch.Tensor
+            Predicted logits or log-probabilities of shape (batch_size, 1000).
+        """
+
+        if self._top_k == 1:
+            top_k = predictions.max(-1)[1].unsqueeze(-1)
+        else:
+            top_k = predictions.topk(
+                min(self._top_k, predictions.shape[-1]), -1
+            )[1]
+
+        correct = top_k.eq(ground_truth.unsqueeze(-1)).float()
+
+        self.num_total += ground_truth.numel()
+        self.num_correct += correct.sum()
+
+    def get_metric(self, reset: bool = False):
+        if self.num_total > 1e-12:
+            accuracy = float(self.num_correct) / float(self.num_total)
+        else:
+            accuracy = 0.0
+        if reset:
+            self.reset()
+        return accuracy

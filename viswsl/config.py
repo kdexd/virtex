@@ -195,6 +195,28 @@ class Config(object):
         _C.DOWNSTREAM.VOC07_CLF.LAYER_NAMES = ["layer3", "layer4"]
         _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.01, 0.1, 1.0, 10.0]
 
+        # ---------------------------------------------------------------------
+        #   Hyperparameters for ImageNet Linear Classification Protocol
+        # ---------------------------------------------------------------------
+        # These hyperparameters follow PIRL, FAIR SSL Benchmark, Split-Brain
+        # Autoencoder, Colorization pretext, etc.
+        # ---------------------------------------------------------------------
+        _C.DOWNSTREAM.IN_LINEAR = CN()
+        _C.DOWNSTREAM.IN_LINEAR.DATA_ROOT = "datasets/imagenet"
+
+        # All of these params all for 8 GPUs, scale linearly.
+        _C.DOWNSTREAM.IN_LINEAR.BATCH_SIZE_PER_GPU = 32
+        _C.DOWNSTREAM.IN_LINEAR.NUM_ITERATIONS = 140000
+
+        _C.DOWNSTREAM.IN_LINEAR.LR = 0.01
+        _C.DOWNSTREAM.IN_LINEAR.GAMMA = 0.1
+        _C.DOWNSTREAM.IN_LINEAR.STEPS = [40000, 40000, 40000]
+        _C.DOWNSTREAM.IN_LINEAR.WEIGHT_DECAY = 0.0001
+
+        _C.DOWNSTREAM.IN_LINEAR.MOMENTUM = 0.9
+        _C.DOWNSTREAM.IN_LINEAR.NESTEROV = True
+        # ---------------------------------------------------------------------
+
         # Placeholders, set these values after merging from file.
         _C.OPTIM.BATCH_SIZE_PER_ITER = 0
         _C.OPTIM.TOTAL_BATCH_SIZE = 0

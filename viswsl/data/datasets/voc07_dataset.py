@@ -11,29 +11,28 @@ from torch.utils.data import Dataset
 
 
 class VOC07ClassificationDataset(Dataset):
-    def __init__(
-        self,
-        voc_root: str,
-        split: str = "train",
-        image_transform: Callable = alb.Compose(
+    def __init__(self, root: str, split: str = "train"):
+        self.split = split
+
+        # Desired tranform for VOC07 linear classification protocol.
+        # Resize image to (224 x 224), and normalize image by ImageNet color
+        # mean. This should ideally not be changed.
+        self.image_transform: Callable = alb.Compose(
             [
-                alb.Resize(224, 224),
-                alb.ToFloat(max_value=255.0),
+                alb.Resize(224, 224, always_apply=True),
+                alb.ToFloat(max_value=255.0, always_apply=True),
                 alb.Normalize(
                     mean=(0.485, 0.456, 0.406),
                     std=(0.229, 0.224, 0.225),
                     max_pixel_value=1.0,
+                    always_apply=True,
                 ),
             ]
-        ),
-    ):
-        self.split = split
-        self.image_transform = image_transform
-
-        ann_paths = sorted(
-            glob.glob(os.path.join(voc_root, "ImageSets", "Main", f"*_{split}.txt"))
         )
-        self._image_dir = os.path.join(voc_root, "JPEGImages")
+        ann_paths = sorted(
+            glob.glob(os.path.join(root, "ImageSets", "Main", f"*_{split}.txt"))
+        )
+        self._image_dir = os.path.join(root, "JPEGImages")
 
         # A list like; ["aeroplane", "bicycle", "bird", ...]
         self._class_names = [
@@ -61,7 +60,7 @@ class VOC07ClassificationDataset(Dataset):
         # Convert the dict to a list of tuples for easy indexing.
         # Replace image name with full image path.
         self.instances: List[Tuple[str, torch.Tensor]] = [
-            (os.path.join(voc_root, "JPEGImages", f"{image_name}.jpg"), label)
+            (os.path.join(root, "JPEGImages", f"{image_name}.jpg"), label)
             for image_name, label in image_names_to_labels.items()
         ]
 
