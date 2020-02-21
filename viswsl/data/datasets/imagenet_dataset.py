@@ -16,15 +16,26 @@ class ImageNetDataset(ImageNet):
     def __init__(self, root: str, split: str = "train"):
         super().__init__(root, split)
 
+        # ---------------------------------------------------------------------
         # Build desired tranform for ImageNet linear classification protocol.
-        # Resize smaller size to 256, crop image (random crop if training,
-        # center crop if evaluation), and normalize image by ImageNet color
-        # mean. This should ideally not be changed.
-        Crop: Callable = alb.CenterCrop if split == "train" else alb.RandomCrop
-        transform_list: List[Callable] = [
-            alb.SmallestMaxSize(256, always_apply=True),
-            Crop(224, 224, always_apply=True),
-        ]
+        # This follows evaluation protocol similar to several prior works and
+        # should ideally not be changed for apples to apples comparison.
+        # ---------------------------------------------------------------------
+        # fmt: off
+        transform_list: List[Callable] = []
+        if split == "train":
+            # RandomResizedCrop default: scale=(0.08, 1.0), ratio=(0.75, 1.33)
+            transform_list.extend([
+                alb.RandomResizedCrop(224, 224, always_apply=True),
+                alb.HorizontalFlip(p=0.5),
+            ])
+        else:
+            transform_list.extend([
+                alb.SmallestMaxSize(256, always_apply=True),
+                alb.CenterCrop(224, 224, always_apply=True),
+            ])
+        # fmt: on
+
         # During training, we also do color jitter and lighting noise.
         photometric_transforms = [
             alb.RandomBrightnessContrast(

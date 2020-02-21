@@ -91,7 +91,7 @@ class DatasetFactory(Factory):
         kwargs = {
             "lmdb_path": _C.DATA.VAL_LMDB if split == "val" else _C.DATA.TRAIN_LMDB,
             "tokenizer": tokenizer,
-            "random_horizontal_flip": _C.DATA.IMAGE.RANDOM_FLIP,
+            "random_horizontal_flip": _C.DATA.IMAGE.RANDOM_FLIP and split == "train",
             "max_caption_length": _C.DATA.CAPTION.MAX_LENGTH,
             "shuffle": _C.DATA.SHUFFLE_TRAIN if split == "train" else False,
         }
@@ -102,25 +102,35 @@ class DatasetFactory(Factory):
                 replace_probability=_C.PRETEXT.WORD_MASKING.REPLACE_PROBABILITY,
             )
 
-        # Add data augmentations to `image_transform`.
-        augmentation_list = [
-            alb.SmallestMaxSize(max_size=_C.DATA.IMAGE.RESIZE_SIZE),
-            alb.RandomResizedCrop(
-                _C.DATA.IMAGE.CROP_SIZE,
-                _C.DATA.IMAGE.CROP_SIZE,
-                scale=(0.08, 1.0),
-                ratio=(0.75, 1.333),
-            ),
-        ]
-        photometric_augmentation = [
-            alb.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2),
-            alb.HueSaturationValue(
-                hue_shift_limit=20, sat_shift_limit=20, val_shift_limit=20
-            ),
-            vdata.AlexNetPCA(),
-        ]
-        if _C.DATA.IMAGE.PHOTOMETRIC_AUG:
-            augmentation_list.extend(photometric_augmentation)
+        # Prepare a list of augmentations based on split (train or val).
+        if split == "train":
+            augmentation_list: List[Callable] = [
+                alb.RandomResizedCrop(
+                    _C.DATA.IMAGE.CROP_SIZE,
+                    _C.DATA.IMAGE.CROP_SIZE,
+                    scale=(0.08, 1.0),
+                    ratio=(0.75, 1.333),
+                    always_apply=True,
+                ),
+                alb.RandomBrightnessContrast(
+                    brightness_limit=0.2, contrast_limit=0.2, p=0.5
+                ),
+                alb.HueSaturationValue(
+                    hue_shift_limit=20, sat_shift_limit=20, val_shift_limit=20, p=0.5
+                ),
+                vdata.AlexNetPCA(p=0.5),
+            ]
+        else:
+            augmentation_list = [
+                alb.SmallestMaxSize(
+                    max_size=_C.DATA.IMAGE.CROP_SIZE, always_apply=True
+                ),
+                alb.CenterCrop(
+                    _C.DATA.IMAGE.CROP_SIZE,
+                    _C.DATA.IMAGE.CROP_SIZE,
+                    always_apply=True,
+                ),
+            ]
 
         augmentation_list.append(alb.ToFloat(max_value=255.0))
         if _C.DATA.IMAGE.COLOR_NORMALIZE:
@@ -131,6 +141,7 @@ class DatasetFactory(Factory):
                     max_pixel_value=1.0,
                 )
             )
+
         kwargs["image_transform"] = alb.Compose(augmentation_list)
         # Dataset names match with model names (and ofcourse pretext names).
         return cls.create(_C.MODEL.NAME, **kwargs)
