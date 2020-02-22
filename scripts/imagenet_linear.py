@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from viswsl.config import Config
 from viswsl.data import ImageNetDataset
 from viswsl.factories import PretrainingModelFactory
-from viswsl.models.downstream import ImageNetLinearClassifier
+from viswsl.models.downstream import FeatureExtractor9k, ImageNetLinearClassifier
 from viswsl.utils.checkpointing import CheckpointManager
 from viswsl.utils.common import cycle, Timer
 import viswsl.utils.distributed as dist
@@ -146,16 +146,23 @@ if __name__ == "__main__":
         _C.dump(os.path.join(_A.serialization_dir, "pretext_config.yml"))
         torch.save(
             model.state_dict(),
-            os.path.join(_A.serialization_dir, "pretext_model.pth")
+            os.path.join(_A.serialization_dir, "pretext_model.pth"),
         )
 
-    # Add a linear classifier on our visual backbone.
-    model = ImageNetLinearClassifier(model).to(device)
+    # Wrap our model into `FeatureExtractor9k`, freeze weights and delete model.
+    feature_extractor = FeatureExtractor9k(model, normalize_with_bn=True).to(device)
+    feature_extractor.eval()
+    del model
+
+    # A simple linear layer on top of backbone, `feature_size` is usually 8192.
+    classifier = ImageNetLinearClassifier(
+        feature_size=feature_extractor.feature_size["layer4"]
+    ).to(device)
 
     # We don't use factories to create optimizer and scheduler, because they
     # are created differently, and are not customizable for this protocol.
     optimizer = optim.SGD(
-        model.parameters(),
+        classifier.parameters(),
         lr=_DOWNC.LR,
         momentum=_DOWNC.MOMENTUM,
         weight_decay=_DOWNC.WEIGHT_DECAY,
@@ -166,8 +173,9 @@ if __name__ == "__main__":
     )
     if dist.get_world_size() > 1:
         dist.synchronize()
-        model = nn.parallel.DistributedDataParallel(
-            model, device_ids=[device], find_unused_parameters=True
+        # We don't need DDP over model because there's no communication in eval.
+        classifier = nn.parallel.DistributedDataParallel(
+            classifier, device_ids=[device], find_unused_parameters=True
         )
 
     # -------------------------------------------------------------------------
@@ -177,7 +185,7 @@ if __name__ == "__main__":
         # Only the master process would serialize checkpoints. Keep only recent
         # five checkpoints to save memory.
         checkpoint_manager = CheckpointManager(
-            model, optimizer, _A.serialization_dir, k_recent=5
+            classifier, optimizer, _A.serialization_dir, k_recent=5
         )
         tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
 
@@ -195,7 +203,12 @@ if __name__ == "__main__":
         timer.tic()
         optimizer.zero_grad()
         batch = next(train_dataloader_iter)
-        loss = model(batch["image"], batch["label"])["loss"]
+
+        with torch.no_grad():
+            # Keep features only from last layer (for this evaluation protocol).
+            features = feature_extractor(batch["image"])["layer4"]
+
+        loss = classifier(features, batch["label"])["loss"]
         loss.backward()
         train_loss += loss.item()
 
@@ -225,14 +238,16 @@ if __name__ == "__main__":
         # ---------------------------------------------------------------------
         if iteration % _A.checkpoint_every == 0:
             torch.set_grad_enabled(False)
-            model.eval()
+            classifier.eval()
 
             val_loss: torch.Tensor = torch.tensor(0.0).to(device)
             for val_iteration, val_batch in enumerate(val_dataloader, start=1):
                 for key in val_batch:
                     val_batch[key] = val_batch[key].to(device)
 
-                output_dict = model(val_batch["image"], val_batch["label"])
+                # Keep features only from last layer (for this evaluation protocol).
+                features = feature_extractor(batch["image"])["layer4"]
+                output_dict = classifier(features, batch["label"])
                 val_loss += output_dict["loss"].item()
 
             # Finally divide val loss by number of val iterations.
@@ -241,14 +256,14 @@ if __name__ == "__main__":
 
             # Get accumulated Top-1 accuracy for logging across GPUs.
             if dist.get_world_size() > 1:
-                acc = model.module.get_metric(reset=True)
+                acc = classifier.module.get_metric(reset=True)
                 acc = torch.tensor(acc).to(device)
                 dist.average_across_processes(acc)
             else:
-                acc = model.get_metric(reset=True)
+                acc = classifier.get_metric(reset=True)
 
             torch.set_grad_enabled(True)
-            model.train()
+            classifier.train()
 
             # Save recent checkpoint and best checkpoint based on accuracy.
             if dist.is_master_process():

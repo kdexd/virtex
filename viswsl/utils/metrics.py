@@ -72,13 +72,9 @@ def tokenize(
     the presence of Stanford CoreNLP JAR file in directory of this module.
     """
     # Path to the Stanford CoreNLP JAR file.
-<<<<<<< HEAD
-    CORENLP_JAR = "stanford-corenlp-3.4.1.jar"
-=======
     CORENLP_JAR = (
         "assets/stanford-corenlp-full-2014-08-27/stanford-corenlp-3.4.1.jar"
     )
->>>>>>> 6d7803c... Add evaluation for imagenet linear classification protocol.
 
     # Prepare data for Tokenizer: write captions to a text file, one per line.
     image_ids = [k for k, v in image_id_to_captions.items() for _ in range(len(v))]

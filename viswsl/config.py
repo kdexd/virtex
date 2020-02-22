@@ -95,15 +95,11 @@ class Config(object):
         Number of iterations to train for, batches are randomly sampled.
     OPTIM.BATCH_SIZE_PER_GPU: 64
         Batch size per GPU (or just CPU) during training and evaluation.
-    OPTIM.BATCH_SIZE_MULTIPLIER: 1
-        Number of batches to use for accumulating gradients before taking
-        optimizer step. Useful to simulate large batch sizes.
 
     .. note::
-        At the start of training, two config parameters will be created:
-            1. ``BATCH_SIZE_PER_ITER = BATCH_SIZE_PER_GPU * num_gpus``
-            2. ``TOTAL_BATCH_SIZE = BATCH_SIZE_PER_ITER * BATCH_SIZE_MULTIPLIER``
-        These are just for reference and should not be used anywhere.
+        At the start of training, ``TOTAL_BATCH_SIZE`` will be created:
+            1. ``TOTAL_BATCH_SIZE = BATCH_SIZE_PER_GPU * num_gpus``
+        This is just for reference and should not be used anywhere.
 
     OPTIM.LR: 1e-5
         Initial learning rate for optimizer. This linearly decays to zero till
@@ -133,11 +129,9 @@ class Config(object):
         _C.DATA.SHUFFLE_TRAIN = True
 
         _C.DATA.IMAGE = CN()
-        _C.DATA.IMAGE.RESIZE_SIZE = 256
         _C.DATA.IMAGE.CROP_SIZE = 224
         _C.DATA.IMAGE.COLOR_NORMALIZE = True
         _C.DATA.IMAGE.RANDOM_FLIP = True
-        _C.DATA.IMAGE.PHOTOMETRIC_AUG = True
 
         _C.DATA.CAPTION = CN()
         _C.DATA.CAPTION.VOCAB_SIZE = 10000
@@ -179,8 +173,6 @@ class Config(object):
         _C.OPTIM.LOOKAHEAD_ALPHA = 0.5
 
         _C.OPTIM.BATCH_SIZE_PER_GPU = 32
-        _C.OPTIM.BATCH_SIZE_MULTIPLIER = 1
-
         _C.OPTIM.LR = 1e-4
         _C.OPTIM.WEIGHT_DECAY = 1e-2
         _C.OPTIM.CNN_LR = 1e-2
@@ -218,7 +210,6 @@ class Config(object):
         # ---------------------------------------------------------------------
 
         # Placeholders, set these values after merging from file.
-        _C.OPTIM.BATCH_SIZE_PER_ITER = 0
         _C.OPTIM.TOTAL_BATCH_SIZE = 0
 
         # Override parameter values from YAML file first, then from override
@@ -246,13 +237,10 @@ class Config(object):
     def add_derived_params(self):
         r"""Add parameters with values derived from existing parameters."""
         # ---------------------------------------------------------------------
-        # Set total batch size accounting for multiple-GPUs and multiplier.
+        # Set total batch size accounting for multiple-GPUs.
         # These are usually not used anywhere, adding for better reproducibility.
-        self._C.OPTIM.BATCH_SIZE_PER_ITER = (
-            self._C.OPTIM.BATCH_SIZE_PER_GPU * dist.get_world_size()
-        )
         self._C.OPTIM.TOTAL_BATCH_SIZE = (
-            self._C.OPTIM.BATCH_SIZE_PER_ITER * self._C.OPTIM.BATCH_SIZE_MULTIPLIER
+            self._C.OPTIM.BATCH_SIZE_PER_GPU * dist.get_world_size()
         )
         # ---------------------------------------------------------------------
 

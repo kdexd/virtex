@@ -25,13 +25,22 @@ class FeatureExtractor9k(nn.Module):
     layer_names: list, optional (default = ["layer4"])
         Which layers from ResNet to extract features from. List must contain
         a subset of ``{"layer1", "layer2", "layer3", "layer4"}``.
+    normalize_with_bn: bool, optional (default = False)
+        Whether to use :class:`~torch.nn.BatchNorm2d` for normalizing features.
+        If this is ``False``, we flatten the features and do :func:`torch.norm`.
+        This flag is ``True`` for ImageNet linear classification protocol and
+        ``False`` for VOC07 linear SVM classification.
     """
 
     def __init__(
-        self, trained_model: nn.Module, layer_names: List[str] = ["layer4"]
+        self,
+        trained_model: nn.Module,
+        layer_names: List[str] = ["layer4"],
+        normalize_with_bn: bool = False,
     ):
         super().__init__()
         self.visual: nn.Module = trained_model.visual  # type: ignore
+        self.normalize_with_bn = normalize_with_bn
 
         # Check if layer names are all valid.
         for layer_name in layer_names:
@@ -40,16 +49,27 @@ class FeatureExtractor9k(nn.Module):
 
         # These pooling layers will downsample features from ResNet-like models
         # so their size is ~9000 when flattened.
-        self._layer1_pool = nn.AdaptiveAvgPool2d(6)
-        self._layer2_pool = nn.AdaptiveAvgPool2d(4)
-        self._layer3_pool = nn.AdaptiveAvgPool2d(3)
-        self._layer4_pool = nn.AdaptiveAvgPool2d(2)
+        self._layer1_pool = nn.AdaptiveAvgPool2d(6)  # 256 channels
+        self._layer2_pool = nn.AdaptiveAvgPool2d(4)  # 512 channels
+        self._layer3_pool = nn.AdaptiveAvgPool2d(3)  # 1024 channels
+        self._layer4_pool = nn.AdaptiveAvgPool2d(2)  # 2048 channels
+
+        # BatchNorm layers for normalizing features channel-wise for ImageNet
+        # linear classification protocol. These do not have trainable weights.
+        self._bn1 = nn.BatchNorm2d(256, affine=False, eps=1e-5, momentum=0.1)
+        self._bn2 = nn.BatchNorm2d(512, affine=False, eps=1e-5, momentum=0.1)
+        self._bn3 = nn.BatchNorm2d(1024, affine=False, eps=1e-5, momentum=0.1)
+        self._bn4 = nn.BatchNorm2d(2048, affine=False, eps=1e-5, momentum=0.1)
 
         # fmt: off
         # A dict of references to layers for convenience.
         self.pool = {
             "layer1": self._layer1_pool, "layer2": self._layer2_pool,
             "layer3": self._layer3_pool, "layer4": self._layer4_pool,
+        }
+        self.bn = {
+            "layer1": self._bn1, "layer2": self._bn2,
+            "layer3": self._bn3, "layer4": self._bn4,
         }
         self.layer_names = layer_names
         # fmt: on
@@ -71,9 +91,14 @@ class FeatureExtractor9k(nn.Module):
             if layer_name in self.layer_names:
                 pooled = self.pool[layer_name](features[layer_name])
 
-                # Flatten and normalize features.
-                pooled = pooled.view(pooled.size(0), -1)
-                pooled = pooled / torch.norm(pooled, dim=-1).unsqueeze(-1)
+                # Perform normalization and flattening of features.
+                if self.normalize_with_bn:
+                    pooled = self.bn[layer_name](pooled)
+                    pooled = pooled.view(pooled.size(0), -1)
+                else:
+                    pooled = pooled.view(pooled.size(0), -1)
+                    pooled = pooled / torch.norm(pooled, dim=-1).unsqueeze(-1)
+
                 features[layer_name] = pooled
 
         return features
@@ -86,38 +111,30 @@ class ImageNetLinearClassifier(nn.Module):
     off of last stage of ResNet (``layer4`` in torchvision naming, ``res5`` in
     MSRA or Caffe2 naming).
 
-    Note
-    ----
-    This class is initialized with the whole pre-trained model, but its
-    ``state_dict`` will only contain the linear layer because backbone is frozen
-    and never updated.
+    This module can compute cross entropy loss and accumulate Top-1 accuracy
+    during validation.
+
+    Parameters
+    ----------
+    feature_size: int, optional (default = 8192)
+        Size of the input features. Usually spatial features from the last
+        stage of ResNet downsampled, flattened and normalized to have 8192
+        size ``(2048 * 2 * 2)``.
     """
 
-    def __init__(self, trained_model: nn.Module):
+    def __init__(self, feature_size: int = 8192):
         super().__init__()
 
-        # Only get features from last layer of backbone.
-        self.feature_extractor = FeatureExtractor9k(trained_model, ["layer4"])
-
-        # Freeze the backbone completely.
-        self.feature_extractor.eval()
-        for param in self.feature_extractor.parameters():
-            param.requires_grad = False
-
         # Linear classifier on top of the backbone.
-        self.fc = nn.Linear(self.feature_extractor.feature_size["layer4"], 1000)
+        self.fc = nn.Linear(feature_size, 1000)
         self.fc.weight.data.normal_(mean=0.0, std=0.01)
 
         self.loss = nn.CrossEntropyLoss()
         self.accuracy_accumulator = ImageNetTopkAccuracy(top_k=1)
 
     def forward(
-        self, images: torch.Tensor, labels: torch.Tensor
+        self, features: torch.Tensor, labels: torch.Tensor
     ) -> Dict[str, torch.Tensor]:
-
-        # Extracted features of size ~9000, flattened and normalized.
-        with torch.no_grad():
-            features = self.feature_extractor(images)["layer4"]
 
         # shape: (batch_size, 1000)
         logits = self.fc(features)
@@ -131,19 +148,6 @@ class ImageNetLinearClassifier(nn.Module):
             output_dict["predictions"] = torch.argmax(logits, dim=1)
             self.accuracy_accumulator(labels, logits)
         return output_dict
-
-    def state_dict(self):
-        r"""
-        Override super method to only include weights from linear layer,
-        because the backbone is frozen.
-        """
-        return self.fc.state_dict()
-
-    def load_state_dict(
-        self, state_dict: Dict[str, torch.Tensor], strict: bool = True
-    ):
-        r"""Override super method to match with :meth:`state_dict`."""
-        self.fc.load_state_dict(state_dict, strict=strict)
 
     def get_metric(self, reset: bool = True):
         r"""Return accumulated metric after validation."""

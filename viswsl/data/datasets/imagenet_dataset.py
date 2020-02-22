@@ -36,8 +36,7 @@ class ImageNetDataset(ImageNet):
             ])
         # fmt: on
 
-        # During training, we also do color jitter and lighting noise.
-        photometric_transforms = [
+        photometric_augmentation = [
             alb.RandomBrightnessContrast(
                 brightness_limit=0.2, contrast_limit=0.2, p=0.5
             ),
@@ -47,7 +46,7 @@ class ImageNetDataset(ImageNet):
             AlexNetPCA(p=0.5),
         ]
         if split == "train":
-            transform_list.extend(photometric_transforms)
+            transform_list.extend(photometric_augmentation)
 
         transform_list.extend(
             [

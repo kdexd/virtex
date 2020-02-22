@@ -21,6 +21,8 @@ class CaptioningModel(nn.Module):
         is_bidirectional: bool = False,
         beam_size: int = 5,
         max_decoding_steps: int = 30,
+        sos_index: int = 1,
+        eos_index: int = 2,
     ):
         super().__init__()
         self.visual = visual
@@ -51,8 +53,8 @@ class CaptioningModel(nn.Module):
         self.output.weight = self.textual.embedding.words.weight
 
         # These boundary indices are needed for beam search.
-        self.sos_index = textual.sos_index
-        self.eos_index = textual.eos_index
+        self.sos_index = sos_index
+        self.eos_index = eos_index
         self.beam_search = AutoRegressiveBeamSearch(
             self.eos_index, beam_size=5, max_steps=max_decoding_steps
         )

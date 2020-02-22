@@ -182,24 +182,21 @@ if __name__ == "__main__":
         # Simulate a larger batch size (mostly due to GPU constraints).
         batch_loss = torch.tensor(0.0, device=device)
 
-        for _ in range(_C.OPTIM.BATCH_SIZE_MULTIPLIER):
-            batch = next(train_dataloader_iter)
-            output_dict = model(batch)
+        batch = next(train_dataloader_iter)
+        output_dict = model(batch)
 
-            # Normalize the loss, because gradients are being accumulated
-            # (summed) while the loss is averaged across training instances.
-            loss = output_dict["loss"] / _C.OPTIM.BATCH_SIZE_MULTIPLIER
-            batch_loss += loss.item()
+        loss = output_dict["loss"]
+        batch_loss += loss.item()
 
-            # Perform dynamic scaling of loss to adjust for mixed precision.
-            if _C.FP16_OPT > 0:
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            else:
-                loss.backward()
+        # Perform dynamic scaling of loss to adjust for mixed precision.
+        if _C.FP16_OPT > 0:
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            loss.backward()
 
-            # Update accumulated loss components for logging.
-            train_loss_counter.update(output_dict["loss_components"])
+        # Update accumulated loss components for logging.
+        train_loss_counter.update(output_dict["loss_components"])
 
         # Clip norm of gradients before optimizer step.
         torch.nn.utils.clip_grad_norm_(
@@ -213,8 +210,7 @@ if __name__ == "__main__":
         # Make the master process log loss, LR etc. to tensorboard.
         if iteration % _A.log_every == 0:
             train_loss_dict = {
-                k: v / (_A.log_every * _C.OPTIM.BATCH_SIZE_MULTIPLIER)
-                for k, v in dict(train_loss_counter).items()
+                k: v / _A.log_every for k, v in dict(train_loss_counter).items()
             }
             dist.average_across_processes(train_loss_dict)
             train_loss_counter.clear()
