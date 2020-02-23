@@ -73,9 +73,10 @@ class TokenizerFactory(Factory):
 
 class DatasetFactory(Factory):
     PRODUCTS = {
-        "word_masking": vdata.WordMaskingDataset,
+        "word_masking": vdata.WordMaskingPretextDataset,
         "captioning": vdata.CaptioningDataset,
-        "bicaptioning": vdata.CaptioningDataset,
+        "bicaptioning": vdata.CaptioningPretextDataset,
+        "token_classification": vdata.CaptioningPretextDataset,
     }
 
     @classmethod
@@ -207,6 +208,7 @@ class PretrainingModelFactory(Factory):
         "word_masking": vmodels.WordMaskingModel,
         "captioning": partial(vmodels.CaptioningModel, is_bidirectional=False),
         "bicaptioning": partial(vmodels.CaptioningModel, is_bidirectional=True),
+        "token_classification": vmodels.TokenClassificationModel,
     }
 
     @classmethod
@@ -229,6 +231,17 @@ class PretrainingModelFactory(Factory):
                 max_decoding_steps=_C.DATA.CAPTION.MAX_LENGTH,
                 sos_index=tokenizer.token_to_id("[SOS]"),
                 eos_index=tokenizer.token_to_id("[EOS]"),
+            )
+
+        elif _C.MODEL.NAME == "token_classification":
+            kwargs.update(
+                vocab_size=_C.DATA.CAPTION.VOCAB_SIZE,
+                ignore_indices=[
+                    tokenizer.token_to_id("[UNK]"),
+                    tokenizer.token_to_id("[SOS]"),
+                    tokenizer.token_to_id("[EOS]"),
+                    tokenizer.token_to_id("[MASK]"),
+                ]
             )
 
         return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
