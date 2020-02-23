@@ -12,9 +12,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 # fmt: off
 from viswsl.config import Config
-from viswsl.data import ImageNetDataset
+from viswsl.data import ImageNetDataset, Places205Dataset
 from viswsl.factories import PretrainingModelFactory
-from viswsl.models.downstream import FeatureExtractor9k, ImageNetLinearClassifier
+from viswsl.models.downstream import FeatureExtractor9k, LinearClassifier
 from viswsl.utils.checkpointing import CheckpointManager
 from viswsl.utils.common import cycle, Timer
 import viswsl.utils.distributed as dist
@@ -22,6 +22,9 @@ import viswsl.utils.distributed as dist
 
 parser = argparse.ArgumentParser(
     description="Train a linear classifier on a pre-trained frozen feature extractor."
+)
+parser.add_argument(
+    "--task", required=True, choices=["imagenet", "places205"],
 )
 parser.add_argument(
     "--config", help="Path to a config file with all configuration parameters."
@@ -114,21 +117,25 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER
     # -------------------------------------------------------------------------
-    train_dataset = ImageNetDataset(_DOWNC.DATA_ROOT, split="train")
+    Dataset = ImageNetDataset if _A.task == "imagenet" else Places205Dataset
+
+    train_dataset = Dataset(_DOWNC.DATA_ROOT, split="train")
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_DOWNC.BATCH_SIZE_PER_GPU,
         num_workers=_A.cpu_workers,
         sampler=DistributedSampler(train_dataset, shuffle=True),
         pin_memory=True,
+        collate_fn=train_dataset.collate_fn,
     )
-    val_dataset = ImageNetDataset(_DOWNC.DATA_ROOT, split="val")
+    val_dataset = Dataset(_DOWNC.DATA_ROOT, split="val")
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=_DOWNC.BATCH_SIZE_PER_GPU,
         num_workers=_A.cpu_workers,
         sampler=DistributedSampler(val_dataset, shuffle=False),
         pin_memory=True,
+        collate_fn=val_dataset.collate_fn,
     )
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter = cycle(train_dataloader, device)
@@ -155,8 +162,9 @@ if __name__ == "__main__":
     del model
 
     # A simple linear layer on top of backbone, `feature_size` is usually 8192.
-    classifier = ImageNetLinearClassifier(
-        feature_size=feature_extractor.feature_size["layer4"]
+    classifier = LinearClassifier(
+        feature_size=feature_extractor.feature_size["layer4"],
+        num_classes=_DOWNC.NUM_CLASSES,
     ).to(device)
 
     # We don't use factories to create optimizer and scheduler, because they

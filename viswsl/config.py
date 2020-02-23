@@ -195,6 +195,7 @@ class Config(object):
         # ---------------------------------------------------------------------
         _C.DOWNSTREAM.IN_LINEAR = CN()
         _C.DOWNSTREAM.IN_LINEAR.DATA_ROOT = "datasets/imagenet"
+        _C.DOWNSTREAM.IN_LINEAR.NUM_CLASSES = 1000
 
         # All of these params all for 8 GPUs, scale linearly.
         _C.DOWNSTREAM.IN_LINEAR.BATCH_SIZE_PER_GPU = 32

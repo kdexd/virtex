@@ -104,12 +104,12 @@ class FeatureExtractor9k(nn.Module):
         return features
 
 
-class ImageNetLinearClassifier(nn.Module):
+class LinearClassifier(nn.Module):
     r"""
-    A simple linear layer for ImageNet linear classification protocol, performs
-    1000-way classification on input images. Currently only supports training
-    off of last stage of ResNet (``layer4`` in torchvision naming, ``res5`` in
-    MSRA or Caffe2 naming).
+    A simple linear layer for linear classification protocol on ImageNet and
+    Places205 datasets. This module does K-way (K = 1000 or 205) classification
+    on input images. Currently only supports training off of last stage of
+    ResNet (``layer4`` in torchvision naming, ``res5`` in MSRA or Caffe2 naming).
 
     This module can compute cross entropy loss and accumulate Top-1 accuracy
     during validation.
@@ -120,13 +120,16 @@ class ImageNetLinearClassifier(nn.Module):
         Size of the input features. Usually spatial features from the last
         stage of ResNet downsampled, flattened and normalized to have 8192
         size ``(2048 * 2 * 2)``.
+    num_classes: int, optional (default = 1000)
+        Number of output classes (for softmax). Set to 1000 for ImageNet and
+        205 for Places205.
     """
 
-    def __init__(self, feature_size: int = 8192):
+    def __init__(self, feature_size: int = 8192, num_classes: int = 1000):
         super().__init__()
 
         # Linear classifier on top of the backbone.
-        self.fc = nn.Linear(feature_size, 1000)
+        self.fc = nn.Linear(feature_size, num_classes)
         self.fc.weight.data.normal_(mean=0.0, std=0.01)
 
         self.loss = nn.CrossEntropyLoss()
@@ -136,7 +139,7 @@ class ImageNetLinearClassifier(nn.Module):
         self, features: torch.Tensor, labels: torch.Tensor
     ) -> Dict[str, torch.Tensor]:
 
-        # shape: (batch_size, 1000)
+        # shape: (batch_size, num_classes)
         logits = self.fc(features)
 
         # Calculate loss if `labels` provided (not provided during inference).
