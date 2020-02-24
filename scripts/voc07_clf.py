@@ -152,14 +152,14 @@ if __name__ == "__main__":
     #   EXTRACT FEATURES FOR TRAINING SVMs
     # -------------------------------------------------------------------------
 
-    train_dataset = VOC07ClassificationDataset(_DOWNC.DATA_ROOT, split="train")
+    train_dataset = VOC07ClassificationDataset(_DOWNC.DATA_ROOT, split="trainval")
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_DOWNC.BATCH_SIZE,
         num_workers=_A.cpu_workers,
         pin_memory=True,
     )
-    test_dataset = VOC07ClassificationDataset(_DOWNC.DATA_ROOT, split="val")
+    test_dataset = VOC07ClassificationDataset(_DOWNC.DATA_ROOT, split="test")
     test_dataloader = DataLoader(
         test_dataset,
         batch_size=_DOWNC.BATCH_SIZE,

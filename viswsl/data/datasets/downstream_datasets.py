@@ -206,7 +206,7 @@ class VOC07ClassificationDataset(Dataset):
         # Convert the dict to a list of tuples for easy indexing.
         # Replace image name with full image path.
         self.instances: List[Tuple[str, torch.Tensor]] = [
-            (os.path.join(root, "JPEGImages", f"{image_name}.jpg"), label)
+            (os.path.join(root, "JPEGImages", f"{image_name}.jpg"), label.tolist())
             for image_name, label in image_names_to_labels.items()
         ]
 
