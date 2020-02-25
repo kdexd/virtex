@@ -1,4 +1,3 @@
-from .dataflows.transforms import AlexNetPCA
 from .datasets.captioning_dataset import (
     CaptioningDataset,
     CocoCaptionsEvalDataset,
@@ -17,5 +16,4 @@ __all__ = [
     "Places205Dataset",
     "VOC07ClassificationDataset",
     "WordMaskingDataset",
-    "AlexNetPCA",
 ]

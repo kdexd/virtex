@@ -119,7 +119,7 @@ class DatasetFactory(Factory):
                 alb.HueSaturationValue(
                     hue_shift_limit=20, sat_shift_limit=20, val_shift_limit=20, p=0.5
                 ),
-                vdata.AlexNetPCA(p=0.5),
+                vdata.transforms.AlexNetPCA(p=0.5),
             ]
         else:
             augmentation_list = [
@@ -224,7 +224,8 @@ class PretrainingModelFactory(Factory):
         visual = VisualStreamFactory.from_config(_C)
         textual = TextualStreamFactory.from_config(_C, tokenizer)
 
-        # Add model specific kwargs.
+        # Add model specific kwargs. Refer call signatures of specific models
+        # for matching kwargs here.
         kwargs = {}
         if _C.MODEL.NAME == "captioning":
             kwargs.update(

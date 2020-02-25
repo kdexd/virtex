@@ -1,3 +1,6 @@
+import glob
+import os
+import random
 from typing import Callable, List
 
 import albumentations as alb
@@ -5,12 +8,14 @@ import numpy as np
 import tokenizers as tkz
 from torch.utils.data import Dataset, IterableDataset
 
-from viswsl.data.dataflows import (
-    ReadDatapointsFromLmdb,
-    RandomHorizontalFlip,
-    TokenizeCaption,
-)
+from viswsl.data.readers import LmdbReader
 from viswsl.data.structures import CaptioningInstance, CaptioningBatch
+from viswsl.data.transforms import (
+    RandomHorizontalFlip,
+    NormalizeCaption,
+    TokenizeCaption,
+    TruncateCaptionTokens,
+)
 
 
 class CaptioningDataset(IterableDataset):
@@ -36,21 +41,23 @@ class CaptioningDataset(IterableDataset):
     ):
         self.image_transform = image_transform
         # keys: {"image_id", "image", "caption"}
-        self._pipeline = ReadDatapointsFromLmdb(lmdb_path, shuffle=shuffle)
+        self._pipeline = LmdbReader(lmdb_path, shuffle=shuffle)
 
         # Random horizontal flip is kept separate from other data augmentation
         # transforms because we need to change the caption if image is flipped.
         if random_horizontal_flip:
-            self._pipeline = RandomHorizontalFlip(self._pipeline)
+            self.flip = RandomHorizontalFlip(p=0.5)
+        else:
+            # No-op is not required.
+            self.flip = lambda x: x  # type: ignore
 
-        # keys added: {"caption_tokens"}
-        self._pipeline = TokenizeCaption(
-            self._pipeline,
-            tokenizer,
-            input_key="caption",
-            output_key="caption_tokens",
+        self.caption_transform = alb.Compose(
+            [
+                NormalizeCaption(),
+                TokenizeCaption(tokenizer),
+                TruncateCaptionTokens(max_caption_length),
+            ]
         )
-        self.max_caption_length = max_caption_length
         self.padding_idx = tokenizer.token_to_id("[UNK]")
 
     def __iter__(self):
@@ -61,10 +68,10 @@ class CaptioningDataset(IterableDataset):
             image = self.image_transform(image=datapoint["image"])["image"]
             image = np.transpose(image, (2, 0, 1))
 
-            # Trim captions up to maximum length.
-            caption_tokens = datapoint["caption_tokens"]
-            caption_tokens = caption_tokens[: self.max_caption_length]
-
+            # Pick a random caption and process (transform) it.
+            captions = datapoint["captions"]
+            caption = random.choice(captions)
+            caption_tokens = self.caption_transform(caption=caption)["caption"]
             yield CaptioningInstance(datapoint["image_id"], image, caption_tokens)
 
     def collate_fn(self, instances: List[CaptioningInstance]) -> CaptioningBatch:
@@ -92,7 +99,7 @@ class CocoCaptionsEvalDataset(Dataset):
 
         # Make a tuple of image id and its filename, get image_id from its
         # filename (assuming directory has images with names in COCO 2017 format).
-        self.id_filename: Tuple[int, str] = [
+        self.id_filename: List[Tuple[int, str]] = [
             (int(os.path.basename(name)[:-4]), name) for name in image_filenames
         ]
 

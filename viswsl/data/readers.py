@@ -1,6 +1,5 @@
 import math
 import os
-import random
 from typing import Any, List, Tuple
 
 import dataflow as df
@@ -11,7 +10,7 @@ from torch.utils.data import get_worker_info
 from viswsl.utils.distributed import dist
 
 
-class ReadDatapointsFromLmdb(df.DataFlow):
+class LmdbReader(df.DataFlow):
     r"""
     A :class:`~dataflow.dataflow.DataFlow` to read datapoints from an LMDB
     file, from a subset of all datapoints. The LMDB file is logically split
@@ -26,15 +25,9 @@ class ReadDatapointsFromLmdb(df.DataFlow):
     lmdb_path: str
     """
 
-    def __init__(
-        self,
-        lmdb_path: str,
-        shuffle: bool = False,
-        return_all_captions: bool = False
-    ):
+    def __init__(self, lmdb_path: str, shuffle: bool = False):
         self._lmdb_path = lmdb_path
         self._shuffle = shuffle
-        self._return_all_captions = return_all_captions
 
         # Get a list of "keys" in the LMDB file so we could shard the dataset.
         with lmdb.open(
@@ -47,9 +40,7 @@ class ReadDatapointsFromLmdb(df.DataFlow):
         ) as _lmdb_file:
 
             _txn = _lmdb_file.begin()
-            self._keys: List[bytes] = df.utils.serialize.loads(
-                _txn.get(b"__keys__")
-            )
+            self._keys: List[bytes] = df.utils.serialize.loads(_txn.get(b"__keys__"))
 
         # For deterministically generating different shuffle ordes everytime
         # the read through starts again.
@@ -86,9 +77,7 @@ class ReadDatapointsFromLmdb(df.DataFlow):
 
         if worker_info is not None:
             samples_per_worker = int(
-                math.ceil(
-                    len(indices) / (worker_info.num_workers * world_size)
-                )
+                math.ceil(len(indices) / (worker_info.num_workers * world_size))
             )
             start = (
                 world_rank * samples_per_gpu_process
@@ -104,21 +93,18 @@ class ReadDatapointsFromLmdb(df.DataFlow):
         keys_per_worker = [self._keys[i] for i in indices[start:end]]
 
         # Set shuffle to use `keys` - that's how this class works.
-        pipeline = df.LMDBData(
-            self._lmdb_path, keys=keys_per_worker, shuffle=True
-        )
+        pipeline = df.LMDBData(self._lmdb_path, keys=keys_per_worker, shuffle=True)
         # Decode bytes read from LMDB to Python objects.
         pipeline = df.MapData(pipeline, self._deserialize)
         pipeline.reset_state()
         # ====================================================================
 
         for image_id, instance in pipeline:
-            # `caption` here is a List[str].
-            image, caption = instance
-            if not self._return_all_captions:
-                caption = random.choice(caption)
+            # `captions` here is a List[str].
+            image, captions = instance
 
-            yield {"image_id": image_id, "image": image, "caption": caption}
+            # NOTE: `image_id` read from LMDB will NOT be COCO image ID.
+            yield {"image_id": image_id, "image": image, "captions": captions}
 
     @staticmethod
     def _deserialize(datapoint: List[bytes]) -> Tuple[int, Any]:

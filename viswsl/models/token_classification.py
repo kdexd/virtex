@@ -15,12 +15,10 @@ class TokenClassificationModel(nn.Module):
         self,
         visual: VisualStream,
         textual: Optional[TextualStream] = None,
-        visual_projection: Optional[str] = None,
         vocab_size: Optional[int] = None,
         ignore_indices: List[int] = [0, 1, 2, 3],
     ):
-        # We do not use `textual_stream` or `visual_projection` but keep them
-        # here for consistent call signature with other models.
+        # We do not use `textual_stream` but keep it for consistent call signature.
         super().__init__()
         self.visual = visual
         self.ignore_indices = ignore_indices

@@ -15,8 +15,7 @@ class WordMaskingModel(nn.Module):
         self.visual = visual
         self.textual = textual
 
-        # Linear layer to project image features to `textual_feature_size` to
-        # facilitate decoder multi-head attention etc.
+        # Build a visual projection module.
         self.visual_projection = nn.Linear(
             self.visual.visual_feature_size, self.textual.textual_feature_size
         )

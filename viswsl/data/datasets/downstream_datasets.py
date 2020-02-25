@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.datasets import ImageNet
 
-from viswsl.data.dataflows.transforms import AlexNetPCA
+from viswsl.data.transforms import AlexNetPCA
 from viswsl.data.structures import (
     LinearClassificationInstance,
     LinearClassificationBatch,
