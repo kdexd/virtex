@@ -194,21 +194,21 @@ class Config(object):
         # These hyperparameters follow PIRL, FAIR SSL Benchmark, Split-Brain
         # Autoencoder, Colorization pretext, etc.
         # ---------------------------------------------------------------------
-        _C.DOWNSTREAM.IN_LINEAR = CN()
-        _C.DOWNSTREAM.IN_LINEAR.DATA_ROOT = "datasets/imagenet"
-        _C.DOWNSTREAM.IN_LINEAR.NUM_CLASSES = 1000
+        _C.DOWNSTREAM.LINEAR_CLF = CN()
+        _C.DOWNSTREAM.LINEAR_CLF.DATA_ROOT = "datasets/imagenet"
+        _C.DOWNSTREAM.LINEAR_CLF.NUM_CLASSES = 1000
 
         # All of these params all for 8 GPUs, scale linearly.
-        _C.DOWNSTREAM.IN_LINEAR.BATCH_SIZE_PER_GPU = 32
-        _C.DOWNSTREAM.IN_LINEAR.NUM_ITERATIONS = 140000
+        _C.DOWNSTREAM.LINEAR_CLF.BATCH_SIZE_PER_GPU = 32
+        _C.DOWNSTREAM.LINEAR_CLF.NUM_ITERATIONS = 140000
 
-        _C.DOWNSTREAM.IN_LINEAR.LR = 0.01
-        _C.DOWNSTREAM.IN_LINEAR.GAMMA = 0.1
-        _C.DOWNSTREAM.IN_LINEAR.STEPS = [40000, 40000, 40000]
-        _C.DOWNSTREAM.IN_LINEAR.WEIGHT_DECAY = 0.0001
+        _C.DOWNSTREAM.LINEAR_CLF.LR = 0.01
+        _C.DOWNSTREAM.LINEAR_CLF.GAMMA = 0.1
+        _C.DOWNSTREAM.LINEAR_CLF.STEPS = [40000, 40000, 40000]
+        _C.DOWNSTREAM.LINEAR_CLF.WEIGHT_DECAY = 0.0001
 
-        _C.DOWNSTREAM.IN_LINEAR.MOMENTUM = 0.9
-        _C.DOWNSTREAM.IN_LINEAR.NESTEROV = True
+        _C.DOWNSTREAM.LINEAR_CLF.MOMENTUM = 0.9
+        _C.DOWNSTREAM.LINEAR_CLF.NESTEROV = True
         # ---------------------------------------------------------------------
 
         # Placeholders, set these values after merging from file.

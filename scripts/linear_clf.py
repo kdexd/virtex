@@ -12,8 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 # fmt: off
 from viswsl.config import Config
-from viswsl.data import ImageNetDataset, Places205Dataset
-from viswsl.factories import PretrainingModelFactory
+from viswsl.factories import DownstreamDatasetFactory, PretrainingModelFactory
 from viswsl.models.downstream import FeatureExtractor9k, LinearClassifier
 from viswsl.utils.checkpointing import CheckpointManager
 from viswsl.utils.common import cycle, Timer
@@ -22,9 +21,6 @@ import viswsl.utils.distributed as dist
 
 parser = argparse.ArgumentParser(
     description="Train a linear classifier on a pre-trained frozen feature extractor."
-)
-parser.add_argument(
-    "--task", required=True, choices=["imagenet", "places205"],
 )
 parser.add_argument(
     "--config", help="Path to a config file with all configuration parameters."
@@ -94,7 +90,7 @@ if __name__ == "__main__":
     device = torch.device(f"cuda:{device_id}" if device_id != -1 else "cpu")
 
     _C = Config(_A.config, _A.config_override)
-    _DOWNC = _C.DOWNSTREAM.IN_LINEAR
+    _DOWNC = _C.DOWNSTREAM.LINEAR_CLF
 
     # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
     random.seed(_C.RANDOM_SEED)
@@ -117,9 +113,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER
     # -------------------------------------------------------------------------
-    Dataset = ImageNetDataset if _A.task == "imagenet" else Places205Dataset
-
-    train_dataset = Dataset(_DOWNC.DATA_ROOT, split="train")
+    train_dataset = DownstreamDatasetFactory.from_config(_C, split="train")
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_DOWNC.BATCH_SIZE_PER_GPU,
@@ -128,7 +122,7 @@ if __name__ == "__main__":
         pin_memory=True,
         collate_fn=train_dataset.collate_fn,
     )
-    val_dataset = Dataset(_DOWNC.DATA_ROOT, split="val")
+    val_dataset = DownstreamDatasetFactory.from_config(_C, split="val")
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=_DOWNC.BATCH_SIZE_PER_GPU,

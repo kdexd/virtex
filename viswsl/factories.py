@@ -149,6 +149,20 @@ class DatasetFactory(Factory):
         return cls.create(_C.MODEL.NAME, **kwargs)
 
 
+class DownstreamDatasetFactory(Factory):
+    # We use `DOWNSTREAM.LINEAR_CLF.DATA_ROOT` so these keys look like paths.
+    PRODUCTS = {
+        "datasets/imagenet": vdata.ImageNetDataset,
+        "datasets/places205": vdata.Places205Dataset,
+    }
+
+    @classmethod
+    def from_config(cls, config: Config, split: str = "train"):
+        _C = config
+        kwargs = {"root": _C.DOWNSTREAM.LINEAR_CLF.DATA_ROOT, "split": split}
+        return cls.create(_C.DOWNSTREAM.LINEAR_CLF.DATA_ROOT, **kwargs)
+
+
 class VisualStreamFactory(Factory):
 
     PRODUCTS = {
@@ -243,7 +257,7 @@ class PretrainingModelFactory(Factory):
                     tokenizer.token_to_id("[SOS]"),
                     tokenizer.token_to_id("[EOS]"),
                     tokenizer.token_to_id("[MASK]"),
-                ]
+                ],
             )
 
         return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
