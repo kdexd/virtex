@@ -94,6 +94,7 @@ class DatasetFactory(Factory):
             "tokenizer": tokenizer,
             "random_horizontal_flip": _C.DATA.IMAGE.RANDOM_FLIP and split == "train",
             "max_caption_length": _C.DATA.CAPTION.MAX_LENGTH,
+            "use_single_caption": _C.DATA.CAPTION.USE_SINGLE,
             "shuffle": _C.DATA.SHUFFLE_TRAIN if split == "train" else False,
         }
         if _C.MODEL.NAME == "word_masking":

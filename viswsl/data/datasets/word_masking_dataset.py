@@ -40,6 +40,7 @@ class WordMaskingDataset(IterableDataset):
         ),
         random_horizontal_flip: bool = True,
         max_caption_length: int = 30,
+        use_single_caption: bool = False,
         shuffle: bool = False,
     ):
         self._tokenizer = tokenizer
@@ -63,6 +64,7 @@ class WordMaskingDataset(IterableDataset):
                 TruncateCaptionTokens(max_caption_length),
             ]
         )
+        self.use_single_caption = use_single_caption
         self.padding_idx = tokenizer.token_to_id("[UNK]")
 
         # Handles to commonly used variables for word masking.
@@ -80,8 +82,13 @@ class WordMaskingDataset(IterableDataset):
             image = np.transpose(image, (2, 0, 1))
 
             # Pick a random caption and process (transform) it.
+            # Pick a random caption or first caption and process (transform) it.
             captions = datapoint["captions"]
-            caption = random.choice(captions)
+            if self.use_single_caption:
+                caption = captions[0]
+            else:
+                caption = random.choice(captions)
+
             caption_tokens = self.caption_transform(caption=caption)["caption"]
 
             # -----------------------------------------------------------------

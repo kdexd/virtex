@@ -37,6 +37,7 @@ class CaptioningDataset(IterableDataset):
         ),
         random_horizontal_flip: bool = True,
         max_caption_length: int = 30,
+        use_single_caption: bool = False,
         shuffle: bool = False,
     ):
         self.image_transform = image_transform
@@ -58,6 +59,7 @@ class CaptioningDataset(IterableDataset):
                 TruncateCaptionTokens(max_caption_length),
             ]
         )
+        self.use_single_caption = use_single_caption
         self.padding_idx = tokenizer.token_to_id("[UNK]")
 
     def __iter__(self):
@@ -68,9 +70,13 @@ class CaptioningDataset(IterableDataset):
             image = self.image_transform(image=datapoint["image"])["image"]
             image = np.transpose(image, (2, 0, 1))
 
-            # Pick a random caption and process (transform) it.
+            # Pick a random caption or first caption and process (transform) it.
             captions = datapoint["captions"]
-            caption = random.choice(captions)
+            if self.use_single_caption:
+                caption = captions[0]
+            else:
+                caption = random.choice(captions)
+
             caption_tokens = self.caption_transform(caption=caption)["caption"]
             yield CaptioningInstance(datapoint["image_id"], image, caption_tokens)
 

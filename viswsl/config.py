@@ -135,8 +135,9 @@ class Config(object):
 
         _C.DATA.CAPTION = CN()
         _C.DATA.CAPTION.VOCAB_SIZE = 10000
-        _C.DATA.CAPTION.MAX_LENGTH = 30
         _C.DATA.CAPTION.TOKENIZER = "SentencePieceBPETokenizer"
+        _C.DATA.CAPTION.MAX_LENGTH = 30
+        _C.DATA.CAPTION.USE_SINGLE = False
 
         _C.PRETEXT = CN()
         _C.PRETEXT.WORD_MASKING = CN()
@@ -154,7 +155,7 @@ class Config(object):
         _C.MODEL.VISUAL.PRETRAINED = False
 
         _C.MODEL.TEXTUAL = CN()
-        _C.MODEL.TEXTUAL.NAME = "allfuse_prenorm"
+        _C.MODEL.TEXTUAL.NAME = "allfuse_postnorm"
         _C.MODEL.TEXTUAL.HIDDEN_SIZE = 512
         _C.MODEL.TEXTUAL.ATTENTION_HEADS = 8
         _C.MODEL.TEXTUAL.FEEDFORWARD_SIZE = 2048
@@ -162,7 +163,7 @@ class Config(object):
 
         _C.OPTIM = CN()
         _C.OPTIM.NUM_ITERATIONS = 500000
-        _C.OPTIM.OPTIMIZER_NAME = "adamw"
+        _C.OPTIM.OPTIMIZER_NAME = "sgd"
         _C.OPTIM.NO_DECAY = [".bn", ".norm", ".bias"]
         _C.OPTIM.CLIP_GRAD_NORM = 10
 
