@@ -34,8 +34,7 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader, DistributedSampler
-import torch.utils.data
-import torch.utils.data.distributed
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import models
 
 from viswsl.data.datasets.downstream_datasets import ImageNetDataset
@@ -78,6 +77,8 @@ parser.add_argument("--dist-backend", default="nccl", type=str,
                     help="distributed backend")
 parser.add_argument("--seed", default=None, type=int,
                     help="seed for initializing training. ")
+parser.add_argument("--serialization-dir", default="/tmp/imagenet_train",
+                    help="Path to serialize checkpoints during training.")
 # fmt: on
 best_acc1 = 0
 
@@ -131,7 +132,7 @@ def main_worker(gpu, ngpus_per_node, _A):
     # ourselves based on the total number of GPUs we have
     _A.batch_size = int(_A.batch_size / ngpus_per_node)
     _A.workers = int((_A.workers + ngpus_per_node - 1) / ngpus_per_node)
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[_A.gpu])
+    model = nn.parallel.DistributedDataParallel(model, device_ids=[_A.gpu])
 
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda(_A.gpu)
@@ -166,8 +167,10 @@ def main_worker(gpu, ngpus_per_node, _A):
     # We modify the data loading code to use our ImageNet dataset class and
     # transforms from albumentations (however, transformation steps are same).
     # -------------------------------------------------------------------------
-    train_dataset = ImageNetDataset(root=_A.data, split="train")
+    # cache_size=20000 means we cache 160K images for 8 processes.
+    train_dataset = ImageNetDataset(root=_A.data, split="train", cache_size=20000)
     val_dataset = ImageNetDataset(root=_A.data, split="val")
+    # Val dataset is used sparsely, don't keep it around in memory by caching.
 
     normalize = alb.Normalize(
         mean=(0.485, 0.456, 0.406),
@@ -190,8 +193,10 @@ def main_worker(gpu, ngpus_per_node, _A):
         alb.ToFloat(max_value=255.0, always_apply=True),
         normalize,
     ])
-    train_sampler = DistributedSampler(train_dataset, shuffle=True)
-    val_sampler = DistributedSampler(val_dataset, shuffle=False)
+    # These will shuffle data once in the beginning and never again.
+    # (because we are caching images in memory)
+    train_sampler = DistributedSampler(train_dataset)
+    val_sampler = DistributedSampler(val_dataset)
     train_loader = DataLoader(
         train_dataset,
         batch_size=_A.batch_size,
@@ -213,17 +218,14 @@ def main_worker(gpu, ngpus_per_node, _A):
     timer = Timer(
         window_size=_A.log_every, total_iterations=_A.epochs * len(train_loader)
     )
+    writer = SummaryWriter(log_dir=_A.serialization_dir)
     for epoch in range(_A.start_epoch, _A.epochs):
-        train_sampler.set_epoch(epoch)
         adjust_learning_rate(optimizer, epoch, _A)
 
-        # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, timer, _A)
+        train(train_loader, model, criterion, optimizer, epoch, timer, writer, _A)
+        acc1 = validate(val_loader, model, criterion, writer, _A)
 
-        # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, _A)
-
-        # remember best acc@1 and save checkpoint
+        # Remember best top-1 accuracy and save checkpoint.
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
 
@@ -236,10 +238,11 @@ def main_worker(gpu, ngpus_per_node, _A):
                     "optimizer": optimizer.state_dict(),
                 },
                 is_best,
+                os.path.join(_A.serialization_dir, "checkpoint.pth"),
             )
 
 
-def train(train_loader, model, criterion, optimizer, epoch, timer, _A):
+def train(train_loader, model, criterion, optimizer, epoch, timer, writer, _A):
     model.train()
 
     # A tensor to accumulate loss for logging (and have smooth training curve).
@@ -271,10 +274,13 @@ def train(train_loader, model, criterion, optimizer, epoch, timer, _A):
                 logger.info(
                     f"Epoch: [{epoch}] | {timer.stats} | Loss: {train_loss:.3f}"
                 )
+                writer.add_scalar(
+                    "loss/train", train_loss, epoch * (epoch / len(train_loader)) + i
+                )
             train_loss = torch.zeros_like(train_loss)
 
 
-def validate(val_loader, model, criterion, _A):
+def validate(val_loader, model, criterion, writer, _A):
     top1 = ImageNetTopkAccuracy(top_k=1)
     top5 = ImageNetTopkAccuracy(top_k=5)
     model.eval()
@@ -300,14 +306,17 @@ def validate(val_loader, model, criterion, _A):
         dist.average_across_processes(top1_avg)
         dist.average_across_processes(top5_avg)
 
+        writer.add_scalar("metrics/top1", top1_avg)
+        writer.add_scalar("metrics/top5", top5_avg)
+
         logger.info(f"Acc@1 {top1_avg:.3f} Acc@5 {top5_avg:.3f}")
     return top1_avg
 
 
-def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
+def save_checkpoint(state, is_best, filename="checkpoint.pth"):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, "model_best.pth.tar")
+        shutil.copyfile(filename, "model_best.pth")
 
 
 def adjust_learning_rate(optimizer, epoch, _A):
