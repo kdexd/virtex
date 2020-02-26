@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import torch
 from torch import nn
@@ -104,54 +104,75 @@ class FeatureExtractor9k(nn.Module):
         return features
 
 
-class LinearClassifier(nn.Module):
+class LinearClassifiers(nn.Module):
     r"""
-    A simple linear layer for linear classification protocol on ImageNet and
+    Simple linear layers for linear classification protocol on ImageNet and
     Places205 datasets. This module does K-way (K = 1000 or 205) classification
-    on input images. Currently only supports training off of last stage of
-    ResNet (``layer4`` in torchvision naming, ``res5`` in MSRA or Caffe2 naming).
+    on input images. Currently only supports training off of ``layer3`` (or
+    ``res4``) and ``layer4`` (or ``res5``) stages of ResNet.
 
     This module can compute cross entropy loss and accumulate Top-1 accuracy
     during validation.
 
     Parameters
     ----------
-    feature_size: int, optional (default = 8192)
-        Size of the input features. Usually spatial features from the last
-        stage of ResNet downsampled, flattened and normalized to have 8192
-        size ``(2048 * 2 * 2)``.
+    feature_extractor: FeatureExtractor9k
+        Feature extractor on top of which we need to initialize linear layers.
     num_classes: int, optional (default = 1000)
         Number of output classes (for softmax). Set to 1000 for ImageNet and
         205 for Places205.
     """
 
-    def __init__(self, feature_size: int = 8192, num_classes: int = 1000):
+    def __init__(
+        self, feature_extractor: FeatureExtractor9k, num_classes: int = 1000
+    ):
         super().__init__()
+        # DO NOT set `feature_extractor` as a module in this class, else it
+        # messes with the weight decay duing optimization.
 
-        # Linear classifier on top of the backbone.
-        self.fc = nn.Linear(feature_size, num_classes)
-        self.fc.weight.data.normal_(mean=0.0, std=0.01)
+        # Two linear classifiers for last two stages.
+        self.layer3_fc = nn.Linear(
+            feature_extractor.feature_size["layer3"], num_classes
+        )
+        self.layer4_fc = nn.Linear(
+            feature_extractor.feature_size["layer4"], num_classes
+        )
+        # Initialize weights from N(0.0, 0.01) - following evaluation protocol.
+        self.layer3_fc.weight.data.normal_(mean=0.0, std=0.01)
+        self.layer4_fc.weight.data.normal_(mean=0.0, std=0.01)
 
         self.loss = nn.CrossEntropyLoss()
-        self.accuracy_accumulator = ImageNetTopkAccuracy(top_k=1)
+        self.layer3_top1 = ImageNetTopkAccuracy(top_k=1)
+        self.layer4_top1 = ImageNetTopkAccuracy(top_k=1)
 
     def forward(
-        self, features: torch.Tensor, labels: torch.Tensor
+        self, features: Dict[str, torch.Tensor], labels: torch.Tensor
     ) -> Dict[str, torch.Tensor]:
 
         # shape: (batch_size, num_classes)
-        logits = self.fc(features)
+        layer3_logits = self.layer3_fc(features["layer3"])
+        layer4_logits = self.layer4_fc(features["layer4"])
 
         # Calculate loss if `labels` provided (not provided during inference).
-        output_dict = {"loss": self.loss(logits, labels)}
-
+        output_dict: Dict[str, Any] = {
+            "loss": {
+                "layer3": self.loss(layer3_logits, labels),
+                "layer4": self.loss(layer4_logits, labels),
+            }
+        }
         # Output predictions in inference mode (no provided `labels`).
         if not self.training:
             # shape: (batch_size, )
-            output_dict["predictions"] = torch.argmax(logits, dim=1)
-            self.accuracy_accumulator(labels, logits)
+            output_dict["layer3_predictions"] = torch.argmax(layer3_logits, dim=1)
+            output_dict["layer4_predictions"] = torch.argmax(layer4_logits, dim=1)
+
+            self.layer3_top1(labels, layer3_logits)
+            self.layer4_top1(labels, layer4_logits)
         return output_dict
 
     def get_metric(self, reset: bool = True):
         r"""Return accumulated metric after validation."""
-        return self.accuracy_accumulator.get_metric(reset=reset)
+        return {
+            "layer3_top1": self.layer3_top1.get_metric(reset=reset),
+            "layer4_top1": self.layer4_top1.get_metric(reset=reset),
+        }

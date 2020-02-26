@@ -303,8 +303,8 @@ def validate(val_loader, model, criterion, writer, _A):
         top1_avg = torch.tensor(top1.get_metric(reset=True)).cuda(_A.gpu)
         top5_avg = torch.tensor(top5.get_metric(reset=True)).cuda(_A.gpu)
 
-        dist.average_across_processes(top1_avg)
-        dist.average_across_processes(top5_avg)
+        vdist.average_across_processes(top1_avg)
+        vdist.average_across_processes(top5_avg)
 
         writer.add_scalar("metrics/top1", top1_avg)
         writer.add_scalar("metrics/top5", top5_avg)
