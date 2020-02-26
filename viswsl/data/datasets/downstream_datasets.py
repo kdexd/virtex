@@ -75,12 +75,22 @@ IMAGENET_AND_PLACES205_VAL_TRANSFORM_LIST = [
 
 class ImageNetDataset(ImageNet):
     r"""
-    Simple wrapper over torchvision's super class, we handle image transform
-    here instead of passing to constructor.
+    Simple wrapper over torchvision's super class to support restricting
+    dataset size for semi-supervised learning setup (data-efficiency ablations).
+
+    We also handle image transform here instead of passing to super class.
+
+    Parameters
+    ----------
+    percentage: int, optional (default = 100)
+        Percentage of dataset to keep. This dataset retains first K% of images
+        per class to retain same class label distribution. This is 100% by
+        default, and will be ignored if ``split`` is ``val``.
     """
 
-    def __init__(self, root: str, split: str = "train"):
+    def __init__(self, root: str, split: str = "train", percentage: float = 100):
         super().__init__(root, split)
+        assert percentage > 0, "Cannot load dataset with 0 percent original size."
 
         if split == "train":
             transform_list = IMAGENET_AND_PLACES205_TRAIN_TRANSFORM_LIST
@@ -91,6 +101,29 @@ class ImageNetDataset(ImageNet):
         # because albumentations. Compose accepts inputs differently than
         # `torchvision.transforms.Compose`.
         self.image_transform = alb.Compose(transform_list)
+
+        # Super class has `imgs` list and `targets` list. Make a dict of
+        # class ID to index of instances in these lists and pick first K%.
+        if split == "train" and percentage < 100:
+            label_to_indices: Dict[int, List[int]] = defaultdict(list)
+            for index, target in enumerate(self.targets):
+                label_to_indices[target].append(index)
+
+            # Trim list of indices per label.
+            for label in label_to_indices:
+                retain = int((len(label_to_indices[label]) * percentage) // 100)
+                label_to_indices[label] = label_to_indices[label][:retain]
+
+            # Trim `self.imgs` and `self.targets` as per indices we have.
+            retained_indices: List[int] = [
+                index
+                for indices_per_label in label_to_indices.values()
+                for index in indices_per_label
+            ]
+            # Shorter dataset with size K% of original dataset, but almost same
+            # class label distribution. super class will handle the rest.
+            self.imgs = [self.imgs[i] for i in retained_indices]
+            self.targets = [self.targets[i] for i in retained_indices]
 
     def __getitem__(self, idx: int):
         image, label = super().__getitem__(idx)

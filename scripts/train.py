@@ -179,7 +179,6 @@ if __name__ == "__main__":
         timer.tic()
         optimizer.zero_grad()
 
-        # Simulate a larger batch size (mostly due to GPU constraints).
         batch_loss = torch.tensor(0.0, device=device)
 
         batch = next(train_dataloader_iter)
