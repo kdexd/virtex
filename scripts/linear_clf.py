@@ -111,6 +111,9 @@ if __name__ == "__main__":
     for arg in vars(_A):
         logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))
 
+    # Either "imagenet" or "places205", useful for tensorboard logging.
+    DATASET = _DOWNC.DATA_ROOT.split("/")[-1]
+
     # -------------------------------------------------------------------------
     #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER
     # -------------------------------------------------------------------------
@@ -178,7 +181,7 @@ if __name__ == "__main__":
     if dist.get_world_size() > 1:
         dist.synchronize()
         # We don't need DDP over model because there's no communication in eval.
-        classifier = nn.parallel.DistributedDataParallel(
+        classifiers = nn.parallel.DistributedDataParallel(
             classifiers, device_ids=[device], find_unused_parameters=True
         )
 
@@ -234,11 +237,13 @@ if __name__ == "__main__":
         # ---------------------------------------------------------------------
         if iteration % _A.log_every == 0 and dist.is_master_process():
             logger.info(
-                f"Losses: [layer3 {train_loss_dict['layer3']:.3f} "
+                f"{timer.stats} Losses: [layer3 {train_loss_dict['layer3']:.3f} "
                 f"| layer4  {train_loss_dict['layer4']:.3f} ] "
-                f"GPU: {torch.cuda.max_memory_allocated() // 1048576}MB {timer.stats}"
+                f"GPU: {torch.cuda.max_memory_allocated() // 1048576}MB"
             )
-            tensorboard_writer.add_scalars("loss/train", train_loss_dict, iteration)
+            tensorboard_writer.add_scalars(
+                f"{DATASET}/train_loss", train_loss_dict, iteration
+            )
 
         # ---------------------------------------------------------------------
         #   VALIDATION
@@ -283,8 +288,12 @@ if __name__ == "__main__":
         # ---------------------------------------------------------------------
         if iteration % _A.checkpoint_every == 0 and dist.is_master_process():
             logger.info(f"Iter: {iteration} | Accuracies: {acc})")
-            tensorboard_writer.add_scalars("loss/val", val_loss_dict, iteration)
-            tensorboard_writer.add_scalars("metrics", acc, iteration)
+            tensorboard_writer.add_scalars(
+                f"{DATASET}/val_loss", val_loss_dict, iteration
+            )
+            # Reversed scoped here because all metrics (VOC/captioning etc. will
+            # stay together in tensorboard.
+            tensorboard_writer.add_scalars(f"metrocs/{DATASET}", acc, iteration)
 
         # All processes will wait till master process is done logging.
         dist.synchronize()
