@@ -1,18 +1,11 @@
 DATASETS:
-  TRAIN: ("lvis_v0.5_train",)
-  TEST: ("lvis_v0.5_val",)
-
-DATALOADER:
-  SAMPLER_TRAIN: RepeatFactorTrainingSampler
-  REPEAT_THRESHOLD: 0.001
+  TRAIN: ("coco_2017_train",)
+  TEST: ("coco_2017_val",)
 
 INPUT:
   FORMAT: RGB
   MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
   MIN_SIZE_TEST: 800
-
-TEST:
-  DETECTIONS_PER_IMAGE: 300  # LVIS allows up to 300.
 
 MODEL:
   META_ARCHITECTURE: GeneralizedRCNN
@@ -20,7 +13,7 @@ MODEL:
     NAME: build_resnet_fpn_backbone
     FREEZE_AT: 0
 
-  # LVIS finetuning on our backbone is on tuned BN, all layers.
+  # COCO finetuning on our backbone is on tuned BN, all layers.
   RESNETS:
     DEPTH: 50
     NORM: SyncBN
@@ -49,16 +42,14 @@ MODEL:
   ROI_HEADS:
     NAME: StandardROIHeads
     IN_FEATURES: ["p2", "p3", "p4", "p5"]
-    NUM_CLASSES: 1230
-    SCORE_THRESH_TEST: 0.0001
 
   ROI_BOX_HEAD:
-    NAME: FastRCNNConvFCHead
+    NAME: "FastRCNNConvFCHead"
     NUM_FC: 2
     POOLER_RESOLUTION: 7
 
   ROI_MASK_HEAD:
-    NAME: MaskRCNNConvUpsampleHead
+    NAME: "MaskRCNNConvUpsampleHead"
     NUM_CONV: 4
     POOLER_RESOLUTION: 14
 
