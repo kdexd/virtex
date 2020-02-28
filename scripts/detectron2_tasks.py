@@ -24,19 +24,25 @@ import detectron2 as d2
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import global_cfg
 from detectron2.engine import SimpleTrainer, DefaultTrainer, default_setup, EvalHook
-from detectron2.evaluation import LVISEvaluator, PascalVOCDetectionEvaluator
+from detectron2.evaluation import (
+    LVISEvaluator,
+    PascalVOCDetectionEvaluator,
+    COCOEvaluator,
+)
 
 from viswsl.config import Config
 from viswsl.factories import PretrainingModelFactory
 import viswsl.utils.distributed as dist
 
 
-parser = argparse.ArgumentParser(description="""
+parser = argparse.ArgumentParser(
+    description="""
     Finetune our pre-trained model on Detectron2 supported tasks.
-""")
+"""
+)
 # fmt: off
 parser.add_argument(
-    "--task", required=True, choices=["lvis", "voc"],
+    "--task", required=True, choices=["lvis", "voc", "coco"],
 )
 parser.add_argument(
     "--pretext-config", required=True,
@@ -143,6 +149,7 @@ def build_detectron2_config(_C: Config, _A: argparse.Namespace):
 
 class LazyEvalHook(EvalHook):
     r"""Extension of detectron2's ``EvalHook``: start evaluation after few iters."""
+
     def __init__(self, start_after, eval_period, eval_function):
         self._start_after = start_after
         super().__init__(eval_period, eval_function)
@@ -203,7 +210,7 @@ class DownstreamTrainer(DefaultTrainer):
                 model = ApexDDP(model, delay_allreduce=True)
             else:
                 model = nn.parallel.DistributedDataParallel(
-                     model, device_ids=[dist.get_rank()], broadcast_buffers=False,
+                    model, device_ids=[dist.get_rank()], broadcast_buffers=False
                 )
 
         # Call `__init__` from grandparent class: `SimpleTrainer`.
@@ -211,10 +218,7 @@ class DownstreamTrainer(DefaultTrainer):
 
         self.scheduler = scheduler
         self.checkpointer = DetectionCheckpointer(
-            model,
-            cfg.OUTPUT_DIR,
-            optimizer=optimizer,
-            scheduler=self.scheduler,
+            model, cfg.OUTPUT_DIR, optimizer=optimizer, scheduler=self.scheduler
         )
         self.register_hooks(self.build_hooks())
 
@@ -226,6 +230,8 @@ class DownstreamTrainer(DefaultTrainer):
         evaluator_type = d2.data.MetadataCatalog.get(dataset_name).evaluator_type
         if evaluator_type == "pascal_voc":
             return PascalVOCDetectionEvaluator(dataset_name)
+        elif evaluator_type == "coco":
+            return COCOEvaluator(dataset_name, cfg, True, output_folder)
         elif evaluator_type == "lvis":
             return LVISEvaluator(dataset_name, cfg, True, output_folder)
 
@@ -245,7 +251,7 @@ class DownstreamTrainer(DefaultTrainer):
                 self.checkpointer, __C.SOLVER.CHECKPOINT_PERIOD
             ),
             LazyEvalHook(__C.SOLVER.STEPS[0], __C.TEST.EVAL_PERIOD, _eval),
-            d2.engine.hooks.PeriodicWriter(self.build_writers())
+            d2.engine.hooks.PeriodicWriter(self.build_writers()),
         ]
         # We need checkpointer and writer only for master process.
         return ret if dist.is_master_process() else [ret[0], ret[1], ret[3]]
@@ -326,7 +332,8 @@ if __name__ == "__main__":
     _C.dump(os.path.join(_A.serialization_dir, "pretext_config.yml"))
     if _A.weight_init == "checkpoint" and not _A.resume:
         torch.save(
-            model.state_dict(), os.path.join(_A.serialization_dir, "pretext_model.pth")
+            model.state_dict(),
+            os.path.join(_A.serialization_dir, "pretext_model.pth"),
         )
 
     del model
