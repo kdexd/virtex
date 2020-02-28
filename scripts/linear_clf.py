@@ -293,7 +293,7 @@ if __name__ == "__main__":
             )
             # Reversed scoped here because all metrics (VOC/captioning etc. will
             # stay together in tensorboard.
-            tensorboard_writer.add_scalars(f"metrocs/{DATASET}", acc, iteration)
+            tensorboard_writer.add_scalars(f"metrics/{DATASET}", acc, iteration)
 
         # All processes will wait till master process is done logging.
         dist.synchronize()

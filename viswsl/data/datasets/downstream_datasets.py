@@ -148,6 +148,7 @@ class ImageNetDataset(ImageNet):
             # class label distribution. super class will handle the rest.
             self.imgs = [self.imgs[i] for i in retained_indices]
             self.targets = [self.targets[i] for i in retained_indices]
+            self.samples = self.imgs
 
         # Keep a cache of resized uint8 images (mapping from index to image).
         self.cache_size = cache_size

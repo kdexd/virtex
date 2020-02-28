@@ -177,6 +177,7 @@ def main_worker(gpu, ngpus_per_node, _A):
     train_dataset = ImageNetDataset(
         root=_A.data, split="train", percentage=_A.data_percentage, cache_size=2000
     )
+    logger.info(f"Size of dataset: {len(train_dataset)}")
     val_dataset = ImageNetDataset(root=_A.data, split="val")
     # Val dataset is used sparsely, don't keep it around in memory by caching.
 
@@ -246,11 +247,12 @@ def main_worker(gpu, ngpus_per_node, _A):
                     "optimizer": optimizer.state_dict(),
                 },
                 is_best,
-                os.path.join(_A.serialization_dir, "checkpoint.pth"),
+                _A.serialization_dir,
             )
 
 
 def train(train_loader, model, criterion, optimizer, epoch, timer, writer, _A):
+    global GLOBAL_ITER
     model.train()
 
     # A tensor to accumulate loss for logging (and have smooth training curve).
@@ -273,6 +275,7 @@ def train(train_loader, model, criterion, optimizer, epoch, timer, writer, _A):
         loss.backward()
         optimizer.step()
         timer.toc()
+        GLOBAL_ITER += 1
 
         if i % _A.log_every == 0:
             train_loss /= _A.log_every
@@ -287,6 +290,7 @@ def train(train_loader, model, criterion, optimizer, epoch, timer, writer, _A):
 
 
 def validate(val_loader, model, criterion, writer, _A):
+    global GLOBAL_ITER
     top1 = ImageNetTopkAccuracy(top_k=1)
     top5 = ImageNetTopkAccuracy(top_k=5)
     model.eval()
