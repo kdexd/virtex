@@ -38,11 +38,14 @@ class CaptioningDataset(IterableDataset):
         random_horizontal_flip: bool = True,
         max_caption_length: int = 30,
         use_single_caption: bool = False,
+        percentage: float = 100.0,
         shuffle: bool = False,
     ):
         self.image_transform = image_transform
         # keys: {"image_id", "image", "caption"}
-        self._pipeline = LmdbReader(lmdb_path, shuffle=shuffle)
+        self._pipeline = LmdbReader(
+            lmdb_path, shuffle=shuffle, percentage=percentage
+        )
 
         # Random horizontal flip is kept separate from other data augmentation
         # transforms because we need to change the caption if image is flipped.

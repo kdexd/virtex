@@ -1,9 +1,11 @@
 import math
 import os
+import random
 from typing import Any, List, Tuple
 
 import dataflow as df
 import lmdb
+from loguru import logger
 import torch
 from torch.utils.data import get_worker_info
 
@@ -23,9 +25,19 @@ class LmdbReader(df.DataFlow):
     Parameters
     ----------
     lmdb_path: str
+        Path to LMDB file with datapoints.
+    shuffle: bool, optional (default = False)
+        Whether to shuffle or not. If this is on, there will be one deterministic
+        shuffle based on epoch before sharding the dataset (to workers).
+    percentage: float, optional (default = 100.0)
+        Percentage of datapoints to use. If less than 100.0, keys will be
+        shuffled and first K% will be retained and use throughout training.
+        Make sure to set this only for training, not validation.
     """
 
-    def __init__(self, lmdb_path: str, shuffle: bool = False):
+    def __init__(
+        self, lmdb_path: str, shuffle: bool = False, percentage: float = 100.0
+    ):
         self._lmdb_path = lmdb_path
         self._shuffle = shuffle
 
@@ -41,6 +53,17 @@ class LmdbReader(df.DataFlow):
 
             _txn = _lmdb_file.begin()
             self._keys: List[bytes] = df.utils.serialize.loads(_txn.get(b"__keys__"))
+
+        # If data percentage < 100%, shuffle the keys and retain first K%,
+        # drop the rest. This shuffle will be deterministic if Python's random
+        # seed is fixed.
+        assert percentage > 0, "Cannot load dataset with 0 percent original size."
+
+        if percentage < 100.0:
+            retain_k: int = int(len(self._keys) * percentage / 100.0)
+            random.shuffle(self._keys)
+            self._keys = self._keys[:retain_k]
+            logger.info(f"Retained {retain_k} datapoints for training!")
 
         # For deterministically generating different shuffle ordes everytime
         # the read through starts again.
