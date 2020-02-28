@@ -79,8 +79,14 @@ parser.add_argument("--seed", default=None, type=int,
                     help="seed for initializing training. ")
 parser.add_argument("--serialization-dir", default="/tmp/imagenet_train",
                     help="Path to serialize checkpoints during training.")
+parser.add_argument("--data-percentage", default=100, type=float,
+                    help="Percentage of data to train on.")
 # fmt: on
+
 best_acc1 = 0
+
+# Counter for logging events to tensorboard with appropriate timestep.
+GLOBAL_ITER = 0
 
 
 def main():
@@ -168,7 +174,9 @@ def main_worker(gpu, ngpus_per_node, _A):
     # transforms from albumentations (however, transformation steps are same).
     # -------------------------------------------------------------------------
     # cache_size=20000 means we cache 160K images for 8 processes.
-    train_dataset = ImageNetDataset(root=_A.data, split="train", cache_size=20000)
+    train_dataset = ImageNetDataset(
+        root=_A.data, split="train", percentage=_A.data_percentage, cache_size=2000
+    )
     val_dataset = ImageNetDataset(root=_A.data, split="val")
     # Val dataset is used sparsely, don't keep it around in memory by caching.
 
@@ -274,9 +282,7 @@ def train(train_loader, model, criterion, optimizer, epoch, timer, writer, _A):
                 logger.info(
                     f"Epoch: [{epoch}] | {timer.stats} | Loss: {train_loss:.3f}"
                 )
-                writer.add_scalar(
-                    "loss/train", train_loss, epoch * (epoch / len(train_loader)) + i
-                )
+                writer.add_scalar("loss/train", train_loss, GLOBAL_ITER)
             train_loss = torch.zeros_like(train_loss)
 
 
@@ -306,17 +312,18 @@ def validate(val_loader, model, criterion, writer, _A):
         vdist.average_across_processes(top1_avg)
         vdist.average_across_processes(top5_avg)
 
-        writer.add_scalar("metrics/top1", top1_avg)
-        writer.add_scalar("metrics/top5", top5_avg)
+        writer.add_scalar("metrics/top1", top1_avg, GLOBAL_ITER)
+        writer.add_scalar("metrics/top5", top5_avg, GLOBAL_ITER)
 
         logger.info(f"Acc@1 {top1_avg:.3f} Acc@5 {top5_avg:.3f}")
     return top1_avg
 
 
-def save_checkpoint(state, is_best, filename="checkpoint.pth"):
+def save_checkpoint(state, is_best: bool, serialization_dir: str):
+    filename = os.path.join(serialization_dir, f"checkpoint_{GLOBAL_ITER}.pth")
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, "model_best.pth")
+        shutil.copyfile(filename, os.path.join(serialization_dir, "best.pth"))
 
 
 def adjust_learning_rate(optimizer, epoch, _A):
