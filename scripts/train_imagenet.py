@@ -75,7 +75,7 @@ parser.add_argument("--dist-url", default="tcp://127.0.0.1:2345", type=str,
                     help="url used to set up distributed training")
 parser.add_argument("--dist-backend", default="nccl", type=str,
                     help="distributed backend")
-parser.add_argument("--seed", default=None, type=int,
+parser.add_argument("--seed", default=0, type=int,
                     help="seed for initializing training. ")
 parser.add_argument("--serialization-dir", default="/tmp/imagenet_train",
                     help="Path to serialize checkpoints during training.")
@@ -91,18 +91,9 @@ GLOBAL_ITER = 0
 
 def main():
     _A = parser.parse_args()
-
-    if _A.seed is not None:
-        random.seed(_A.seed)
-        torch.manual_seed(_A.seed)
-        cudnn.deterministic = True
-        warnings.warn(
-            "You have chosen to seed training. "
-            "This will turn on the CUDNN deterministic setting, "
-            "which can slow down your training considerably! "
-            "You may see unexpected behavior when restarting "
-            "from checkpoints."
-        )
+    random.seed(_A.seed)
+    torch.manual_seed(_A.seed)
+    cudnn.deterministic = True
 
     _A.world_size = torch.cuda.device_count()
     # Use torch.multiprocessing.spawn to launch distributed processes: the
@@ -173,9 +164,8 @@ def main_worker(gpu, ngpus_per_node, _A):
     # We modify the data loading code to use our ImageNet dataset class and
     # transforms from albumentations (however, transformation steps are same).
     # -------------------------------------------------------------------------
-    # cache_size=20000 means we cache 160K images for 8 processes.
     train_dataset = ImageNetDataset(
-        root=_A.data, split="train", percentage=_A.data_percentage, cache_size=2000
+        root=_A.data, split="train", percentage=_A.data_percentage
     )
     logger.info(f"Size of dataset: {len(train_dataset)}")
     val_dataset = ImageNetDataset(root=_A.data, split="val")
@@ -202,9 +192,7 @@ def main_worker(gpu, ngpus_per_node, _A):
         alb.ToFloat(max_value=255.0, always_apply=True),
         normalize,
     ])
-    # These will shuffle data once in the beginning and never again.
-    # (because we are caching images in memory)
-    train_sampler = DistributedSampler(train_dataset)
+    train_sampler = DistributedSampler(train_dataset, shuffle=True)
     val_sampler = DistributedSampler(val_dataset)
     train_loader = DataLoader(
         train_dataset,
@@ -229,6 +217,7 @@ def main_worker(gpu, ngpus_per_node, _A):
     )
     writer = SummaryWriter(log_dir=_A.serialization_dir)
     for epoch in range(_A.start_epoch, _A.epochs):
+        train_sampler.set_epoch(epoch)
         adjust_learning_rate(optimizer, epoch, _A)
 
         train(train_loader, model, criterion, optimizer, epoch, timer, writer, _A)
@@ -324,6 +313,7 @@ def validate(val_loader, model, criterion, writer, _A):
 
 
 def save_checkpoint(state, is_best: bool, serialization_dir: str):
+    global GLOBAL_ITER
     filename = os.path.join(serialization_dir, f"checkpoint_{GLOBAL_ITER}.pth")
     torch.save(state, filename)
     if is_best:

@@ -74,19 +74,11 @@ IMAGENET_AND_PLACES205_VAL_TRANSFORM_LIST = [
 ]
 
 
-def no_op_image_loader(image_path):
-    r"""Needed to pass to super class of :class:`ImageNetDataset`."""
-    return image_path
-
-
 class ImageNetDataset(ImageNet):
     r"""
-    Simple wrapper over torchvision's super class with two extra features.
-
-    1. Support restricting dataset size for semi-supervised learning setup
-       (data-efficiency ablations).
-    2. Add option to cache the whole dataset (uint8 images) in memory during
-       training.
+    Simple wrapper over torchvision's super class with a feature to support
+    restricting dataset size for semi-supervised learning setup (data-efficiency
+    ablations).
 
     We also handle image transform here instead of passing to super class.
 
@@ -96,11 +88,6 @@ class ImageNetDataset(ImageNet):
         Percentage of dataset to keep. This dataset retains first K% of images
         per class to retain same class label distribution. This is 100% by
         default, and will be ignored if ``split`` is ``val``.
-    cache_size: int, optional (default = -1)
-        Cache these many images in memory during first epoch so we get some
-        speedup from second epoch onwards. In case of distributed training,
-        number of cached images will be this number per process. Turn off
-        shuffling to avoid duplicate caching among processes.
     """
 
     def __init__(
@@ -108,12 +95,8 @@ class ImageNetDataset(ImageNet):
         root: str,
         split: str = "train",
         percentage: float = 100,
-        cache_size: int = -1,
     ):
-        super().__init__(root, split, loader=no_op_image_loader)
-        # Pass a No-Op for loader so we get image path instead of a PIL image
-        # in our `__getitem__`. This prevents unnecessary reads after caching.
-
+        super().__init__(root, split)
         assert percentage > 0, "Cannot load dataset with 0 percent original size."
 
         if split == "train":
@@ -135,7 +118,7 @@ class ImageNetDataset(ImageNet):
 
             # Trim list of indices per label.
             for label in label_to_indices:
-                retain = int((len(label_to_indices[label]) * percentage) // 100)
+                retain = int(len(label_to_indices[label]) * (percentage / 100))
                 label_to_indices[label] = label_to_indices[label][:retain]
 
             # Trim `self.imgs` and `self.targets` as per indices we have.
@@ -150,29 +133,8 @@ class ImageNetDataset(ImageNet):
             self.targets = [self.targets[i] for i in retained_indices]
             self.samples = self.imgs
 
-        # Keep a cache of resized uint8 images (mapping from index to image).
-        self.cache_size = cache_size
-        self.cached_images: Dict[int, np.ndarray] = {}
-
-        # Keep a smallest edge resize transform handy if we are caching images
-        # so we coud resize images to (256 x 256) and fit them in memory.
-        self.resize = alb.SmallestMaxSize(256, always_apply=True)
-
     def __getitem__(self, idx: int):
-        image_path, label = super().__getitem__(idx)
-
-        # Get image from cache, or open from image path and optionally cache it.
-        if idx in self.cached_images:
-            # Retrieve image from cache if it exists.
-            image = self.cached_images[idx]
-        elif len(self.cached_images) < self.cache_size:
-            # If we have space in cache, add image ater we read.
-            image = np.array(Image.open(image_path).convert("RGB"))
-            image = self.resize(image=image)["image"]
-            self.cached_images[idx] = image
-        else:
-            # If cache if full and index not in cache, just read the image.
-            image = np.array(Image.open(image_path).convert("RGB"))
+        image, label = super().__getitem__(idx)
 
         # Apply transformation to  image and convert to CHW format.
         image = self.image_transform(image=np.array(image))["image"]
