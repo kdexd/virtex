@@ -5,16 +5,22 @@ from typing import Optional
 from loguru import logger
 
 
-def cycle(dataloader, device):
+def cycle(dataloader, device, sampler_set_epoch: bool = False):
     r"""
     A generator which yields batch from dataloader perpetually.
     This is done so because we train for a fixed number of iterations, and do
     not have the notion of 'epochs'. Using ``itertools.cycle`` with dataloader
     is harmful and may cause unexpeced memory leaks.
+
+    Set ``sampler_set_epoch`` as ``True`` if using ``DistributedSampler`` and
+    need shuffling.
     """
     epoch = 1
     while True:
         logger.info(f"Starting epoch {epoch}.")
+        if sampler_set_epoch:
+            dataloader.sampler.set_epoch(epoch)
+
         for batch in dataloader:
             for key in batch:
                 batch[key] = batch[key].to(device)

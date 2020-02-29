@@ -122,7 +122,7 @@ if __name__ == "__main__":
         train_dataset,
         batch_size=_DOWNC.BATCH_SIZE_PER_GPU,
         num_workers=_A.cpu_workers,
-        sampler=DistributedSampler(train_dataset),
+        sampler=DistributedSampler(train_dataset, shuffle=True),
         pin_memory=True,
         collate_fn=train_dataset.collate_fn,
     )
@@ -136,7 +136,7 @@ if __name__ == "__main__":
         collate_fn=val_dataset.collate_fn,
     )
     # Create an iterator from dataloader to sample batches perpetually.
-    train_dataloader_iter = cycle(train_dataloader, device)
+    train_dataloader_iter = cycle(train_dataloader, device, sampler_set_epoch=True)
 
     # Create mdel and add linear classifier on visual backbone.
     model = PretrainingModelFactory.from_config(_C).to(device)

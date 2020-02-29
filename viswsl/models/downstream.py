@@ -137,9 +137,12 @@ class LinearClassifiers(nn.Module):
         self.layer4_fc = nn.Linear(
             feature_extractor.feature_size["layer4"], num_classes
         )
-        # Initialize weights from N(0.0, 0.01) - following evaluation protocol.
-        self.layer3_fc.weight.data.normal_(mean=0.0, std=0.01)
-        self.layer4_fc.weight.data.normal_(mean=0.0, std=0.01)
+        # Initialize weights from N(0.0, 0.01) and bias = 0.0 - following
+        # evaluation protocol.
+        torch.nn.init.normal_(self.layer3_fc.weight.data, mean=0.0, std=0.01)
+        torch.nn.init.normal_(self.layer4_fc.weight.data, mean=0.0, std=0.01)
+        torch.nn.init.constant_(self.layer3_fc.bias.data, 0.0)
+        torch.nn.init.constant_(self.layer4_fc.bias.data, 0.0)
 
         self.loss = nn.CrossEntropyLoss()
         self.layer3_top1 = ImageNetTopkAccuracy(top_k=1)
