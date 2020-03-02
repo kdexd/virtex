@@ -50,10 +50,14 @@ parser.add_argument(
 
 parser.add_argument_group("Checkpointing and Logging")
 parser.add_argument(
-    "--weight-init", choices=["random", "imagenet", "checkpoint"],
-    default="checkpoint", help="""How to initialize weights: 'random' initializes
-    all weights randomly, 'imagenet' initializes backbone weights from torchvision
-    model zoo, and 'checkpoint' loads state dict from `--checkpoint-path`."""
+    "--weight-init", choices=["random", "imagenet", "torchvision", "checkpoint"],
+    default="checkpoint", help="""How to initialize weights:
+        1. 'random' initializes all weights randomly
+        2. 'imagenet' initializes backbone weights from torchvision model zoo
+        3. {'torchvision', 'checkpoint'} load state dict from --checkpoint-path
+            - with 'torchvision', state dict would be from PyTorch's training
+              script.
+            - with 'checkpoint' it should be for our full pretrained model."""
 )
 parser.add_argument(
     "--log-every", type=int, default=50,
@@ -138,12 +142,19 @@ if __name__ == "__main__":
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter = cycle(train_dataloader, device, sampler_set_epoch=True)
 
-    # Create mdel and add linear classifier on visual backbone.
-    model = PretrainingModelFactory.from_config(_C).to(device)
+    # Initialize from a checkpoint, but only keep the visual module.
+    model = PretrainingModelFactory.from_config(_C)
 
+    # Load weights according to the init method, do nothing for `random`, and
+    # `imagenet` is already taken care of.
     if _A.weight_init == "checkpoint":
-        model.load_state_dict(
-            torch.load(_A.checkpoint_path, map_location=torch.device("cpu"))
+        model.load_state_dict(torch.load(_A.checkpoint_path, map_location="cpu"))
+    elif _A.weight_init == "torchvision":
+        # Keep strict=False because this state dict may have weights for
+        # last fc layer.
+        model.visual.cnn.load_state_dict(
+            torch.load(_A.checkpoint_path, map_location="cpu")["state_dict"],
+            strict=False,
         )
 
     # Backup pretext config and model checkpoint.
