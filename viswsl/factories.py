@@ -77,6 +77,7 @@ class DatasetFactory(Factory):
         "captioning": vdata.CaptioningDataset,
         "bicaptioning": vdata.CaptioningPretextDataset,
         "token_classification": vdata.CaptioningPretextDataset,
+        "instance_classification": vdata.InstanceClassificationDataset,
     }
 
     @classmethod
@@ -89,21 +90,31 @@ class DatasetFactory(Factory):
         _C = config
         tokenizer = tokenizer or TokenizerFactory.from_config(_C)
 
-        kwargs = {
-            "lmdb_path": _C.DATA.VAL_LMDB if split == "val" else _C.DATA.TRAIN_LMDB,
-            "tokenizer": tokenizer,
-            "random_horizontal_flip": _C.DATA.IMAGE.RANDOM_FLIP and split == "train",
-            "max_caption_length": _C.DATA.CAPTION.MAX_LENGTH,
-            "use_single_caption": _C.DATA.CAPTION.USE_SINGLE,
-            "percentage": _C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
-            "shuffle": _C.DATA.SHUFFLE_TRAIN if split == "train" else False,
-        }
-        if _C.MODEL.NAME == "word_masking":
-            kwargs.update(
-                mask_proportion=_C.PRETEXT.WORD_MASKING.MASK_PROPORTION,
-                mask_probability=_C.PRETEXT.WORD_MASKING.MASK_PROBABILITY,
-                replace_probability=_C.PRETEXT.WORD_MASKING.REPLACE_PROBABILITY,
-            )
+        # Add model specific kwargs. Refer call signatures of specific datasets.
+        # TODO (kd): InstanceClassificationDataset does not accept most of the
+        # args. Make the API more consistent.
+        if _C.MODEL.NAME != "instance_classification":
+            kwargs = {
+                "lmdb_path": _C.DATA.VAL_LMDB if split == "val" else _C.DATA.TRAIN_LMDB,
+                "tokenizer": tokenizer,
+                "random_horizontal_flip": _C.DATA.IMAGE.RANDOM_FLIP and split == "train",
+                "max_caption_length": _C.DATA.CAPTION.MAX_LENGTH,
+                "use_single_caption": _C.DATA.CAPTION.USE_SINGLE,
+                "percentage": _C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
+                "shuffle": _C.DATA.SHUFFLE_TRAIN if split == "train" else False,
+            }
+            if _C.MODEL.NAME == "word_masking":
+                kwargs.update(
+                    mask_proportion=_C.PRETEXT.WORD_MASKING.MASK_PROPORTION,
+                    mask_probability=_C.PRETEXT.WORD_MASKING.MASK_PROBABILITY,
+                    replace_probability=_C.PRETEXT.WORD_MASKING.REPLACE_PROBABILITY,
+                )
+        else:
+            # TODO: add `root` argument after adding to config.
+            kwargs = {
+                "shuffle": _C.DATA.SHUFFLE_TRAIN if split == "train" else False,
+                "split": split,
+            }
 
         # Prepare a list of augmentations based on split (train or val).
         if split == "train":
@@ -134,6 +145,11 @@ class DatasetFactory(Factory):
                     always_apply=True,
                 ),
             ]
+
+        # Add a random flip from albumentations for `instance_classification`
+        # because it will be applied on image only, not with caption.
+        if split == "train" and _C.MODEL.NAME == "instance_classification":
+            augmentation_list.append(alb.HorizontalFlip(p=0.5))
 
         augmentation_list.append(alb.ToFloat(max_value=255.0))
         if _C.DATA.IMAGE.COLOR_NORMALIZE:
@@ -225,6 +241,7 @@ class PretrainingModelFactory(Factory):
         "captioning": partial(vmodels.CaptioningModel, is_bidirectional=False),
         "bicaptioning": partial(vmodels.CaptioningModel, is_bidirectional=True),
         "token_classification": vmodels.TokenClassificationModel,
+        "instance_classification": vmodels.InstanceClassificationModel,
     }
 
     @classmethod
@@ -260,6 +277,8 @@ class PretrainingModelFactory(Factory):
                     tokenizer.token_to_id("[MASK]"),
                 ],
             )
+        # Let the default values in `instance_classification` do the job right
+        # now. Change them later.
 
         return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
 

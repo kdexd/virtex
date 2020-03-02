@@ -8,7 +8,7 @@ from loguru import logger
 import numpy as np
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 
 # fmt: off
@@ -115,23 +115,37 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     tokenizer = TokenizerFactory.from_config(_C)
     train_dataset = DatasetFactory.from_config(_C, tokenizer, split="train")
+    val_dataset = DatasetFactory.from_config(_C, tokenizer, split="val")
+
+    # HACK: set DistributedSampler only for `instance_classification`. Remove
+    # this later.
+    if _C.MODEL.NAME == "instance_classification":
+        train_sampler = DistributedSampler(train_dataset, shuffle=True)
+        val_sampler = DistributedSampler(val_dataset, shuffle=False)
+    else:
+        train_sampler = None
+        val_sampler = None
+
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
+        sampler=train_sampler,
         num_workers=_A.cpu_workers,
         pin_memory=True,
         collate_fn=train_dataset.collate_fn,
     )
-    val_dataset = DatasetFactory.from_config(_C, tokenizer, split="val")
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
+        sampler=val_sampler,
         num_workers=_A.cpu_workers,
         pin_memory=True,
         collate_fn=val_dataset.collate_fn,
     )
     # Create an iterator from dataloader to sample batches perpetually.
-    train_dataloader_iter = cycle(train_dataloader, device)
+    train_dataloader_iter = cycle(
+        train_dataloader, device, sampler_set_epoch=train_sampler is not None
+    )
 
     model = PretrainingModelFactory.from_config(_C).to(device)
     optimizer = OptimizerFactory.from_config(_C, model.named_parameters())

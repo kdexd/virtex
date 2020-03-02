@@ -112,3 +112,47 @@ class TokenClassificationModel(nn.Module):
 
                 """
         return predictions_str
+
+
+# TODO (kd): make the class hierarchy better.
+class InstanceClassificationModel(TokenClassificationModel):
+    def __init__(
+        self,
+        visual: VisualStream,
+        textual: Optional[TextualStream] = None,
+        vocab_size: Optional[int] = 81,  # 80 COCO categories + padding idx.
+        ignore_indices: List[int] = [0],
+    ):
+        # We do not use `textual_stream` but keep it for consistent call signature.
+        super().__init__(visual, textual, vocab_size, ignore_indices)
+
+    def forward(self, batch: Batch):
+        output_dict = super().forward(batch)
+
+        # Rename `loss_components`.
+        output_dict["loss_components"]["instance_classification"] = output_dict[
+            "loss_components"
+        ].pop("token_classification")
+        return output_dict
+
+    def log_predictions(
+        self, batch: Batch, tokenizer: tkz.implementations.BaseTokenizer = None,
+    ) -> str:
+        # We accept `tokenizer` for having consistent API but don't use it here.
+        self.eval()
+        with torch.no_grad():
+            predictions = self.forward(batch)["predictions"]
+        self.train()
+
+        predictions_str = ""
+        for tokens, preds in zip(batch["caption_tokens"], predictions):
+            # Predictions here are COCO category IDs, let them be as is.
+            # Sorted ground truth, remove background tokens.
+            tokens = sorted([t for t in tokens.tolist() if t != 0])
+            preds = sorted(preds.tolist()[:len(tokens)])
+            predictions_str += f"""
+                Instances (GT) : {tokens}
+                Instances (PR) : {preds}
+
+                """
+        return predictions_str
