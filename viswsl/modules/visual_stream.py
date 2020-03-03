@@ -45,6 +45,7 @@ class TorchvisionVisualStream(VisualStream):
         name: str,
         visual_feature_size: int = 2048,
         pretrained: bool = False,
+        frozen: bool = False,
         **kwargs,
     ):
         super().__init__(visual_feature_size)
@@ -54,6 +55,12 @@ class TorchvisionVisualStream(VisualStream):
         )
         # Do nothing after the final residual stage.
         self.cnn.fc = nn.Identity()
+
+        # Freeze all weights if specified.
+        if frozen:
+            for param in self.cnn.parameters():
+                param.requires_grad = False
+            self.cnn.eval()
 
         # Keep a list of intermediate layer names.
         self._stage_names = [f"layer{i}" for i in range(1, 5)]

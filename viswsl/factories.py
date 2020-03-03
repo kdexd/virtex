@@ -194,6 +194,7 @@ class VisualStreamFactory(Factory):
         if "torchvision" in _C.MODEL.VISUAL.NAME:
             zoo_name, cnn_name = _C.MODEL.VISUAL.NAME.split("::")
             kwargs["pretrained"] = _C.MODEL.VISUAL.PRETRAINED
+            kwargs["frozen"] = _C.MODEL.VISUAL.FROZEN
 
             return cls.create(zoo_name, cnn_name, **kwargs)
         return cls.create(_C.MODEL.VISUAL.NAME, **kwargs)

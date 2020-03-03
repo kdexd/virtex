@@ -154,6 +154,7 @@ class Config(object):
         _C.MODEL.VISUAL.NAME = "torchvision::resnet50"
         _C.MODEL.VISUAL.FEATURE_SIZE = 2048
         _C.MODEL.VISUAL.PRETRAINED = False
+        _C.MODEL.VISUAL.FROZEN = False
 
         _C.MODEL.TEXTUAL = CN()
         _C.MODEL.TEXTUAL.NAME = "allfuse_postnorm"
