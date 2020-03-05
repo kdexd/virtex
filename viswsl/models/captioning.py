@@ -190,6 +190,12 @@ class CaptioningModel(nn.Module):
         # Return logprobs as required by `AutoRegressiveBeamSearch`.
         # shape: (batch_size * beam_size, vocab_size)
         next_logprobs = F.log_softmax(output_logits, dim=1)
+
+        # Set logprobs of recently predicted caption as high negative value to avoid
+        # two consecutive repeated tokens.
+        for index in range(batch_size * beam_size):
+            next_logprobs[index, partial_captions[index, -1]] = -1000000
+
         return next_logprobs
 
     def log_predictions(
