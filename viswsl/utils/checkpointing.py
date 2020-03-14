@@ -6,6 +6,8 @@ from loguru import logger
 import torch
 from torch import nn
 
+import viswsl.utils.distributed as dist
+
 
 class CheckpointManager(object):
     r"""
@@ -137,7 +139,10 @@ class CheckpointManager(object):
             or if info does not exist.
         """
 
-        logger.info(f"Loading checkpoint from {checkpoint_path}")
+        # Each process will log a message after loading checkpoint.
+        rank = dist.get_rank()
+
+        logger.info(f"Rank {rank}: Loading checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location="cpu")
         iteration = checkpoint.pop("iteration", -1)
 
@@ -147,7 +152,7 @@ class CheckpointManager(object):
         # Load each checkpointable from checkpoint.
         for key in checkpoint:
             if key in self.checkpointables:
-                logger.info(f"Loading {key} from {checkpoint_path}")
+                logger.info(f"Rank {rank}: Loading {key} from {checkpoint_path}")
 
                 if isinstance(
                     self.checkpointables[key], nn.parallel.DistributedDataParallel
@@ -158,8 +163,11 @@ class CheckpointManager(object):
 
                 is_loaded[key] = True
             else:
-                logger.info(f"{key} not found in `checkpointables`.")
+                logger.info(f"Rank {rank}: {key} not found in `checkpointables`.")
 
         not_loaded: List[str] = [key for key in is_loaded if not is_loaded[key]]
-        logger.info(f"Checkpointables not found in file: {not_loaded}")
+        if len(not_loaded) > 0:
+            logger.info(
+                f"Rank {rank}: Checkpointables not found in file: {not_loaded}"
+            )
         return iteration

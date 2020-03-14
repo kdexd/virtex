@@ -2,30 +2,19 @@ import datetime
 import time
 from typing import Optional
 
-from loguru import logger
 
-
-def cycle(dataloader, device, sampler_set_epoch: bool = False):
+def cycle(dataloader, device):
     r"""
     A generator which yields batch from dataloader perpetually.
     This is done so because we train for a fixed number of iterations, and do
     not have the notion of 'epochs'. Using ``itertools.cycle`` with dataloader
     is harmful and may cause unexpeced memory leaks.
-
-    Set ``sampler_set_epoch`` as ``True`` if using ``DistributedSampler`` and
-    need shuffling.
     """
-    epoch = 1
     while True:
-        logger.info(f"Starting epoch {epoch}.")
-        if sampler_set_epoch:
-            dataloader.sampler.set_epoch(epoch)
-
         for batch in dataloader:
             for key in batch:
                 batch[key] = batch[key].to(device)
             yield batch
-        epoch += 1
 
 
 class Timer(object):
@@ -41,7 +30,7 @@ class Timer(object):
     total_iterations: int, optional (default = None)
         Total number of iterations. ETA will not be tracked (will remain "N?A")
         if this is not provided.
-    resume_from: int, optional (default = 0)
+    last_iteration: int, optional (default = -1)
         Iteration from which the training was started/resumed.
     """
 
@@ -49,10 +38,10 @@ class Timer(object):
         self,
         window_size: int = 1,
         total_iterations: Optional[int] = None,
-        resume_from: int = 0,
+        last_iteration: int = -1,
     ):
         self.total_iters = total_iterations
-        self.current_iter = resume_from
+        self.current_iter = last_iteration
 
         self._start_time = time.time()
         self._window_times = [0.0] * window_size

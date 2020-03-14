@@ -61,8 +61,8 @@ parser.add_argument(
     only master process logs averaged loss values across processes.""",
 )
 parser.add_argument(
-    "--log-params", action="store_true", help="""Whether to log histograms of
-    parameters and their gradients during training."""
+    "--resume-from", default=None,
+    help="Path to a checkpoint to resume training from (if provided)."
 )
 parser.add_argument(
     "--checkpoint-every", type=int, default=2000,
@@ -88,10 +88,6 @@ if __name__ == "__main__":
     random.seed(_C.RANDOM_SEED)
     np.random.seed(_C.RANDOM_SEED)
     torch.manual_seed(_C.RANDOM_SEED)
-
-    # TODO (kd): uncomment for reproducibility. Right now, we care about speed.
-    # torch.backends.cudnn.benchmark = False
-    # torch.backends.cudnn.deterministic = True
 
     # Create serialization directory and save config in it.
     os.makedirs(_A.serialization_dir, exist_ok=True)
@@ -143,13 +139,11 @@ if __name__ == "__main__":
         collate_fn=val_dataset.collate_fn,
     )
     # Create an iterator from dataloader to sample batches perpetually.
-    train_dataloader_iter = cycle(
-        train_dataloader, device, sampler_set_epoch=train_sampler is not None
-    )
+    train_dataloader_iter = cycle(train_dataloader, device)
 
     model = PretrainingModelFactory.from_config(_C).to(device)
     optimizer = OptimizerFactory.from_config(_C, model.named_parameters())
-    lr_scheduler = LRSchedulerFactory.from_config(_C, optimizer)
+    scheduler = LRSchedulerFactory.from_config(_C, optimizer)
 
     # Wrap model and optimizer using NVIDIA Apex for mixed precision training.
     # NOTE: Always do this before wrapping model with DistributedDataParallel.
@@ -172,24 +166,37 @@ if __name__ == "__main__":
     if dist.is_master_process():
         # Only the master process would serialize checkpoints.
         checkpoint_manager = CheckpointManager(
-            _A.serialization_dir, model=model, optimizer=optimizer,
+            _A.serialization_dir,
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
         )
         # Tensorboard writer for logging training curves. Only the master
         # process will log events to tensorboard to avoid clutter.
         tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
-        tensorboard_writer.add_text("config", str(_C))
+
+        # Add whitespace before line breaks because Tensorboard takes Markdown.
+        tensorboard_writer.add_text("config", str(_C).replace("\n", "  \n"))
+
+    # Load checkpoint to resume training if specified.
+    if _A.resume_from is not None:
+        start_iteration = CheckpointManager(
+            model=model, optimizer=optimizer, scheduler=scheduler
+        ).load(_A.resume_from)
+    else:
+        start_iteration = 0
 
     # Keep track of (moving) average time per iteration and ETA.
-    timer = Timer(window_size=_A.log_every, total_iterations=_C.OPTIM.NUM_ITERATIONS)
-
-    # Counter to accumulate loss components for logging, this counter is
-    # cleared every `_A.log_every` iteration.
-    train_loss_counter: Counter = Counter()
+    timer = Timer(
+        window_size=_A.log_every,
+        total_iterations=_C.OPTIM.NUM_ITERATIONS,
+        last_iteration=start_iteration - 1,
+    )
 
     # -------------------------------------------------------------------------
     #   TRAINING LOOP
     # -------------------------------------------------------------------------
-    for iteration in range(1, _C.OPTIM.NUM_ITERATIONS + 1):
+    for iteration in range(start_iteration, _C.OPTIM.NUM_ITERATIONS):
         timer.tic()
         optimizer.zero_grad()
 
@@ -208,25 +215,14 @@ if __name__ == "__main__":
         else:
             loss.backward()
 
-        # Update accumulated loss components for logging.
-        train_loss_counter.update(output_dict["loss_components"])
-
         # Clip norm of gradients before optimizer step.
         torch.nn.utils.clip_grad_norm_(
             amp.master_params(optimizer) if _C.FP16_OPT > 0 else model.parameters(),
             _C.OPTIM.CLIP_GRAD_NORM,
         )
         optimizer.step()
-        lr_scheduler.step()
+        scheduler.step(iteration)
         timer.toc()
-
-        # Make the master process log loss, LR etc. to tensorboard.
-        if iteration % _A.log_every == 0:
-            train_loss_dict = {
-                k: v / _A.log_every for k, v in dict(train_loss_counter).items()
-            }
-            dist.average_across_processes(train_loss_dict)
-            train_loss_counter.clear()
 
         # ---------------------------------------------------------------------
         #   TENSORBOARD LOGGING
@@ -244,14 +240,9 @@ if __name__ == "__main__":
                 },
                 iteration,
             )
-            tensorboard_writer.add_scalars("train", train_loss_dict, iteration)
-
-            if _A.log_params:
-                for name, param in model.named_parameters():
-                    tensorboard_writer.add_histogram(name, param, iteration)
-                    tensorboard_writer.add_histogram(
-                        name + "_grad", param.grad, iteration
-                    )
+            tensorboard_writer.add_scalars(
+                "train", output_dict["loss_components"], iteration
+            )
 
         # ---------------------------------------------------------------------
         #   VALIDATION

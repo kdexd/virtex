@@ -140,7 +140,7 @@ if __name__ == "__main__":
         collate_fn=val_dataset.collate_fn,
     )
     # Create an iterator from dataloader to sample batches perpetually.
-    train_dataloader_iter = cycle(train_dataloader, device, sampler_set_epoch=True)
+    train_dataloader_iter = cycle(train_dataloader, device)
 
     # Initialize from a checkpoint, but only keep the visual module.
     model = PretrainingModelFactory.from_config(_C)
