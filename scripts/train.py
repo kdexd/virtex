@@ -172,7 +172,7 @@ if __name__ == "__main__":
     if dist.is_master_process():
         # Only the master process would serialize checkpoints.
         checkpoint_manager = CheckpointManager(
-            model, optimizer, _A.serialization_dir
+            _A.serialization_dir, model=model, optimizer=optimizer,
         )
         # Tensorboard writer for logging training curves. Only the master
         # process will log events to tensorboard to avoid clutter.

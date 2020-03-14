@@ -200,10 +200,8 @@ if __name__ == "__main__":
     #  BEFORE TRAINING STARTS
     # -------------------------------------------------------------------------
     if dist.is_master_process():
-        # Only the master process would serialize checkpoints. Keep only recent
-        # five checkpoints to save memory.
         checkpoint_manager = CheckpointManager(
-            classifiers, optimizer, _A.serialization_dir, k_recent=5
+            _A.serialization_dir, model=classifiers, optimizer=optimizer,
         )
         tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
 
