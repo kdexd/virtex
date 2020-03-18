@@ -1,3 +1,4 @@
+from .datasets.simple_coco import SimpleCocoCaptionsDataset
 from .datasets.captioning_dataset import (
     CaptioningDataset,
     CocoCaptionsEvalDataset,
@@ -12,6 +13,7 @@ from .datasets.word_masking_dataset import WordMaskingDataset
 
 __all__ = [
     "CaptioningDataset",
+    "SimpleCocoCaptionsDataset",
     "CocoCaptionsEvalDataset",
     "ImageNetDataset",
     "InstanceClassificationDataset",
