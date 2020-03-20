@@ -1,32 +1,82 @@
-import math
+from collections import defaultdict
+import glob
+import json
 import os
+import pickle
 import random
-from typing import Any, List, Tuple
+from typing import Dict, List, Tuple
 
-import dataflow as df
 import lmdb
 from loguru import logger
-import torch
-from torch.utils.data import get_worker_info
+import numpy as np
+from PIL import Image
+from torch.utils.data import Dataset
 
-from viswsl.utils.distributed import dist
+
+# Some simplified type renaming for better readability
+ImageID = int
+Captions = List[str]
 
 
-class LmdbReader(df.DataFlow):
+class SimpleCocoCaptionsReader(Dataset):
+    def __init__(self, root: str = "datasets/coco", split: str = "train"):
+
+        image_dir = os.path.join(root, f"{split}2017")
+
+        # Make a tuple of image id and its filename, get image_id from its
+        # filename (assuming directory has images with names in COCO2017 format).
+        image_filenames = glob.glob(os.path.join(image_dir, "*.jpg"))
+        self.id_filename: List[Tuple[ImageID, str]] = [
+            (int(os.path.basename(name)[:-4]), name) for name in image_filenames
+        ]
+
+        # Make a mapping between image_id and its captions.
+        _captions = json.load(
+            open(os.path.join(root, "annotations", f"captions_{split}2017.json"))
+        )
+        self._id_to_captions: Dict[ImageID, Captions] = defaultdict(list)
+
+        for ann in _captions["annotations"]:
+            self._id_to_captions[ann["image_id"]].append(ann["caption"])
+
+    def __len__(self):
+        return len(self.id_filename)
+
+    def __getitem__(self, idx: int):
+        image_id, filename = self.id_filename[idx]
+
+        # shape: (height, width, channels), dtype: uint8
+        image = np.array(Image.open(filename).convert("RGB"))
+        captions = self._id_to_captions[image_id]
+
+        return {"image_id": image_id, "image": image, "captions": captions}
+
+
+class LmdbReader(Dataset):
     r"""
-    A :class:`~dataflow.dataflow.DataFlow` to read datapoints from an LMDB
-    file, from a subset of all datapoints. The LMDB file is logically split
-    into multiple shards according to the number of parallel worker processes
-    reading from it, in order to avoid duplicate datapoints in a batch.
+    A reader interface to read datapoints from an LMDB file. Optionally, one
+    may specify a partial percentage of datapoints to use.
 
-    The dataset used (or any source of image-text pairs) does not matter. We
-    serialize all of them using class:`~dataflow.serializers.LMDBSerializer`.
+    .. note::
+
+        When training in distributed setting, make sure each worker has SAME
+        random seed because there is some randomness in selecting keys for
+        training with partial dataset. If you wish to use a different seed for
+        each worker, select keys manually outside of this class and use
+        :meth:`set_keys`.
+
+    .. note::
+
+        Similar to :class:`~torch.utils.data.DistributedSampler`, this reader
+        can shuffle the dataset deterministically at the start of epoch. Use
+        :meth:`set_shuffle_seed` manually from outside to change the seed
+        at every epoch.
 
     Parameters
     ----------
     lmdb_path: str
         Path to LMDB file with datapoints.
-    shuffle: bool, optional (default = False)
+    shuffle: bool, optional (default = True)
         Whether to shuffle or not. If this is on, there will be one deterministic
         shuffle based on epoch before sharding the dataset (to workers).
     percentage: float, optional (default = 100.0)
@@ -35,105 +85,75 @@ class LmdbReader(df.DataFlow):
         Make sure to set this only for training, not validation.
     """
 
-    def __init__(
-        self, lmdb_path: str, shuffle: bool = False, percentage: float = 100.0
-    ):
-        self._lmdb_path = lmdb_path
-        self._shuffle = shuffle
+    def __init__(self, lmdb_path: str, shuffle: bool = True, percentage: float = 100):
+        self.lmdb_path = lmdb_path
+        self.shuffle = shuffle
 
-        # Get a list of "keys" in the LMDB file so we could shard the dataset.
-        with lmdb.open(
-            self._lmdb_path,
-            subdir=os.path.isdir(self._lmdb_path),
-            readonly=True,
-            lock=False,
-            readahead=True,
-            map_size=1099511627776 * 2,
-        ) as _lmdb_file:
-
-            _txn = _lmdb_file.begin()
-            self._keys: List[bytes] = df.utils.serialize.loads(_txn.get(b"__keys__"))
-
-        # If data percentage < 100%, shuffle the keys and retain first K%,
-        # drop the rest. This shuffle will be deterministic if Python's random
-        # seed is fixed.
         assert percentage > 0, "Cannot load dataset with 0 percent original size."
+        self.percentage = percentage
 
+        # fmt: off
+        # Create an LMDB transaction as soon as this object is instantiated.
+        env = lmdb.open(
+            self.lmdb_path, subdir=False, readonly=True, lock=False,
+            readahead=False, map_size=1099511627776 * 2,
+        )
+        self.db_tcn = env.begin()
+
+        # Form a list of LMDB keys numbered from 0 (as binary strings).
+        self._keys = [
+            f"{i}".encode("ascii") for i in range(env.stat()["entries"])
+        ]
+        # fmt: on
+
+        # If data percentage < 100%, randomly retain K% keys. This will be
+        # deterministic based on random seed.
         if percentage < 100.0:
             retain_k: int = int(len(self._keys) * percentage / 100.0)
             random.shuffle(self._keys)
             self._keys = self._keys[:retain_k]
             logger.info(f"Retained {retain_k} datapoints for training!")
 
-        # For deterministically generating different shuffle ordes everytime
-        # the read through starts again.
-        self._read_epoch = 0
+        # A seed to deterministically shuffle at the start of epoch. This is
+        # set externally through `set_shuffle_seed`.
+        self.shuffle_seed = 0
 
-    def __iter__(self):
+    def set_shuffle_seed(self, seed: int):
+        self.shuffle_seed = seed
 
-        self._read_epoch += 1
-        if self._shuffle:
-            # Deterministically shuffle the dataset, differently everytime so.
-            g = torch.Generator()
-            g.manual_seed(self._read_epoch)
-            indices = torch.randperm(len(self._keys), generator=g).tolist()
-        else:
-            indices = list(range(len(self._keys)))
+    def get_keys(self) -> List[bytes]:
+        r"""Return list of keys, useful while saving checkpoint."""
+        return self._keys
 
-        # ====================================================================
-        # This code block will be executed just once, when an iterator of this
-        # dataflow is intialized: ``iter(df)`` or ``enumerate(df)``.
-        # --------------------------------------------------------------------
-        # If we are doing distributed training, then first shard the LMDB
-        # according to the number of GPU processes.
-        world_size: int = dist.get_world_size()
-        world_rank: int = dist.get_rank()
+    def set_keys(self, keys: List[bytes]):
+        r"""Set list of keys, useful while loading from checkpoint."""
+        self._keys = keys
 
-        # If not doing distributed training, this would be `len(self._keys)`.
-        samples_per_gpu_process = int(math.ceil(len(self._keys) / world_size))
+    def __getstate__(self):
+        r"""
+        This magic method allows an object of this class to be pickable, useful
+        for dataloading with multiple CPU workers. :attr:`db_txn` is not
+        pickable, so we remove it from state, and re-instantiate it in
+        :meth:`__setstate__`.
+        """
+        state = self.__dict__
+        state["db_txn"] = None
+        return state
 
-        # Further, shard the LMDB file according to the number of workers.
-        # Two members of interest:
-        #     1. ``id: int = [0, n-1]``
-        #     2. ``num_workers: int = n``.
-        worker_info = get_worker_info()
+    def __setstate__(self, state):
+        self.__dict__ = state
 
-        if worker_info is not None:
-            samples_per_worker = int(
-                math.ceil(len(indices) / (worker_info.num_workers * world_size))
-            )
-            start = (
-                world_rank * samples_per_gpu_process
-                + worker_info.id * samples_per_worker
-            )
-            # Last worker may get less than ``_per_worker`` examples.
-            end = min(len(indices), start + samples_per_worker)
-        else:
-            # Using single worker in dataloader, don't shard further.
-            start = world_rank * samples_per_gpu_process
-            end = min(len(indices), start + samples_per_gpu_process)
-
-        keys_per_worker = [self._keys[i] for i in indices[start:end]]
-
-        # Set shuffle to use `keys` - that's how this class works.
-        pipeline = df.LMDBData(self._lmdb_path, keys=keys_per_worker, shuffle=True)
-        # Decode bytes read from LMDB to Python objects.
-        pipeline = df.MapData(pipeline, self._deserialize)
-        pipeline.reset_state()
-        # ====================================================================
-
-        for image_id, instance in pipeline:
-            # `captions` here is a List[str].
-            image, captions = instance
-
-            # NOTE: `image_id` read from LMDB will NOT be COCO image ID.
-            yield {"image_id": image_id, "image": image, "captions": captions}
-
-    @staticmethod
-    def _deserialize(datapoint: List[bytes]) -> Tuple[int, Any]:
-        return (
-            # LMDB key (from ``self._keys``) is simply an integer. Cast bytes
-            # to int.
-            int(datapoint[0]),
-            df.utils.serialize.loads(datapoint[1]),
+        env = lmdb.open(
+            self.lmdb_path, subdir=False, readonly=True, lock=False,
+            readahead=False, map_size=1099511627776 * 2,
         )
+        self.db_txn = env.begin()
+
+    def __len__(self):
+        return len(self._keys)
+
+    def __getitem__(self, idx: int):
+        datapoint_pickled = self.db_txn.get(self._keys[idx])
+        image_id, image, captions = pickle.loads(datapoint_pickled)
+
+        return image_id, image, captions

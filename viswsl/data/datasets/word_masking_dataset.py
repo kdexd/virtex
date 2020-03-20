@@ -5,11 +5,13 @@ from typing import Callable, List
 import albumentations as alb
 import numpy as np
 import tokenizers as tkz
-from torch.utils.data import IterableDataset
+from torch.utils.data import Dataset
 
 from viswsl.data.readers import LmdbReader
 from viswsl.data.structures import WordMaskingInstance, WordMaskingBatch
 from viswsl.data.transforms import (
+    IMAGENET_COLOR_MEAN,
+    IMAGENET_COLOR_STD,
     RandomHorizontalFlip,
     NormalizeCaption,
     TokenizeCaption,
@@ -17,7 +19,7 @@ from viswsl.data.transforms import (
 )
 
 
-class WordMaskingDataset(IterableDataset):
+class WordMaskingPretextDataset(Dataset):
     def __init__(
         self,
         lmdb_path: str,
@@ -27,29 +29,23 @@ class WordMaskingDataset(IterableDataset):
         replace_probability: float = 0.10,
         image_transform: Callable = alb.Compose(
             [
-                alb.SmallestMaxSize(max_size=256),
-                alb.RandomCrop(224, 224),
-                alb.ToFloat(max_value=255.0),
+                alb.RandomResizedCrop(224, 224, always_apply=True),
+                alb.ToFloat(always_apply=True),
                 alb.Normalize(
-                    mean=(0.485, 0.456, 0.406),
-                    std=(0.229, 0.224, 0.225),
+                    mean=IMAGENET_COLOR_MEAN,
+                    std=IMAGENET_COLOR_STD,
                     max_pixel_value=1.0,
+                    always_apply=True,
                 ),
             ]
         ),
         random_horizontal_flip: bool = True,
         max_caption_length: int = 30,
         use_single_caption: bool = False,
-        percentage: float = 100.0,
-        shuffle: bool = False,
     ):
         self._tokenizer = tokenizer
         self.image_transform = image_transform
-
-        # keys: {"image_id", "image", "caption"}
-        self._pipeline = LmdbReader(
-            lmdb_path, shuffle=shuffle, percentage=percentage
-        )
+        self.reader = LmdbReader(lmdb_path, percentage=percentage)
 
         # Random horizontal flip is kept separate from other data augmentation
         # transforms because we need to change the caption if image is flipped.
@@ -75,54 +71,53 @@ class WordMaskingDataset(IterableDataset):
         self._mask_prob = mask_probability
         self._repl_prob = replace_probability
 
-    def __iter__(self):
-        self._pipeline.reset_state()
+    def __len__(self):
+        return len(self.reader)
 
-        for datapoint in self._pipeline:
-            # Transform and convert image from HWC to CHW format.
-            image = self.image_transform(image=datapoint["image"])["image"]
-            image = np.transpose(image, (2, 0, 1))
+    def __getitem__(self, idx: int) -> WordMaskingInstance:
 
-            # Pick a random caption and process (transform) it.
-            # Pick a random caption or first caption and process (transform) it.
-            captions = datapoint["captions"]
-            if self.use_single_caption:
-                caption = captions[0]
+        image_id, image, captions = self.reader[idx]
+
+        # Transform and convert image from HWC to CHW format.
+        image = self.image_transform(image=image)["image"]
+        image = np.transpose(image, (2, 0, 1))
+
+        # Pick a random caption or first caption and process (transform) it.
+        if self.use_single_caption:
+            caption = captions[0]
+        else:
+            caption = random.choice(captions)
+
+        caption_tokens = self.caption_transform(caption=caption)["caption"]
+
+        # ---------------------------------------------------------------------
+        #  Mask some tokens randomly.
+        # ---------------------------------------------------------------------
+        masked_labels = [self.padding_idx] * len(caption_tokens)
+
+        # Indices in `caption_tokens` list to mask (minimum 1 index).
+        # Leave out first and last indices (boundary tokens).
+        tokens_to_mask: List[int] = random.sample(
+            list(range(1, len(caption_tokens) - 1)),
+            math.ceil((len(caption_tokens) - 2) * self._mask_proportion),
+        )
+        for i in tokens_to_mask:
+            # Whether to replace with [MASK] or random word.
+            # If only one token, always [MASK].
+            if len(tokens_to_mask) == 1:
+                masked_labels[i] = caption_tokens[i]
+                caption_tokens[i] = self._mask_index
             else:
-                caption = random.choice(captions)
+                _flag: float = random.random()
+                if _flag <= self._mask_prob + self._repl_prob:
+                    if _flag <= self._mask_prob:
+                        masked_labels[i] = caption_tokens[i]
+                        caption_tokens[i] = self._mask_index
+                    else:
+                        caption_tokens[i] = self._random_token_index()
+        # ---------------------------------------------------------------------
 
-            caption_tokens = self.caption_transform(caption=caption)["caption"]
-
-            # -----------------------------------------------------------------
-            #  Mask some tokens randomly.
-            # -----------------------------------------------------------------
-            masked_labels = [self.padding_idx] * len(caption_tokens)
-
-            # Indices in `caption_tokens` list to mask (minimum 1 index).
-            # Leave out first and last indices (boundary tokens).
-            tokens_to_mask: List[int] = random.sample(
-                list(range(1, len(caption_tokens) - 1)),
-                math.ceil((len(caption_tokens) - 2) * self._mask_proportion),
-            )
-            for i in tokens_to_mask:
-                # Whether to replace with [MASK] or random word.
-                # If only one token, always [MASK].
-                if len(tokens_to_mask) == 1:
-                    masked_labels[i] = caption_tokens[i]
-                    caption_tokens[i] = self._mask_index
-                else:
-                    _flag: float = random.random()
-                    if _flag <= self._mask_prob + self._repl_prob:
-                        if _flag <= self._mask_prob:
-                            masked_labels[i] = caption_tokens[i]
-                            caption_tokens[i] = self._mask_index
-                        else:
-                            caption_tokens[i] = self._random_token_index()
-            # -----------------------------------------------------------------
-
-            yield WordMaskingInstance(
-                datapoint["image_id"], image, caption_tokens, masked_labels
-            )
+        return WordMaskingInstance(image_id, image, caption_tokens, masked_labels)
 
     def collate_fn(self, instances: List[WordMaskingInstance]) -> WordMaskingBatch:
         return WordMaskingBatch(instances, padding_value=self.padding_idx)

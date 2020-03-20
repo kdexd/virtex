@@ -7,6 +7,7 @@ from torch import nn, optim
 
 from viswsl.config import Config
 import viswsl.data as vdata
+from viswsl.data.transforms import IMAGENET_COLOR_MEAN, IMAGENET_COLOR_STD
 import viswsl.models as vmodels
 from viswsl.modules import visual_stream as vs, textual_stream as ts
 from viswsl.optim import Lookahead, lr_scheduler
@@ -101,7 +102,6 @@ class DatasetFactory(Factory):
                 "max_caption_length": _C.DATA.CAPTION.MAX_LENGTH,
                 "use_single_caption": _C.DATA.CAPTION.USE_SINGLE,
                 "percentage": _C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
-                "shuffle": _C.DATA.SHUFFLE_TRAIN if split == "train" else False,
             }
             if _C.MODEL.NAME == "word_masking":
                 kwargs.update(
@@ -112,7 +112,7 @@ class DatasetFactory(Factory):
         else:
             # TODO: add `root` argument after adding to config.
             kwargs = {
-                "shuffle": _C.DATA.SHUFFLE_TRAIN if split == "train" else False,
+                "shuffle": split == "train",
                 "split": split,
             }
 
@@ -155,8 +155,8 @@ class DatasetFactory(Factory):
         if _C.DATA.IMAGE.COLOR_NORMALIZE:
             augmentation_list.append(
                 alb.Normalize(
-                    mean=(0.485, 0.456, 0.406),
-                    std=(0.229, 0.224, 0.225),
+                    mean=IMAGENET_COLOR_MEAN,
+                    std=IMAGENET_COLOR_STD,
                     max_pixel_value=1.0,
                 )
             )

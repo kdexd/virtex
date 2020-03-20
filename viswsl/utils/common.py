@@ -3,18 +3,29 @@ import time
 from typing import Optional
 
 
-def cycle(dataloader, device):
+def cycle(dataloader, device, start_iteration: int = 0):
     r"""
     A generator which yields batch from dataloader perpetually.
     This is done so because we train for a fixed number of iterations, and do
-    not have the notion of 'epochs'. Using ``itertools.cycle`` with dataloader
-    is harmful and may cause unexpeced memory leaks.
+    not have the notion of 'epochs'.
+
+    Internally, it sets the ``epoch`` for dataloader sampler to shuffle the
+    examples. One may optionally provide the starting iteration to make sure
+    the shuffling seed is difference and continues naturally.
     """
+    iteration = start_iteration
+
     while True:
+        # Set the `epoch` of sampler as current iteration. This is just for
+        # determinisitic shuffling after every epoch, so it is just a seed and
+        # need not necessarily be the "epoch".
+        dataloader.sampler.set_epoch(iteration)
+
         for batch in dataloader:
             for key in batch:
                 batch[key] = batch[key].to(device)
             yield batch
+            iteration += 1
 
 
 class Timer(object):

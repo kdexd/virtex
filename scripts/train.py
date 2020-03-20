@@ -113,33 +113,34 @@ if __name__ == "__main__":
     train_dataset = DatasetFactory.from_config(_C, tokenizer, split="train")
     val_dataset = DatasetFactory.from_config(_C, tokenizer, split="val")
 
-    # HACK: set DistributedSampler only for `instance_classification`. Remove
-    # this later.
-    if _C.MODEL.NAME == "instance_classification":
-        train_sampler = DistributedSampler(train_dataset, shuffle=True)
-        val_sampler = DistributedSampler(val_dataset, shuffle=False)
-    else:
-        train_sampler = None
-        val_sampler = None
-
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
-        sampler=train_sampler,
+        sampler=DistributedSampler(
+            train_dataset,
+            num_replicas=dist.get_world_size(),
+            rank=dist.get_rank(),
+            shuffle=True,
+        ),
         num_workers=_A.cpu_workers,
         pin_memory=True,
+        drop_last=True,
         collate_fn=train_dataset.collate_fn,
     )
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
-        sampler=val_sampler,
+        sampler=DistributedSampler(
+            val_dataset,
+            num_replicas=dist.get_world_size(),
+            rank=dist.get_rank(),
+            shuffle=False,
+        ),
         num_workers=_A.cpu_workers,
         pin_memory=True,
+        drop_last=False,
         collate_fn=val_dataset.collate_fn,
     )
-    # Create an iterator from dataloader to sample batches perpetually.
-    train_dataloader_iter = cycle(train_dataloader, device)
 
     model = PretrainingModelFactory.from_config(_C).to(device)
     optimizer = OptimizerFactory.from_config(_C, model.named_parameters())
@@ -192,6 +193,8 @@ if __name__ == "__main__":
         total_iterations=_C.OPTIM.NUM_ITERATIONS,
         last_iteration=start_iteration - 1,
     )
+    # Create an iterator from dataloader to sample batches perpetually.
+    train_dataloader_iter = cycle(train_dataloader, device, start_iteration)
 
     # -------------------------------------------------------------------------
     #   TRAINING LOOP

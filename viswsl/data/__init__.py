@@ -1,6 +1,5 @@
-from .datasets.simple_coco import SimpleCocoCaptionsDataset
 from .datasets.captioning_dataset import (
-    CaptioningDataset,
+    CaptioningPretextDataset,
     CocoCaptionsEvalDataset,
 )
 from .datasets.instanceclf_dataset import InstanceClassificationDataset
@@ -9,15 +8,14 @@ from .datasets.downstream_datasets import (
     Places205Dataset,
     VOC07ClassificationDataset,
 )
-from .datasets.word_masking_dataset import WordMaskingDataset
+from .datasets.word_masking_dataset import WordMaskingPretextDataset
 
 __all__ = [
-    "CaptioningDataset",
-    "SimpleCocoCaptionsDataset",
     "CocoCaptionsEvalDataset",
+    "CaptioningPretextDataset",
     "ImageNetDataset",
     "InstanceClassificationDataset",
     "Places205Dataset",
     "VOC07ClassificationDataset",
-    "WordMaskingDataset",
+    "WordMaskingPretextDataset",
 ]

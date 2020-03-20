@@ -5,7 +5,7 @@ import sys
 from loguru import logger
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 
 from viswsl.config import Config
 from viswsl.factories import TokenizerFactory, DatasetFactory
@@ -96,6 +96,12 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
+        sampler=DistributedSampler(
+            train_dataset,
+            num_replicas=dist.get_world_size(),
+            rank=dist.get_rank(),
+            shuffle=True,
+        ),
         num_workers=_A.cpu_workers,
         pin_memory=True,
         collate_fn=train_dataset.collate_fn,
@@ -104,12 +110,15 @@ if __name__ == "__main__":
     train_dataloader_iter = cycle(train_dataloader, device)
 
     # Keep track of (moving) average time per iteration and ETA.
-    timer = Timer(window_size=_A.log_every, total_iterations=_C.OPTIM.NUM_ITERATIONS)
+    timer = Timer(
+        window_size=_A.log_every,
+        total_iterations=_C.OPTIM.NUM_ITERATIONS
+    )
 
     # -------------------------------------------------------------------------
     #   BENCHMARKING LOOP
     # -------------------------------------------------------------------------
-    for iteration in range(1, _C.OPTIM.NUM_ITERATIONS + 1):
+    for iteration in range(_C.OPTIM.NUM_ITERATIONS):
         timer.tic()
         batch = next(train_dataloader_iter)
 
@@ -117,21 +126,5 @@ if __name__ == "__main__":
         dist.synchronize()
         timer.toc()
 
-    #     examples_str = ""
-    #     for tokens, labels in zip(
-    #         batch["caption_tokens"], batch["masked_labels"],
-    #     ):
-    #         to_strtokens = lambda token_indices: [  # noqa: E731
-    #             vocabulary.get_token_from_index(t.item())
-    #             for t in token_indices if t.item() != vocabulary.unk_index
-    #         ]
-    #         tokens = to_strtokens(tokens)
-    #         labels = to_strtokens(labels)
-
-    #         examples_str += f"""
-    #             Caption tokens      : {tokenizer.detokenize(tokens)}
-    #             Masked Labels       : {" ".join(labels)}
-
-    #             """
-    #     break
-    # print(examples_str)
+        if iteration % _A.log_every == 0 and dist.is_master_process():
+            logger.info(timer.stats)

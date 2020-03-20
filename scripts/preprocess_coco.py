@@ -7,7 +7,7 @@ import albumentations as alb
 import lmdb
 from tqdm import tqdm
 
-from viswsl.data import SimpleCocoCaptionsDataset
+from viswsl.data.readers import SimpleCocoCaptionsReader
 
 
 # fmt: off
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     _A = parser.parse_args()
     os.makedirs(os.path.dirname(_A.output), exist_ok=True)
 
-    dset = SimpleCocoCaptionsDataset(_A.data_root, _A.split)
+    dset = SimpleCocoCaptionsReader(_A.data_root, _A.split)
 
     # Open an LMDB database.
     # Set a sufficiently large map size for LMDB (based on platform).
