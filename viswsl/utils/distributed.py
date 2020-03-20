@@ -104,3 +104,14 @@ def average_across_processes(t: Union[Dict[str, torch.Tensor], torch.Tensor]):
             for k in t:
                 dist.all_reduce(t[k], op=dist.ReduceOp.SUM)
                 t[k] /= dist.get_world_size()
+
+
+def gpu_mem_usage() -> int:
+    r"""
+    Return gpu memory usage in MB, and return zero without raising an error if
+    not using GPU.
+    """
+    if torch.cuda.is_available():
+        return torch.cuda.max_memory_allocated() // 1048576
+    else:
+        return 0

@@ -38,10 +38,9 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import models
 
 from viswsl.data.datasets.downstream_datasets import ImageNetDataset
-from viswsl.utils.common import Timer
 import viswsl.utils.distributed as vdist
 from viswsl.utils.metrics import ImageNetTopkAccuracy
-
+from viswsl.utils.timer import Timer
 
 # fmt: off
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
@@ -211,10 +210,9 @@ def main_worker(gpu, ngpus_per_node, _A):
     # fmt: on
     # -------------------------------------------------------------------------
 
-    # Keep track of (moving) average time per iteration and ETA.
-    timer = Timer(
-        window_size=_A.log_every, total_iterations=_A.epochs * len(train_loader)
-    )
+    # Keep track of time per iteration and ETA.
+    timer = Timer(last_iteration=-1, total_iterations=_A.epochs * len(train_loader))
+
     writer = SummaryWriter(log_dir=_A.serialization_dir)
     for epoch in range(_A.start_epoch, _A.epochs):
         train_sampler.set_epoch(epoch)

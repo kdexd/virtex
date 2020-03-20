@@ -2,8 +2,6 @@ import argparse
 from collections import defaultdict
 import multiprocessing as mp
 import os
-import random
-import sys
 from typing import Any, Dict, List
 
 from loguru import logger
@@ -20,6 +18,8 @@ from viswsl.config import Config
 from viswsl.data import VOC07ClassificationDataset
 from viswsl.factories import PretrainingModelFactory
 from viswsl.models import FeatureExtractor9k
+from viswsl.utils.checkpointing import CheckpointManager
+from viswsl.utils.common import common_setup
 
 
 # fmt: off
@@ -43,16 +43,29 @@ parser.add_argument(
 parser.add_argument(
     "--cpu-workers", type=int, default=2, help="Number of CPU workers."
 )
+
+parser.add_argument_group("Checkpointing and Logging")
 parser.add_argument(
-    "--checkpoint-path", required=True,
+    "--weight-init", choices=["random", "imagenet", "torchvision", "checkpoint"],
+    default="checkpoint", help="""How to initialize weights:
+        1. 'random' initializes all weights randomly
+        2. 'imagenet' initializes backbone weights from torchvision model zoo
+        3. {'torchvision', 'checkpoint'} load state dict from --checkpoint-path
+            - with 'torchvision', state dict would be from PyTorch's training
+              script.
+            - with 'checkpoint' it should be for our full pretrained model."""
+)
+parser.add_argument(
+    "--checkpoint-path",
     help="""Path to load checkpoint and run downstream task evaluation. The
     name of checkpoint file is required to be `checkpoint_*.pth`, where * is
     iteration number from which the checkpoint was serialized."""
 )
 parser.add_argument(
-    "--serialization-dir", default=None,
+    "--serialization-dir", default="/tmp/voc07_clf",
     help="""Path to a directory to save results log as a Tensorboard event
-    file. If not provided, this will be the parent directory of checkpoint."""
+    file. Recommended to set as parent directory of checkpoint path for
+    `weight_init = checkpoint`."""
 )
 # fmt: on
 
@@ -118,35 +131,33 @@ if __name__ == "__main__":
     #   INPUT ARGUMENTS AND CONFIG
     # -------------------------------------------------------------------------
     _A = parser.parse_args()
+    if _A.weight_init == "imagenet":
+        _A.config_override.extend(["MODEL.VISUAL.PRETRAINED", True])
+
     _C = Config(_A.config, _A.config_override)
     _DOWNC = _C.DOWNSTREAM.VOC07_CLF
 
-    # Set random seeds for reproucibility.
-    random.seed(_C.RANDOM_SEED)
-    np.random.seed(_C.RANDOM_SEED)
-    torch.manual_seed(_C.RANDOM_SEED)
-
     device = torch.device(f"cuda:{_A.gpu_id}" if _A.gpu_id != -1 else "cpu")
+    common_setup(_C, _A)
 
-    # Configure our custom logger.
-    logger.remove(0)
-    logger.add(
-        sys.stdout, format="<g>{time}</g>: <lvl>{message}</lvl>", colorize=True
-    )
-    # Set up a serialization directory.
-    if not _A.serialization_dir:
-        _A.serialization_dir = os.path.dirname(_A.checkpoint_path)
-    os.makedirs(_A.serialization_dir, exist_ok=True)
+    # -------------------------------------------------------------------------
+    #   INSTANTIATE MODEL AND LOGGING
+    # -------------------------------------------------------------------------
 
-    # Print config and args.
-    for arg in vars(_A):
-        logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))
+    # Initialize from a checkpoint, but only keep the visual module.
+    model = PretrainingModelFactory.from_config(_C)
 
-    # Tensorboard writer for logging mAP scores.
-    tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
-    CHECKPOINT_ITERATION = int(
-        os.path.basename(_A.checkpoint_path).split("_")[-1][:-4]
-    )
+    # Load weights according to the init method, do nothing for `random`, and
+    # `imagenet` is already taken care of.
+    if _A.weight_init == "checkpoint":
+        ITERATION = CheckpointManager(model=model).load(_A.checkpoint_path)
+    elif _A.weight_init == "torchvision":
+        # Keep strict=False because this state dict may have weights for
+        # last fc layer.
+        model.visual.cnn.load_state_dict(
+            torch.load(_A.checkpoint_path, map_location="cpu")["state_dict"],
+            strict=False,
+        )
 
     # -------------------------------------------------------------------------
     #   EXTRACT FEATURES FOR TRAINING SVMs
@@ -167,10 +178,6 @@ if __name__ == "__main__":
         pin_memory=True,
     )
     NUM_CLASSES = len(train_dataset.class_names)
-
-    # Initialize from a checkpoint, but only keep the visual module.
-    model = PretrainingModelFactory.from_config(_C).to(device)
-    model.load_state_dict(torch.load(_A.checkpoint_path))
 
     feature_extractor = FeatureExtractor9k(model, _DOWNC.LAYER_NAMES).to(device)
     del model
@@ -236,6 +243,14 @@ if __name__ == "__main__":
     pool = mp.Pool(processes=_A.cpu_workers)
     pool_output = pool.map(train_test_single_svm, input_args)
 
+    # -------------------------------------------------------------------------
+    #   TENSORBOARD LOGGING (RELEVANT MAINLY FOR weight_init=checkpoint)
+    # -------------------------------------------------------------------------
+
+    # Tensorboard writer for logging mAP scores. This is useful especially
+    # when weight_init=checkpoint (which maybe be coming from a training job).
+    tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
+
     # Test set AP for each class, for features from every layer.
     # shape: (num_layers, num_classes)
     test_ap = torch.tensor(pool_output).view(-1, NUM_CLASSES)
@@ -244,14 +259,20 @@ if __name__ == "__main__":
         for layer_idx, layer_name in enumerate(_DOWNC.LAYER_NAMES):
             layer_test_map = torch.mean(test_ap, dim=-1)[layer_idx]
             logger.info(f"mAP for {layer_name}: {layer_test_map}")
-            tensorboard_writer.add_scalars(
-                "metrics/voc07_clf",
-                {f"{layer_name}_mAP": layer_test_map},
-                CHECKPOINT_ITERATION,
-            )
+
+            # Tensorboard logging only when _A.weight_init == "checkpoint"
+            if _A.weight_init == "checkpoint":
+                tensorboard_writer.add_scalars(
+                    "metrics/voc07_clf",
+                    {f"{layer_name}_mAP": layer_test_map},
+                    ITERATION,
+                )
 
     best_test_map = torch.max(torch.mean(test_ap, dim=-1)).item()
     logger.info(f"Best mAP: {best_test_map}")
-    tensorboard_writer.add_scalars(
-        "metrics/voc07_clf", {"best_mAP": best_test_map}, CHECKPOINT_ITERATION
-    )
+
+    # Tensorboard logging only when _A.weight_init == "checkpoint"
+    if _A.weight_init == "checkpoint":
+        tensorboard_writer.add_scalars(
+            "metrics/voc07_clf", {"best_mAP": best_test_map}, ITERATION
+        )

@@ -1,6 +1,14 @@
-import datetime
-import time
-from typing import Optional
+import argparse
+import os
+import random
+import sys
+
+from loguru import logger
+import numpy as np
+import torch
+
+from viswsl.config import Config
+import viswsl.utils.distributed as dist
 
 
 def cycle(dataloader, device, start_iteration: int = 0):
@@ -28,71 +36,61 @@ def cycle(dataloader, device, start_iteration: int = 0):
             iteration += 1
 
 
-class Timer(object):
+def common_setup(_C: Config, _A: argparse.Namespace):
     r"""
-    A simple timer to record time per iteration and ETA of training. Using this
-    is slightly faster than using ``tqdm`` during distributed training. Time
-    taken and ETA are estimated in a moving average with a fixed window size.
+    Setup common stuff at the start of every job, all listed here to avoid
+    code duplication. Basic steps include::
+
+        1. Fix random seeds and other PyTorch flags.
+        2. Set up a serialization directory and loggers.
+        3. Log important stuff such as config, process info (useful during
+           distributed training).
+        4. Save a copy of config to serialization directory.
+
+    .. note::
+
+        It is assumed that multiple processes for distributed training have
+        already been launched from outside and functions from
+        :mod:`viswsl.util.distributed` will return process info.
 
     Parameters
     ----------
-    window_size: int, optional (default = 1)
-        Window size for calculating moving average time of past few iterations.
-    total_iterations: int, optional (default = None)
-        Total number of iterations. ETA will not be tracked (will remain "N?A")
-        if this is not provided.
-    last_iteration: int, optional (default = -1)
-        Iteration from which the training was started/resumed.
+    _C: viswsl.config.Config
+    _A: argparse.Namespace
     """
 
-    def __init__(
-        self,
-        window_size: int = 1,
-        total_iterations: Optional[int] = None,
-        last_iteration: int = -1,
-    ):
-        self.total_iters = total_iterations
-        self.current_iter = last_iteration
+    # Get process rank and world size (assuming distributed is initialized).
+    RANK = dist.get_rank()
+    WORLD_SIZE = dist.get_world_size()
 
-        self._start_time = time.time()
-        self._window_times = [0.0] * window_size
+    # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
+    torch.manual_seed(_C.RANDOM_SEED)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    random.seed(_C.RANDOM_SEED)
+    np.random.seed(_C.RANDOM_SEED)
 
-    def tic(self) -> None:
-        r"""Start recording time: call at the beginning of iteration."""
-        self._start_time = time.time()
+    # Create serialization directory and save config in it.
+    os.makedirs(_A.serialization_dir, exist_ok=True)
+    _C.dump(os.path.join(_A.serialization_dir, "config.yml"))
 
-    def toc(self) -> None:
-        r"""Stop recording time: call at the end of iteration."""
-        self._window_times.append(time.time() - self._start_time)
-        self._window_times = self._window_times[1:]
-        self.current_iter += 1
+    # Remove default logger, create a logger for each process which writes to a
+    # separate log-file. This makes changes in global scope.
+    logger.remove(0)
+    logger.add(
+        os.path.join(_A.serialization_dir, f"log-rank{RANK}.txt"),
+        format="{time} {level} {message}",
+    )
+    # Add a logger for stdout only for the master process.
+    if dist.is_master_process():
+        logger.add(
+            sys.stdout, format="<g>{time}</g>: <lvl>{message}</lvl>", colorize=True
+        )
 
-    @property
-    def stats(self) -> str:
-        r"""Return a single string with current iteration, avg time and ETA."""
-        return f"Iter {self.current_iter} | Avg: {self.avg:.3f} sec | ETA: {self.eta_hhmmss}"
+    # Print process info, config and args.
+    logger.info(f"Rank of current process: {RANK}. World size: {WORLD_SIZE}")
+    logger.info(str(_C))
 
-    @property
-    def avg(self) -> float:
-        r"""Return average time per iteration in seconds."""
-        return sum(self._window_times) / len(self._window_times)
-
-    @property
-    def eta_hhmmss(self) -> str:
-        r"""Return ETA in the form of HH:MM:SS string."""
-        if self.total_iters:
-            avg_time = sum(self._window_times) / len(self._window_times)
-            _eta = avg_time * (self.total_iters - self.current_iter)
-            # Convert seconds to HH:MM:SS
-            return str(datetime.timedelta(seconds=_eta))
-        else:
-            return "N/A"
-
-    @property
-    def eta_sec(self) -> float:
-        r"""Return ETA in the form of seconds."""
-        if self.total_iters:
-            avg_time = sum(self._window_times) / len(self._window_times)
-            return avg_time * (self.total_iters - self.current_iter)
-        else:
-            return 0.0
+    logger.info("Command line args:")
+    for arg in vars(_A):
+        logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))

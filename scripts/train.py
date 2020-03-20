@@ -18,8 +18,9 @@ from viswsl.factories import (
     OptimizerFactory, LRSchedulerFactory,
 )
 from viswsl.utils.checkpointing import CheckpointManager
-from viswsl.utils.common import cycle, Timer
+from viswsl.utils.common import common_setup, cycle
 import viswsl.utils.distributed as dist
+from viswsl.utils.timer import Timer
 
 
 parser = argparse.ArgumentParser(
@@ -84,27 +85,7 @@ if __name__ == "__main__":
     # _A. This object is immutable, nothing can be changed in this anymore.
     _C = Config(_A.config, _A.config_override)
 
-    # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
-    random.seed(_C.RANDOM_SEED)
-    np.random.seed(_C.RANDOM_SEED)
-    torch.manual_seed(_C.RANDOM_SEED)
-
-    # Create serialization directory and save config in it.
-    os.makedirs(_A.serialization_dir, exist_ok=True)
-    _C.dump(os.path.join(_A.serialization_dir, "config.yml"))
-
-    # Disable the logger for all processes except master process to avoid
-    # clutter in stdout / stderr / logfile.
-    logger.remove(0)
-    logger.add(
-        sys.stdout, format="<g>{time}</g>: <lvl>{message}</lvl>", colorize=True
-    )
-    logger.disable(__name__) if not dist.is_master_process() else None
-
-    # Print config and args.
-    logger.info(str(_C))
-    for arg in vars(_A):
-        logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))
+    common_setup(_C, _A)
 
     # -------------------------------------------------------------------------
     #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER
@@ -187,11 +168,10 @@ if __name__ == "__main__":
     else:
         start_iteration = 0
 
-    # Keep track of (moving) average time per iteration and ETA.
+    # Keep track of time per iteration and ETA.
     timer = Timer(
-        window_size=_A.log_every,
-        total_iterations=_C.OPTIM.NUM_ITERATIONS,
         last_iteration=start_iteration - 1,
+        total_iterations=_C.OPTIM.NUM_ITERATIONS,
     )
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter = cycle(train_dataloader, device, start_iteration)
@@ -233,7 +213,7 @@ if __name__ == "__main__":
         if iteration % _A.log_every == 0 and dist.is_master_process():
             logger.info(
                 f"{timer.stats} | Loss: {batch_loss:.3f} | "
-                f"GPU mem: {torch.cuda.max_memory_allocated() / 1048576} MB"
+                f"GPU mem: {dist.gpu_mem_usage()} MB"
             )
             tensorboard_writer.add_scalars(
                 "learning_rate",

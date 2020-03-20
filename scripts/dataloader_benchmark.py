@@ -10,7 +10,8 @@ from torch.utils.data import DataLoader, DistributedSampler
 from viswsl.config import Config
 from viswsl.factories import TokenizerFactory, DatasetFactory
 import viswsl.utils.distributed as dist
-from viswsl.utils.common import cycle, Timer
+from viswsl.utils.common import cycle
+from viswsl.utils.timer import Timer
 
 
 # fmt: off
@@ -109,11 +110,8 @@ if __name__ == "__main__":
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter = cycle(train_dataloader, device)
 
-    # Keep track of (moving) average time per iteration and ETA.
-    timer = Timer(
-        window_size=_A.log_every,
-        total_iterations=_C.OPTIM.NUM_ITERATIONS
-    )
+    # Keep track of time per iteration and ETA.
+    timer = Timer(last_iteration=-1, total_iterations=_C.OPTIM.NUM_ITERATIONS)
 
     # -------------------------------------------------------------------------
     #   BENCHMARKING LOOP

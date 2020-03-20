@@ -1,11 +1,8 @@
 import argparse
 from collections import Counter
 import os
-import random
-import sys
 
 from loguru import logger
-import numpy as np
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader, DistributedSampler
@@ -16,8 +13,9 @@ from viswsl.config import Config
 from viswsl.factories import DownstreamDatasetFactory, PretrainingModelFactory
 from viswsl.models.downstream import FeatureExtractor9k, LinearClassifiers
 from viswsl.utils.checkpointing import CheckpointManager
-from viswsl.utils.common import cycle, Timer
+from viswsl.utils.common import common_setup, cycle
 import viswsl.utils.distributed as dist
+from viswsl.utils.timer import Timer
 
 
 parser = argparse.ArgumentParser(
@@ -97,26 +95,10 @@ if __name__ == "__main__":
     _C = Config(_A.config, _A.config_override)
     _DOWNC = _C.DOWNSTREAM.LINEAR_CLF
 
-    # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
-    random.seed(_C.RANDOM_SEED)
-    np.random.seed(_C.RANDOM_SEED)
-    torch.manual_seed(_C.RANDOM_SEED)
-
-    # Configure our custom logger.
-    logger.remove(0)
-    logger.add(
-        sys.stdout, format="<g>{time}</g>: <lvl>{message}</lvl>", colorize=True
-    )
-    logger.disable(__name__) if not dist.is_master_process() else None
-    os.makedirs(_A.serialization_dir, exist_ok=True)
-
-    # Print config and args.
-    logger.info(str(_C))
-    for arg in vars(_A):
-        logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))
-
     # Either "imagenet" or "places205", useful for tensorboard logging.
     DATASET = _DOWNC.DATA_ROOT.split("/")[-1]
+
+    common_setup(_C, _A)
 
     # -------------------------------------------------------------------------
     #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER
@@ -148,7 +130,7 @@ if __name__ == "__main__":
     # Load weights according to the init method, do nothing for `random`, and
     # `imagenet` is already taken care of.
     if _A.weight_init == "checkpoint":
-        model.load_state_dict(torch.load(_A.checkpoint_path, map_location="cpu"))
+        CheckpointManager(model).load(_A.checkpoint_path)
     elif _A.weight_init == "torchvision":
         # Keep strict=False because this state dict may have weights for
         # last fc layer.
@@ -205,8 +187,8 @@ if __name__ == "__main__":
         )
         tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
 
-    # Keep track of (moving) average time per iteration and ETA.
-    timer = Timer(window_size=_A.log_every, total_iterations=_DOWNC.NUM_ITERATIONS)
+    # Keep track of time per iteration and ETA.
+    timer = Timer(last_iteration=-1, total_iterations=_C.OPTIM.NUM_ITERATIONS)
 
     # Counter to accumulate loss components for logging, this counter is
     # cleared every `_A.log_every` iteration.
@@ -231,7 +213,7 @@ if __name__ == "__main__":
         train_loss_counter.update(output_dict["loss"])
 
         optimizer.step()
-        lr_scheduler.step()
+        lr_scheduler.step(iteration)
         timer.toc()
 
         if iteration % _A.log_every == 0:
@@ -248,7 +230,7 @@ if __name__ == "__main__":
             logger.info(
                 f"{timer.stats} Losses: [layer3 {train_loss_dict['layer3']:.3f} "
                 f"| layer4  {train_loss_dict['layer4']:.3f} ] "
-                f"GPU: {torch.cuda.max_memory_allocated() // 1048576}MB"
+                f"GPU: {dist.gpu_mem_usage()} MB"
             )
             tensorboard_writer.add_scalars(
                 f"{DATASET}/train_loss", train_loss_dict, iteration
