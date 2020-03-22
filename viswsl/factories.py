@@ -2,11 +2,11 @@ from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 import albumentations as alb
-import tokenizers as tkz
 from torch import nn, optim
 
 from viswsl.config import Config
 import viswsl.data as vdata
+from viswsl.data.tokenizer import SentencePieceBPETokenizer
 from viswsl.data.transforms import IMAGENET_COLOR_MEAN, IMAGENET_COLOR_STD
 import viswsl.models as vmodels
 from viswsl.modules import visual_stream as vs, textual_stream as ts
@@ -41,33 +41,17 @@ class Factory(object):
 
 
 class TokenizerFactory(Factory):
-    PRODUCTS = {
-        "SentencePieceBPETokenizer": tkz.SentencePieceBPETokenizer,
-        "ByteLevelBPETokenizer": tkz.ByteLevelBPETokenizer,
-    }
+
+    PRODUCTS = {"SentencePieceBPETokenizer": SentencePieceBPETokenizer}
 
     @classmethod
-    def from_config(cls, config: Config) -> tkz.implementations.BaseTokenizer:
+    def from_config(cls, config: Config) -> SentencePieceBPETokenizer:
         _C = config
 
-        # Special tokens: padding/out-of-vocabulary token ([UNK]), mask token,
-        # and boundary tokens (SOS/EOS).
-        special_tokens = ["[UNK]", "[SOS]", "[EOS]", "[MASK]"]
-
-        # Add a leading space only for SentencePiece.
-        kwargs: Dict[str, Any] = {"add_prefix_space": True}
-        if _C.DATA.CAPTION.TOKENIZER == "SentencePieceBPETokenizer":
-            kwargs["unk_token"] = "[UNK]"
-
-        tokenizer = cls.create(_C.DATA.CAPTION.TOKENIZER, **kwargs)
-
-        # Train tokenizer on given caption corpus. This will be determisitic
-        # for a fixed corpus, vocab size and tokenizer.
-        tokenizer.train(
-            files=_C.DATA.CAPTION_CORPUS,
-            vocab_size=_C.DATA.CAPTION.VOCAB_SIZE,
-            special_tokens=special_tokens,
-            split_by_unicode_script=True,
+        tokenizer = cls.create(
+            "SentencePieceBPETokenizer",
+            vocab_path=_C.DATA.CAPTION.TOKENIZER_VOCAB,
+            model_path=_C.DATA.CAPTION.TOKENIZER_MODEL,
         )
         return tokenizer
 
@@ -85,7 +69,7 @@ class DatasetFactory(Factory):
     def from_config(
         cls,
         config: Config,
-        tokenizer: Optional[tkz.implementations.BaseTokenizer] = None,
+        tokenizer: Optional[SentencePieceBPETokenizer] = None,
         split: str = "train",  # one of {"train", "val"}
     ):
         _C = config
@@ -96,7 +80,9 @@ class DatasetFactory(Factory):
         # args. Make the API more consistent.
         if _C.MODEL.NAME != "instance_classification":
             kwargs = {
-                "lmdb_path": _C.DATA.VAL_LMDB if split == "val" else _C.DATA.TRAIN_LMDB,
+                "lmdb_path": _C.DATA.VAL_LMDB
+                if split == "val"
+                else _C.DATA.TRAIN_LMDB,
                 "tokenizer": tokenizer,
                 "max_caption_length": _C.DATA.CAPTION.MAX_LENGTH,
                 "use_single_caption": _C.DATA.CAPTION.USE_SINGLE,
@@ -213,7 +199,7 @@ class TextualStreamFactory(Factory):
     def from_config(
         cls,
         config: Config,
-        tokenizer: Optional[tkz.implementations.BaseTokenizer] = None,
+        tokenizer: Optional[SentencePieceBPETokenizer] = None,
     ) -> nn.Module:
 
         _C = config
@@ -249,7 +235,7 @@ class PretrainingModelFactory(Factory):
     def from_config(
         cls,
         config: Config,
-        tokenizer: Optional[tkz.implementations.BaseTokenizer] = None,
+        tokenizer: Optional[SentencePieceBPETokenizer] = None,
     ) -> nn.Module:
 
         _C = config
@@ -270,7 +256,7 @@ class PretrainingModelFactory(Factory):
 
         elif _C.MODEL.NAME == "token_classification":
             kwargs.update(
-                vocab_size=_C.DATA.CAPTION.VOCAB_SIZE,
+                vocab_size=tokenizer.get_vocab_size(),
                 ignore_indices=[
                     tokenizer.token_to_id("[UNK]"),
                     tokenizer.token_to_id("[SOS]"),

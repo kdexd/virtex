@@ -1,10 +1,10 @@
 from typing import Any, Dict
 
-import tokenizers as tkz
 import torch
 from torch import nn
 
 from viswsl.data.structures import WordMaskingBatch
+from viswsl.data.tokenizer import SentencePieceBPETokenizer
 from viswsl.modules.textual_stream import TextualStream
 from viswsl.modules.visual_stream import VisualStream
 
@@ -75,7 +75,7 @@ class WordMaskingModel(nn.Module):
         return output_dict
 
     def log_predictions(
-        self, batch: WordMaskingBatch, tokenizer: tkz.implementations.BaseTokenizer
+        self, batch: WordMaskingBatch, tokenizer: SentencePieceBPETokenizer
     ) -> str:
 
         self.eval()

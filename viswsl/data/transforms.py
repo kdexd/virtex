@@ -2,9 +2,10 @@ from typing import List
 import unicodedata
 
 import albumentations as alb
-import tokenizers as tkz
 import numpy as np
 from PIL import Image, ImageOps
+
+from viswsl.data.tokenizer import SentencePieceBPETokenizer
 
 
 # ImageNet color normalization mean and std in RGB format (values in 0-1).
@@ -74,13 +75,13 @@ class NormalizeCaption(CaptionOnlyTransform):
 class TokenizeCaption(CaptionOnlyTransform):
     r"""Tokenize a caption (``str``) to list of tokens (``int``)."""
 
-    def __init__(self, tokenizer: tkz.implementations.BaseTokenizer):
+    def __init__(self, tokenizer: SentencePieceBPETokenizer):
         # `always_apply = True` because this is essential part of pipeline.
         super().__init__(always_apply=True)
         self._tokenizer = tokenizer
 
     def apply_to_caption(self, caption, **params):
-        token_indices: List[int] = self._tokenizer.encode(caption).ids
+        token_indices: List[int] = self._tokenizer.encode(caption)
 
         # Add boundary tokens.
         token_indices.insert(0, self._tokenizer.token_to_id("[SOS]"))

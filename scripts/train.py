@@ -1,14 +1,10 @@
 import argparse
 from collections import Counter
-import os
-import random
-import sys
 
 from loguru import logger
-import numpy as np
 import torch
 from torch import nn
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 # fmt: off
@@ -18,73 +14,48 @@ from viswsl.factories import (
     OptimizerFactory, LRSchedulerFactory,
 )
 from viswsl.utils.checkpointing import CheckpointManager
-from viswsl.utils.common import common_setup, cycle
+from viswsl.utils.common import common_parser, common_setup, cycle
 import viswsl.utils.distributed as dist
 from viswsl.utils.timer import Timer
 
 
-parser = argparse.ArgumentParser(
-    description="Train a CNN+Transformer model on masked language modeling."
+parser = common_parser(
+    description="Train a ViRTex model (CNN + Transformer) on COCO Captions."
 )
-parser.add_argument(
-    "--config", help="Path to a config file with all configuration parameters."
-)
-parser.add_argument(
-    "--config-override", nargs="*", default=[],
-    help="""A sequence of key-value pairs specifying certain config arguments
-    (with dict-like nesting) using a dot operator.""",
-)
-
-parser.add_argument_group("Compute resource management arguments.")
-parser.add_argument(
-    "--cpu-workers", type=int, default=0,
-    help="Number of CPU workers per GPU to use for data loading.",
-)
-parser.add_argument(
-    "--dist-backend", default="nccl", choices=["nccl", "gloo"],
-    help="torch.distributed backend for distributed training.",
-)
-parser.add_argument(
-    "--slurm", action="store_true",
-    help="""Whether using SLURM for launching distributed training processes.
-    Set `$MASTER_PORT` env variable externally for distributed process group
-    communication."""
-)
-
-parser.add_argument_group("Checkpointing and Logging")
-parser.add_argument(
+group = parser.add_argument_group("Checkpointing and Logging")
+group.add_argument(
     "--serialization-dir", default="checkpoints/experiment",
     help="Path to a directory to serialize config, checkpoints and logs.",
 )
-parser.add_argument(
+group.add_argument(
+    "--resume-from", default=None,
+    help="Path to a checkpoint to resume training from (if provided)."
+)
+group.add_argument(
+    "--checkpoint-every", type=int, default=2000,
+    help="Serialize model to a checkpoint after every these many iterations.",
+)
+group.add_argument(
     "--log-every", type=int, default=20,
     help="""Log training curves to tensorboard after every these many iterations
     only master process logs averaged loss values across processes.""",
 )
-parser.add_argument(
-    "--resume-from", default=None,
-    help="Path to a checkpoint to resume training from (if provided)."
-)
-parser.add_argument(
-    "--checkpoint-every", type=int, default=2000,
-    help="Serialize model to a checkpoint after every these many iterations.",
-)
 # fmt: on
 
 
-if __name__ == "__main__":
-    # -------------------------------------------------------------------------
-    #   INPUT ARGUMENTS AND CONFIG
-    # -------------------------------------------------------------------------
-    _A = parser.parse_args()
+def main(_A: argparse.Namespace):
 
-    device_id = dist.init_distributed_env(_A.dist_backend) if _A.slurm else -1
-    device = torch.device(f"cuda:{device_id}" if device_id != -1 else "cpu")
+    if _A.num_gpus_per_machine == 0:
+        # Set device as CPU if num_gpus_per_machine = 0.
+        device = torch.device("cpu")
+    else:
+        # Get the current device as set for current distributed process.
+        # Check `launch` function in `viswsl.utils.distributed` module.
+        device = torch.cuda.current_device()
 
-    # Create a config with default values, then override from config file, and
-    # _A. This object is immutable, nothing can be changed in this anymore.
+    # Create a config object (this will be immutable) and perform common setup
+    # such as logging and setting up serialization directory.
     _C = Config(_A.config, _A.config_override)
-
     common_setup(_C, _A)
 
     # -------------------------------------------------------------------------
@@ -136,6 +107,7 @@ if __name__ == "__main__":
             model, optimizer, opt_level=f"O{_C.FP16_OPT}"
         )
 
+    # Wrap model in DDP if using more than one processes.
     if dist.get_world_size() > 1:
         dist.synchronize()
         model = nn.parallel.DistributedDataParallel(
@@ -266,11 +238,27 @@ if __name__ == "__main__":
             logger.info(f"Iter: {iteration} | Val loss: {val_loss_dict}")
             tensorboard_writer.add_scalars("val", val_loss_dict, iteration)
 
-            if dist.get_world_size() > 1 and hasattr(
-                model.module, "log_predictions"
-            ):
+            if dist.get_world_size() > 1:
                 predstr = model.module.log_predictions(val_batch, tokenizer)
                 tensorboard_writer.add_text("predictions", predstr, iteration)
 
         # All processes will wait till master process is done logging.
         dist.synchronize()
+
+
+if __name__ == "__main__":
+    _A = parser.parse_args()
+
+    if _A.num_gpus_per_machine == 0:
+        main(_A)
+    else:
+        # This will launch `main` and set appropriate CUDA device (GPU ID) as
+        # per process (accessed in the beginning of `main`).
+        dist.launch(
+            main,
+            num_machines=_A.num_machines,
+            num_gpus_per_machine=_A.num_gpus_per_machine,
+            machine_rank=_A.machine_rank,
+            dist_url=_A.dist_url,
+            args=(_A, ),
+        )

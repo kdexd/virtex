@@ -125,7 +125,6 @@ class Config(object):
         _C.DATA = CN()
         _C.DATA.TRAIN_LMDB = "datasets/serialized/coco_train2017.lmdb"
         _C.DATA.VAL_LMDB = "datasets/serialized/coco_val2017.lmdb"
-        _C.DATA.CAPTION_CORPUS = "datasets/coco_train2017_corpus.txt"
         _C.DATA.SHUFFLE_TRAIN = True
         _C.DATA.USE_PERCENTAGE = 100.0
 
@@ -135,8 +134,8 @@ class Config(object):
         _C.DATA.IMAGE.RANDOM_FLIP = True
 
         _C.DATA.CAPTION = CN()
-        _C.DATA.CAPTION.VOCAB_SIZE = 10000
-        _C.DATA.CAPTION.TOKENIZER = "SentencePieceBPETokenizer"
+        _C.DATA.CAPTION.TOKENIZER_VOCAB = "datasets/vocab/coco_10k.vocab"
+        _C.DATA.CAPTION.TOKENIZER_MODEL = "datasets/vocab/coco_10k.model"
         _C.DATA.CAPTION.MAX_LENGTH = 30
         _C.DATA.CAPTION.USE_SINGLE = False
 

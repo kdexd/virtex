@@ -93,12 +93,13 @@ class LmdbReader(Dataset):
         self.percentage = percentage
 
         # fmt: off
-        # Create an LMDB transaction as soon as this object is instantiated.
+        # Create an LMDB transaction right here. It will be aborted when this
+        # class goes out of scope.
         env = lmdb.open(
             self.lmdb_path, subdir=False, readonly=True, lock=False,
-            readahead=False, map_size=1099511627776 * 2,
+            readahead=True, map_size=1099511627776 * 2,
         )
-        self.db_tcn = env.begin()
+        self.db_txn = env.begin()
 
         # Form a list of LMDB keys numbered from 0 (as binary strings).
         self._keys = [

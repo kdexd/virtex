@@ -2,12 +2,12 @@ import copy
 import functools
 from typing import Any, Dict
 
-import tokenizers as tkz
 import torch
 from torch import nn
 from torch.nn import functional as F
 
 from viswsl.data.structures import CaptioningBatch
+from viswsl.data.tokenizer import SentencePieceBPETokenizer
 from viswsl.modules.textual_stream import TextualStream
 from viswsl.modules.visual_stream import VisualStream
 from viswsl.utils.beam_search import AutoRegressiveBeamSearch
@@ -199,7 +199,7 @@ class CaptioningModel(nn.Module):
         return next_logprobs
 
     def log_predictions(
-        self, batch: CaptioningBatch, tokenizer: tkz.implementations.BaseTokenizer
+        self, batch: CaptioningBatch, tokenizer: SentencePieceBPETokenizer
     ) -> str:
 
         self.eval()

@@ -3,11 +3,11 @@ from typing import Callable, List
 
 import albumentations as alb
 import numpy as np
-import tokenizers as tkz
 from torch.utils.data import Dataset
 
 from viswsl.data.readers import LmdbReader
 from viswsl.data.structures import CaptioningInstance, CaptioningBatch
+from viswsl.data.tokenizer import SentencePieceBPETokenizer
 from viswsl.data.transforms import (
     IMAGENET_COLOR_MEAN,
     IMAGENET_COLOR_STD,
@@ -21,7 +21,7 @@ class CaptioningPretextDataset(Dataset):
     def __init__(
         self,
         lmdb_path: str,
-        tokenizer: tkz.implementations.BaseTokenizer,
+        tokenizer: SentencePieceBPETokenizer,
         image_transform: Callable = alb.Compose(
             [
                 alb.RandomResizedCrop(224, 224, always_apply=True),
@@ -49,7 +49,7 @@ class CaptioningPretextDataset(Dataset):
             ]
         )
         self.use_single_caption = use_single_caption
-        self.padding_idx = tokenizer.token_to_id("[UNK]")
+        self.padding_idx = tokenizer.token_to_id("<unk>")
 
     def __len__(self):
         return len(self.reader)

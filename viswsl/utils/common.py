@@ -27,6 +27,7 @@ def cycle(dataloader, device, start_iteration: int = 0):
         # Set the `epoch` of sampler as current iteration. This is just for
         # determinisitic shuffling after every epoch, so it is just a seed and
         # need not necessarily be the "epoch".
+        logger.info(f"Beginning new epoch, setting shuffle seed {iteration}")
         dataloader.sampler.set_epoch(iteration)
 
         for batch in dataloader:
@@ -94,3 +95,61 @@ def common_setup(_C: Config, _A: argparse.Namespace):
     logger.info("Command line args:")
     for arg in vars(_A):
         logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))
+
+
+def common_parser(description: str = "") -> argparse.ArgumentParser:
+    r"""
+    Add some common arguments useful for any training/validation scripts. These
+    are mainly related to config file path, config override args, and other
+    args related to CPU/GPU resources and distributed training.
+
+    Parameters
+    ----------
+    description: str, optional (default = "")
+        Description to be used with the argument parser.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        A parser object with added arguments.
+    """
+    parser = argparse.ArgumentParser(description=description)
+
+    # fmt: off
+    group = parser.add_argument_group("ViRTex pretraining config arguments.")
+    group.add_argument(
+        "--config", metavar="FILE",
+        help="Path to a config file with necessary config params."
+    )
+    group.add_argument(
+        "--config-override", nargs="*", default=[],
+        help="A list of key-value pairs to modify config params.",
+    )
+
+    group = parser.add_argument_group("Compute resource management arguments.")
+    group.add_argument(
+        "--cpu-workers", type=int, default=0,
+        help="Number of CPU workers per GPU to use for data loading.",
+    )
+    group.add_argument(
+        "--num-machines", type=int, default=1,
+        help="Number of machines used in distributed training."
+    )
+    group.add_argument(
+        "--num-gpus-per-machine", type=int, default=0,
+        help="""Number of GPUs per machine with IDs as (0, 1, 2 ...). Set as
+        zero for single-process CPU training.""",
+    )
+    group.add_argument(
+        "--machine-rank", type=int, default=0,
+        help="""Rank of the machine, integer in [0, num_machines). Default 0
+        for training with a single machine.""",
+    )
+    group.add_argument(
+        "--dist-url", default=f"tcp://127.0.0.1:23456",
+        help="""URL of the master process in distributed training, it defaults
+        to localhost for single-machine training.""",
+    )
+    # fmt: on
+
+    return parser

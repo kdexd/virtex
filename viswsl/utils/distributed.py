@@ -1,69 +1,116 @@
-import os
-from typing import Dict, Union
+r"""
+A collection of common utilities for distributed training. These are a bunch of
+wrappers over utilities from :class:`torch.distributed` module, but they
+return sensible default values when using single process / CPU, instead of
+raising exceptions.
+"""
+from typing import Callable, Dict, Tuple, Union
 
 from loguru import logger
 import torch
 from torch import distributed as dist
+from torch import multiprocessing as mp
 
 
-def init_distributed_env(backend: str = "nccl") -> int:
+def launch(
+    job_fn: Callable,
+    num_machines: int = 1,
+    num_gpus_per_machine: int = 1,
+    machine_rank: int = 0,
+    dist_url: str = "tcp://127.0.0.1:23456",
+    args=(),
+):
     r"""
-    Initialize distributed process group from five environment variables:
-    ``$MASTER_ADDR, $MASTER_PORT, $WORLD_SIZE, $RANK, $LOCAL_RANK``. Suitable
-    and recommended if you are using SLURM.
+    Launch a job in a distributed fashion: given ``num_machines`` with
+    ``num_gpus_per_machine``, this job will launch one process per GPU. This
+    wrapper uses :func:`torch.multiprocessing.spawn` utility.
 
-    ``$LOCAL_RANK`` will be equal to ``$RANK`` for single machine multi-GPU
-    training. If we are using multi-node multi-GPU, for example: two machines
-    with 2 GPUs each. The process group woud have four processes with ``$RANK``s
-    (0, 1, 2, 3) and ``$LOCAL_RANK``s (0, 1, 0, 1).
+    The user has to launch one job on each machine with manually specifying
+    a machine rank, this utility will launch multiple processes and adjust the
+    process ranks. One process on ``machine_rank = 0`` will be called the
+    _master process_ and the IP + free port on this machine will serve as the
+    distributed process communication URL.
 
-    Note
-    ----
-    If you are using SLURM, you only need to set ``$MASTER_PORT`` -- this method
-    would take the rest from env variables set by SLURM.
+    Default arguments imply one machine with one GPU, and dist URL as localhost.
 
-    Note
-    ----
-    Use NCCL Backend for training, GLOO backend for debugging.
+    .. note::
+
+        This utility assumes same number of GPUs per machine with IDs as
+        ``(0, 1, 2 ...)``. If you do not wish to use all GPUs on a machine,
+        set ``CUDA_VISIBLE_DEVICES`` environment variable (for example,
+        ``CUDA_VISIBLE_DEVICES=5,6``, which restricts to GPU 5 and 6 and
+        re-assigns their IDs to 0 and 1 in this job scope).
 
     Parameters
     ----------
-    backend: str, optional (default = "nccl")
-        Backend for :mod:`torch.distributed`, either "gloo" or "nccl".
-
-    Returns
-    -------
-    int
-        Device ID of the GPU used by current process.
+    job_fn: Callable
+        A callable object to launch. Pass your main function doing training,
+        validation etc. here.
+    num_machines: int, optional (default = 1)
+        Number of machines used, each with ``num_gpus_per_machine`` GPUs.
+    num_gpus_per_machine: int, optional (default = 1)
+        Number of GPUs per machine, with IDs as ``(0, 1, 2 ...)``.
+    machine_rank: int, optional (default = 0)
+        A manually specified rank of the machine, serves as a unique identifier
+        and useful for assigning global ranks to processes.
+    dist_url: str, optional (default = "tcp://127.0.0.1:23456")
+        Disributed process communication URL as ``tcp://x.x.x.x:port``. Set
+        this as the IP (and a free port) of machine with rank 0.
+    args: Tuple
+        Arguments to be passed to ``main_func``.
     """
-    assert torch.cuda.is_available(), "Cannot use GPU, CUDA not found!"
 
-    # Set env variables required to initialize distributed process group.
-    # If using SLURM, these may have been set as some other name.
-    os.environ["MASTER_ADDR"] = os.environ.get(
-        "MASTER_ADDR", os.environ.get("SLURM_NODELIST", "localhost").split(",")[-1]
+    assert (
+        torch.cuda.is_available()
+    ), "CUDA not available, Cannot launch distributed processes."
+
+    # Set world size based on number of machines and GPUs per machine.
+    world_size = num_machines * num_gpus_per_machine
+
+    # This spawns `num_gpus_per_machine` process per machine, and provides
+    # the "local process rank" (GPU ID) as the first arg to `_dist_worker`.
+    # fmt: off
+    mp.spawn(
+        _job_worker,
+        nprocs=num_gpus_per_machine,
+        args=(
+            job_fn, world_size, num_gpus_per_machine, machine_rank, dist_url, args
+        ),
+        daemon=False,
     )
-    os.environ["RANK"] = os.environ.get("RANK", os.environ.get("SLURM_PROCID", "0"))
-    os.environ["WORLD_SIZE"] = os.environ.get(
-        "WORLD_SIZE", os.environ.get("SLURM_NTASKS", "1")
-    )
+    # fmt: on
+
+
+def _job_worker(
+    local_rank: int,
+    job_fn: Callable,
+    world_size: int,
+    num_gpus_per_machine: int,
+    machine_rank: int,
+    dist_url: str,
+    args: Tuple,
+):
+    r"""
+    Single distibuted process worker. This should never be used directly,
+    only used by :func:`launch`.
+    """
+
+    # Adjust global rank of process based on its machine.
+    global_rank = machine_rank * num_gpus_per_machine + local_rank
     try:
-        dist.init_process_group(backend, init_method="env://")
-        # Wait for all processes to initialize, necessary to avoid timeout.
-        synchronize()
-    except Exception as e:
-        logger.error(
-            f"Dist URL: {os.environ['MASTER_ADDR']}:{os.environ['MASTER_PORT']}"
+        dist.init_process_group(
+            backend="NCCL",
+            init_method=dist_url,
+            world_size=world_size,
+            rank=global_rank,
         )
+    except Exception as e:
+        logger.error(f"Error launching processes, dist URL: {dist_url}")
         raise e
 
-    local_rank = int(
-        os.environ.get("LOCAL_RANK", os.environ.get("SLURM_LOCALID", "0"))
-    )
-    # Current process only accesses this single GPU exclusive of other processes
-    # in the process group.
+    synchronize()
     torch.cuda.set_device(local_rank)
-    return local_rank
+    job_fn(*args)
 
 
 def synchronize() -> None:

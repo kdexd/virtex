@@ -1,11 +1,11 @@
 from typing import Any, Dict, List, Optional
 
-import tokenizers as tkz
 import torch
 from torch import nn
 from torch.nn import functional as F
 
 from viswsl.data.structures import Batch
+from viswsl.data.tokenizer import SentencePieceBPETokenizer
 from viswsl.modules.textual_stream import TextualStream
 from viswsl.modules.visual_stream import VisualStream
 
@@ -92,7 +92,7 @@ class TokenClassificationModel(nn.Module):
         return output_dict
 
     def log_predictions(
-        self, batch: Batch, tokenizer: tkz.implementations.BaseTokenizer
+        self, batch: Batch, tokenizer: SentencePieceBPETokenizer
     ) -> str:
 
         self.eval()
@@ -136,7 +136,7 @@ class InstanceClassificationModel(TokenClassificationModel):
         return output_dict
 
     def log_predictions(
-        self, batch: Batch, tokenizer: tkz.implementations.BaseTokenizer = None,
+        self, batch: Batch, tokenizer: SentencePieceBPETokenizer = None,
     ) -> str:
         # We accept `tokenizer` for having consistent API but don't use it here.
         self.eval()

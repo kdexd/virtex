@@ -4,11 +4,11 @@ from typing import Callable, List
 
 import albumentations as alb
 import numpy as np
-import tokenizers as tkz
 from torch.utils.data import Dataset
 
 from viswsl.data.readers import LmdbReader
 from viswsl.data.structures import WordMaskingInstance, WordMaskingBatch
+from viswsl.data.tokenizer import SentencePieceBPETokenizer
 from viswsl.data.transforms import (
     IMAGENET_COLOR_MEAN,
     IMAGENET_COLOR_STD,
@@ -22,7 +22,7 @@ class WordMaskingPretextDataset(Dataset):
     def __init__(
         self,
         lmdb_path: str,
-        tokenizer: tkz.implementations.BaseTokenizer,
+        tokenizer: SentencePieceBPETokenizer,
         mask_proportion: float = 0.15,
         mask_probability: float = 0.80,
         replace_probability: float = 0.10,
@@ -40,6 +40,7 @@ class WordMaskingPretextDataset(Dataset):
         ),
         max_caption_length: int = 30,
         use_single_caption: bool = False,
+        percentage: float = 100.0,
     ):
         self.image_transform = image_transform
         self.reader = LmdbReader(lmdb_path, percentage=percentage)
@@ -52,7 +53,7 @@ class WordMaskingPretextDataset(Dataset):
             ]
         )
         self.use_single_caption = use_single_caption
-        self.padding_idx = tokenizer.token_to_id("[UNK]")
+        self.padding_idx = tokenizer.token_to_id("<unk>")
 
         # Handles to commonly used variables for word masking.
         self._vocab_size = tokenizer.get_vocab_size()
