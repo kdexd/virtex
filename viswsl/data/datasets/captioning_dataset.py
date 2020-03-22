@@ -11,7 +11,6 @@ from viswsl.data.structures import CaptioningInstance, CaptioningBatch
 from viswsl.data.transforms import (
     IMAGENET_COLOR_MEAN,
     IMAGENET_COLOR_STD,
-    RandomHorizontalFlip,
     NormalizeCaption,
     TokenizeCaption,
     TruncateCaptionTokens,
@@ -35,21 +34,12 @@ class CaptioningPretextDataset(Dataset):
                 ),
             ]
         ),
-        random_horizontal_flip: bool = True,
         max_caption_length: int = 30,
         use_single_caption: bool = False,
         percentage: float = 100.0,
     ):
         self.image_transform = image_transform
         self.reader = LmdbReader(lmdb_path, percentage=percentage)
-
-        # Random horizontal flip is kept separate from other data augmentation
-        # transforms because we need to change the caption if image is flipped.
-        if random_horizontal_flip:
-            self.flip = RandomHorizontalFlip(p=0.5)
-        else:
-            # No-op is not required.
-            self.flip = lambda x: x  # type: ignore
 
         self.caption_transform = alb.Compose(
             [
@@ -68,15 +58,18 @@ class CaptioningPretextDataset(Dataset):
 
         image_id, image, captions = self.reader[idx]
 
-        # Transform and convert image from HWC to CHW format.
-        image = self.image_transform(image=image)["image"]
-        image = np.transpose(image, (2, 0, 1))
-
         # Pick a random caption or first caption and process (transform) it.
         if self.use_single_caption:
             caption = captions[0]
         else:
             caption = random.choice(captions)
+
+        # Transform image-caption pair and convert image from HWC to CHW format.
+        # Pass in caption to image_transform due to paired horizontal flip.
+        # Caption won't be tokenized/processed here.
+        image_caption = self.image_transform(image=image, caption=caption)
+        image, caption = image_caption["image"], image_caption["caption"]
+        image = np.transpose(image, (2, 0, 1))
 
         caption_tokens = self.caption_transform(caption=caption)["caption"]
         return CaptioningInstance(image_id, image, caption_tokens)

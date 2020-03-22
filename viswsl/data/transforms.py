@@ -4,6 +4,7 @@ import unicodedata
 import albumentations as alb
 import tokenizers as tkz
 import numpy as np
+from PIL import Image, ImageOps
 
 
 # ImageNet color normalization mean and std in RGB format (values in 0-1).
@@ -105,19 +106,20 @@ class TruncateCaptionTokens(CaptionOnlyTransform):
         return ("max_caption_length",)
 
 
-class RandomHorizontalFlip(ImageCaptionTransform):
+class ImageCaptionHorizontalFlip(ImageCaptionTransform):
     r"""
     Flip the image horizontally randomly (equally likely) and replace the
     word "left" with "right" in the caption.
 
     Examples
     --------
-    >>> flip = RandomHorizontalFlip(p=0.5)
+    >>> flip = ImageCaptionHorizontalFlip(p=0.5)
     >>> out = flip(image=image, caption=caption)  # keys: {"image", "caption"}
     """
 
     def apply(self, img, **params):
-        image = np.ascontiguousarray(img[:, ::-1, ...])
+        pil_image = Image.fromarray(img)
+        image = np.array(ImageOps.mirror(pil_image))
         return image
 
     def apply_to_caption(self, caption, **params):
@@ -134,7 +136,6 @@ class AlexNetPCA(alb.ImageOnlyTransform):
     Lighting noise(AlexNet - style PCA - based noise). This trick was
     originally used in `AlexNet paper <https://papers.nips.cc/paper/4824-imagenet-classification
     -with-deep-convolutional-neural-networks.pdf>`_
-
     The eigen values and eigen vectors, are taken from caffe2 `ImageInputOp.h
     <https://github.com/pytorch/pytorch/blob/master/caffe2/image/image_input_op.h#L265>`_.
     """

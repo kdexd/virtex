@@ -12,7 +12,6 @@ from viswsl.data.structures import WordMaskingInstance, WordMaskingBatch
 from viswsl.data.transforms import (
     IMAGENET_COLOR_MEAN,
     IMAGENET_COLOR_STD,
-    RandomHorizontalFlip,
     NormalizeCaption,
     TokenizeCaption,
     TruncateCaptionTokens,
@@ -39,21 +38,11 @@ class WordMaskingPretextDataset(Dataset):
                 ),
             ]
         ),
-        random_horizontal_flip: bool = True,
         max_caption_length: int = 30,
         use_single_caption: bool = False,
     ):
-        self._tokenizer = tokenizer
         self.image_transform = image_transform
         self.reader = LmdbReader(lmdb_path, percentage=percentage)
-
-        # Random horizontal flip is kept separate from other data augmentation
-        # transforms because we need to change the caption if image is flipped.
-        if random_horizontal_flip:
-            self.flip = RandomHorizontalFlip(p=0.5)
-        else:
-            # No-op is not required.
-            self.flip = lambda x: x  # type: ignore
 
         self.caption_transform = alb.Compose(
             [
@@ -66,6 +55,7 @@ class WordMaskingPretextDataset(Dataset):
         self.padding_idx = tokenizer.token_to_id("[UNK]")
 
         # Handles to commonly used variables for word masking.
+        self._vocab_size = tokenizer.get_vocab_size()
         self._mask_index = tokenizer.token_to_id("[MASK]")
         self._mask_proportion = mask_proportion
         self._mask_prob = mask_probability
@@ -78,15 +68,18 @@ class WordMaskingPretextDataset(Dataset):
 
         image_id, image, captions = self.reader[idx]
 
-        # Transform and convert image from HWC to CHW format.
-        image = self.image_transform(image=image)["image"]
-        image = np.transpose(image, (2, 0, 1))
-
         # Pick a random caption or first caption and process (transform) it.
         if self.use_single_caption:
             caption = captions[0]
         else:
             caption = random.choice(captions)
+
+        # Transform image-caption pair and convert image from HWC to CHW format.
+        # Pass in caption to image_transform due to paired horizontal flip.
+        # Caption won't be tokenized/processed here.
+        image_caption = self.image_transform(image=image, caption=caption)
+        image, caption = image_caption["image"], image_caption["caption"]
+        image = np.transpose(image, (2, 0, 1))
 
         caption_tokens = self.caption_transform(caption=caption)["caption"]
 
@@ -123,4 +116,4 @@ class WordMaskingPretextDataset(Dataset):
         return WordMaskingBatch(instances, padding_value=self.padding_idx)
 
     def _random_token_index(self) -> int:
-        return random.randint(0, self._tokenizer.get_vocab_size() - 1)
+        return random.randint(0, self._vocab_size - 1)

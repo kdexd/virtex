@@ -11,11 +11,11 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.datasets import ImageNet
 
-from viswsl.data.transforms import AlexNetPCA
 from viswsl.data.structures import (
     LinearClassificationInstance,
     LinearClassificationBatch,
 )
+from viswsl.data.transforms import IMAGENET_COLOR_MEAN, IMAGENET_COLOR_STD
 
 
 r"""
@@ -42,15 +42,14 @@ IMAGENET_AND_PLACES205_TRAIN_TRANSFORM_LIST = [
         224, 224, scale=(0.08, 1.0), ratio=(0.75, 1.33), always_apply=True
     ),
     alb.HorizontalFlip(p=0.5),
-    alb.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+    alb.RandomBrightnessContrast(brightness_limit=0.4, contrast_limit=0.4, p=0.5),
     alb.HueSaturationValue(
-        hue_shift_limit=20, sat_shift_limit=20, val_shift_limit=20, p=0.5
+        hue_shift_limit=40, sat_shift_limit=40, val_shift_limit=0, p=0.5
     ),
-    AlexNetPCA(p=0.5),
     alb.ToFloat(max_value=255.0, always_apply=True),
     alb.Normalize(
-        mean=(0.485, 0.456, 0.406),
-        std=(0.229, 0.224, 0.225),
+        mean=IMAGENET_COLOR_MEAN,
+        std=IMAGENET_COLOR_STD,
         max_pixel_value=1.0,
         always_apply=True,
     ),
@@ -66,8 +65,8 @@ IMAGENET_AND_PLACES205_VAL_TRANSFORM_LIST = [
     alb.CenterCrop(224, 224, always_apply=True),
     alb.ToFloat(max_value=255.0, always_apply=True),
     alb.Normalize(
-        mean=(0.485, 0.456, 0.406),
-        std=(0.229, 0.224, 0.225),
+        mean=IMAGENET_COLOR_MEAN,
+        std=IMAGENET_COLOR_STD,
         max_pixel_value=1.0,
         always_apply=True,
     ),

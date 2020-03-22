@@ -98,7 +98,6 @@ class DatasetFactory(Factory):
             kwargs = {
                 "lmdb_path": _C.DATA.VAL_LMDB if split == "val" else _C.DATA.TRAIN_LMDB,
                 "tokenizer": tokenizer,
-                "random_horizontal_flip": _C.DATA.IMAGE.RANDOM_FLIP and split == "train",
                 "max_caption_length": _C.DATA.CAPTION.MAX_LENGTH,
                 "use_single_caption": _C.DATA.CAPTION.USE_SINGLE,
                 "percentage": _C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
@@ -116,6 +115,12 @@ class DatasetFactory(Factory):
                 "split": split,
             }
 
+        # Set random flip as image only or image-caption based on pretext task.
+        HorizontalFlip = (
+            vdata.transforms.ImageCaptionHorizontalFlip
+            if _C.MODEL.NAME != "instance_classification" else
+            alb.HorizontalFlip
+        )
         # Prepare a list of augmentations based on split (train or val).
         if split == "train":
             augmentation_list: List[Callable] = [
@@ -126,13 +131,13 @@ class DatasetFactory(Factory):
                     ratio=(0.75, 1.333),
                     always_apply=True,
                 ),
+                HorizontalFlip(p=0.5),
                 alb.RandomBrightnessContrast(
-                    brightness_limit=0.2, contrast_limit=0.2, p=0.5
+                    brightness_limit=0.4, contrast_limit=0.4, p=0.5
                 ),
                 alb.HueSaturationValue(
-                    hue_shift_limit=20, sat_shift_limit=20, val_shift_limit=20, p=0.5
+                    hue_shift_limit=40, sat_shift_limit=40, val_shift_limit=0, p=0.5
                 ),
-                vdata.transforms.AlexNetPCA(p=0.5),
             ]
         else:
             augmentation_list = [
@@ -145,11 +150,6 @@ class DatasetFactory(Factory):
                     always_apply=True,
                 ),
             ]
-
-        # Add a random flip from albumentations for `instance_classification`
-        # because it will be applied on image only, not with caption.
-        if split == "train" and _C.MODEL.NAME == "instance_classification":
-            augmentation_list.append(alb.HorizontalFlip(p=0.5))
 
         augmentation_list.append(alb.ToFloat(max_value=255.0))
         if _C.DATA.IMAGE.COLOR_NORMALIZE:
