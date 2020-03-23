@@ -4,18 +4,15 @@ FP16_OPT: 2
 DATA:
   TRAIN_LMDB: datasets/serialized/coco_train2017.lmdb
   VAL_LMDB: datasets/serialized/coco_val2017.lmdb
-  SHUFFLE_TRAIN: True
 
-  IMAGE:
-    CROP_SIZE: 224
-    COLOR_NORMALIZE: true
-    RANDOM_FLIP: true
+  TOKENIZER_VOCAB: "datasets/vocab/coco_10k.vocab"
+  TOKENIZER_MODEL: "datasets/vocab/coco_10k.model"
 
-  CAPTION:
-    TOKENIZER_VOCAB: "datasets/vocab/coco_10k.vocab"
-    TOKENIZER_MODEL: "datasets/vocab/coco_10k.model"
-    MAX_LENGTH: 30
-    USE_SINGLE: False
+  IMAGE_CROP_SIZE: 224
+  MAX_CAPTION_LENGTH: 30
+
+  USE_PERCENTAGE: 100.0
+  USE_SINGLE_CAPTION: False
 
 MODEL:
   NAME: bicaptioning
@@ -36,11 +33,10 @@ OPTIM:
   SGD_MOMENTUM: 0.9
   USE_LOOKAHEAD: True
 
-  BATCH_SIZE_PER_GPU: 32
+  BATCH_SIZE: 256
+  WEIGHT_DECAY: 1e-4
   LR: 0.001
   CNN_LR: 0.2
-  WEIGHT_DECAY: 1e-4
-  CNN_WEIGHT_DECAY: 1e-4
   LR_DECAY_NAME: cosine
   WARMUP_STEPS: 10000
   CLIP_GRAD_NORM: 10

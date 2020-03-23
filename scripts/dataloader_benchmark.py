@@ -96,7 +96,7 @@ if __name__ == "__main__":
     train_dataset = DatasetFactory.from_config(_C, tokenizer, split="train")
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
+        batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
         sampler=DistributedSampler(
             train_dataset,
             num_replicas=dist.get_world_size(),

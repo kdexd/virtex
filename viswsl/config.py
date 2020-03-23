@@ -8,7 +8,6 @@ from typing import Any, List, Optional
 
 from loguru import logger
 from yacs.config import CfgNode as CN
-import viswsl.utils.distributed as dist
 
 
 class Config(object):
@@ -63,8 +62,6 @@ class Config(object):
     DATA.VAL_LMDB: datasets/serialized/coco_val2017.lmdb
         Path to an LMDB file containing validation examples serialized as
         ``(image: np.ndarray, captions: List[str])``.
-    DATA.NORMALIZE_IMAGE: True
-        Whether to normalize the image by RGB color mean and variance.
     DATA.MAX_CAPTION_LENGTH: 30
         Maximum length of captions as input to the textual stream. Captions
         longer than this will be truncated to maximum length.
@@ -93,15 +90,10 @@ class Config(object):
         One of ``["sgd", "adam", "adamw"]``.
     OPTIM.NUM_ITERATIONS: 1000000
         Number of iterations to train for, batches are randomly sampled.
-    OPTIM.BATCH_SIZE_PER_GPU: 64
-        Batch size per GPU (or just CPU) during training and evaluation.
+    OPTIM.BATCH_SIZE: 256
+        Total batch size for training/evaluation (to be divided across GPUs).
 
-    .. note::
-        At the start of training, ``TOTAL_BATCH_SIZE`` will be created:
-            1. ``TOTAL_BATCH_SIZE = BATCH_SIZE_PER_GPU * num_gpus``
-        This is just for reference and should not be used anywhere.
-
-    OPTIM.LR: 1e-5
+    OPTIM.LR: 1e-3
         Initial learning rate for optimizer. This linearly decays to zero till
         the end of training.
     OPTIM.WARMUP_STEPS: 10000
@@ -125,19 +117,15 @@ class Config(object):
         _C.DATA = CN()
         _C.DATA.TRAIN_LMDB = "datasets/serialized/coco_train2017.lmdb"
         _C.DATA.VAL_LMDB = "datasets/serialized/coco_val2017.lmdb"
-        _C.DATA.SHUFFLE_TRAIN = True
+
+        _C.DATA.TOKENIZER_VOCAB = "datasets/vocab/coco_10k.vocab"
+        _C.DATA.TOKENIZER_MODEL = "datasets/vocab/coco_10k.model"
+
+        _C.DATA.IMAGE_CROP_SIZE = 224
+        _C.DATA.MAX_CAPTION_LENGTH = 30
+
+        _C.DATA.USE_SINGLE_CAPTION = False
         _C.DATA.USE_PERCENTAGE = 100.0
-
-        _C.DATA.IMAGE = CN()
-        _C.DATA.IMAGE.CROP_SIZE = 224
-        _C.DATA.IMAGE.COLOR_NORMALIZE = True
-        _C.DATA.IMAGE.RANDOM_FLIP = True
-
-        _C.DATA.CAPTION = CN()
-        _C.DATA.CAPTION.TOKENIZER_VOCAB = "datasets/vocab/coco_10k.vocab"
-        _C.DATA.CAPTION.TOKENIZER_MODEL = "datasets/vocab/coco_10k.model"
-        _C.DATA.CAPTION.MAX_LENGTH = 30
-        _C.DATA.CAPTION.USE_SINGLE = False
 
         _C.PRETEXT = CN()
         _C.PRETEXT.WORD_MASKING = CN()
@@ -174,11 +162,10 @@ class Config(object):
         _C.OPTIM.LOOKAHEAD_STEPS = 5
         _C.OPTIM.LOOKAHEAD_ALPHA = 0.5
 
-        _C.OPTIM.BATCH_SIZE_PER_GPU = 32
-        _C.OPTIM.LR = 1e-4
+        _C.OPTIM.BATCH_SIZE = 32
         _C.OPTIM.WEIGHT_DECAY = 1e-2
+        _C.OPTIM.LR = 1e-4
         _C.OPTIM.CNN_LR = 1e-2
-        _C.OPTIM.CNN_WEIGHT_DECAY = 1e-2
         _C.OPTIM.WARMUP_STEPS = 10000
         _C.OPTIM.LR_DECAY_NAME = "cosine"
 
@@ -200,7 +187,7 @@ class Config(object):
         _C.DOWNSTREAM.LINEAR_CLF.NUM_CLASSES = 1000
 
         # All of these params all for 8 GPUs, scale linearly.
-        _C.DOWNSTREAM.LINEAR_CLF.BATCH_SIZE_PER_GPU = 32
+        _C.DOWNSTREAM.LINEAR_CLF.BATCH_SIZE = 256
         _C.DOWNSTREAM.LINEAR_CLF.NUM_ITERATIONS = 140000
 
         _C.DOWNSTREAM.LINEAR_CLF.LR = 0.01
@@ -211,9 +198,6 @@ class Config(object):
         _C.DOWNSTREAM.LINEAR_CLF.MOMENTUM = 0.9
         _C.DOWNSTREAM.LINEAR_CLF.NESTEROV = True
         # ---------------------------------------------------------------------
-
-        # Placeholders, set these values after merging from file.
-        _C.OPTIM.TOTAL_BATCH_SIZE = 0
 
         # Override parameter values from YAML file first, then from override
         # list, then add derived params.
@@ -239,13 +223,6 @@ class Config(object):
 
     def add_derived_params(self):
         r"""Add parameters with values derived from existing parameters."""
-        # ---------------------------------------------------------------------
-        # Set total batch size accounting for multiple-GPUs.
-        # These are usually not used anywhere, adding for better reproducibility.
-        self._C.OPTIM.TOTAL_BATCH_SIZE = (
-            self._C.OPTIM.BATCH_SIZE_PER_GPU * dist.get_world_size()
-        )
-        # ---------------------------------------------------------------------
 
         if self._C.FP16_OPT > 0 and "gelu" in self._C.MODEL.TEXTUAL.NAME:
             logger.warning("Cannot use GELU with FP16 precision, changing to RELU.")

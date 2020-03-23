@@ -5,8 +5,8 @@ import os
 from typing import Callable, Dict, List, Tuple
 
 import albumentations as alb
+import cv2
 import numpy as np
-from PIL import Image
 import torch
 from torch.utils.data import Dataset
 from torchvision.datasets import ImageNet
@@ -180,7 +180,8 @@ class Places205Dataset(Dataset):
         image_path = os.path.join(self._image_dir, image_filename)
 
         # Open image from path and apply transformation, convert to CHW format.
-        image = np.array(Image.open(image_path).convert("RGB"))
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = self.image_transform(image=image)["image"]
         image = np.transpose(image, (2, 0, 1))
 
@@ -257,7 +258,8 @@ class VOC07ClassificationDataset(Dataset):
         image_path, label = self.instances[idx]
 
         # Open image from path and apply transformation, convert to CHW format.
-        image = np.array(Image.open(image_path).convert("RGB"))
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = self.image_transform(image=image)["image"]
         image = np.transpose(image, (2, 0, 1))
 

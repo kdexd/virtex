@@ -91,8 +91,11 @@ class CheckpointManager(object):
             checkpointable_state_dict,
             self.serialization_dir / f"checkpoint_{iteration}.pth",
         )
-        # Serialize best performing checkpoint observed so far.
-        torch.save(self._best_ckpt, self.serialization_dir / "checkpoint_best.pth")
+        if self._best_metric != -1e-12:
+            # Serialize best performing checkpoint observed so far.
+            torch.save(
+                self._best_ckpt, self.serialization_dir / "checkpoint_best.pth"
+            )
 
         # Remove earliest checkpoint if there are more on disk.
         self._recent_iterations.append(iteration)
@@ -117,7 +120,7 @@ class CheckpointManager(object):
         r"""Remove ealiest serialized checkpoint from disk."""
 
         earliest_iteration = self._recent_iterations.pop(0)
-        (self._serialization_dir / f"checkpoint_{earliest_iteration}.pth").unlink()
+        (self.serialization_dir / f"checkpoint_{earliest_iteration}.pth").unlink()
 
     def load(self, checkpoint_path: str):
         r"""

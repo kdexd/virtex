@@ -50,8 +50,8 @@ class TokenizerFactory(Factory):
 
         tokenizer = cls.create(
             "SentencePieceBPETokenizer",
-            vocab_path=_C.DATA.CAPTION.TOKENIZER_VOCAB,
-            model_path=_C.DATA.CAPTION.TOKENIZER_MODEL,
+            vocab_path=_C.DATA.TOKENIZER_VOCAB,
+            model_path=_C.DATA.TOKENIZER_MODEL,
         )
         return tokenizer
 
@@ -84,8 +84,8 @@ class DatasetFactory(Factory):
                 if split == "val"
                 else _C.DATA.TRAIN_LMDB,
                 "tokenizer": tokenizer,
-                "max_caption_length": _C.DATA.CAPTION.MAX_LENGTH,
-                "use_single_caption": _C.DATA.CAPTION.USE_SINGLE,
+                "max_caption_length": _C.DATA.MAX_CAPTION_LENGTH,
+                "use_single_caption": _C.DATA.USE_SINGLE_CAPTION,
                 "percentage": _C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
             }
             if _C.MODEL.NAME == "word_masking":
@@ -104,16 +104,16 @@ class DatasetFactory(Factory):
         # Set random flip as image only or image-caption based on pretext task.
         HorizontalFlip = (
             vdata.transforms.ImageCaptionHorizontalFlip
-            if _C.MODEL.NAME != "instance_classification" else
-            alb.HorizontalFlip
+            if _C.MODEL.NAME != "instance_classification"
+            else alb.HorizontalFlip
         )
         # Prepare a list of augmentations based on split (train or val).
         if split == "train":
             augmentation_list: List[Callable] = [
                 alb.RandomResizedCrop(
-                    _C.DATA.IMAGE.CROP_SIZE,
-                    _C.DATA.IMAGE.CROP_SIZE,
-                    scale=(0.08, 1.0),
+                    _C.DATA.IMAGE_CROP_SIZE,
+                    _C.DATA.IMAGE_CROP_SIZE,
+                    scale=(0.2, 1.0),
                     ratio=(0.75, 1.333),
                     always_apply=True,
                 ),
@@ -128,24 +128,21 @@ class DatasetFactory(Factory):
         else:
             augmentation_list = [
                 alb.SmallestMaxSize(
-                    max_size=_C.DATA.IMAGE.CROP_SIZE, always_apply=True
+                    max_size=_C.DATA.IMAGE_CROP_SIZE, always_apply=True
                 ),
                 alb.CenterCrop(
-                    _C.DATA.IMAGE.CROP_SIZE,
-                    _C.DATA.IMAGE.CROP_SIZE,
+                    _C.DATA.IMAGE_CROP_SIZE,
+                    _C.DATA.IMAGE_CROP_SIZE,
                     always_apply=True,
                 ),
             ]
 
         augmentation_list.append(alb.ToFloat(max_value=255.0))
-        if _C.DATA.IMAGE.COLOR_NORMALIZE:
-            augmentation_list.append(
-                alb.Normalize(
-                    mean=IMAGENET_COLOR_MEAN,
-                    std=IMAGENET_COLOR_STD,
-                    max_pixel_value=1.0,
-                )
+        augmentation_list.append(
+            alb.Normalize(
+                mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD, max_pixel_value=1.0
             )
+        )
 
         kwargs["image_transform"] = alb.Compose(augmentation_list)
         # Dataset names match with model names (and ofcourse pretext names).
@@ -197,9 +194,7 @@ class TextualStreamFactory(Factory):
 
     @classmethod
     def from_config(
-        cls,
-        config: Config,
-        tokenizer: Optional[SentencePieceBPETokenizer] = None,
+        cls, config: Config, tokenizer: Optional[SentencePieceBPETokenizer] = None
     ) -> nn.Module:
 
         _C = config
@@ -213,7 +208,7 @@ class TextualStreamFactory(Factory):
             "dropout": _C.MODEL.DROPOUT,
             "is_bidirectional": _C.MODEL.NAME == "word_masking",
             "padding_idx": tokenizer.token_to_id("[UNK]"),
-            "max_caption_length": _C.DATA.CAPTION.MAX_LENGTH,
+            "max_caption_length": _C.DATA.MAX_CAPTION_LENGTH,
             "feedforward_size": _C.MODEL.TEXTUAL.FEEDFORWARD_SIZE,
             "attention_heads": _C.MODEL.TEXTUAL.ATTENTION_HEADS,
             "num_layers": _C.MODEL.TEXTUAL.NUM_LAYERS,
@@ -233,9 +228,7 @@ class PretrainingModelFactory(Factory):
 
     @classmethod
     def from_config(
-        cls,
-        config: Config,
-        tokenizer: Optional[SentencePieceBPETokenizer] = None,
+        cls, config: Config, tokenizer: Optional[SentencePieceBPETokenizer] = None
     ) -> nn.Module:
 
         _C = config
@@ -249,7 +242,7 @@ class PretrainingModelFactory(Factory):
         kwargs = {}
         if _C.MODEL.NAME == "captioning":
             kwargs.update(
-                max_decoding_steps=_C.DATA.CAPTION.MAX_LENGTH,
+                max_decoding_steps=_C.DATA.MAX_CAPTION_LENGTH,
                 sos_index=tokenizer.token_to_id("[SOS]"),
                 eos_index=tokenizer.token_to_id("[EOS]"),
             )
@@ -287,11 +280,10 @@ class OptimizerFactory(Factory):
         param_groups: List[Dict[str, Any]] = []
         for name, param in named_parameters:
             lr = _C.OPTIM.CNN_LR if "cnn" in name else _C.OPTIM.LR
-            wd = (
-                _C.OPTIM.CNN_WEIGHT_DECAY if "cnn" in name else _C.OPTIM.WEIGHT_DECAY
-            )
-            if any(n in name for n in _C.OPTIM.NO_DECAY):
-                wd = 0.0
+
+            is_no_decay = any(n in name for n in _C.OPTIM.NO_DECAY)
+            wd = 0.0 if is_no_decay else _C.OPTIM.WEIGHT_DECAY
+
             param_groups.append({"params": [param], "lr": lr, "weight_decay": wd})
         # fmt: on
 

@@ -106,7 +106,7 @@ if __name__ == "__main__":
     train_dataset = DownstreamDatasetFactory.from_config(_C, split="train")
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=_DOWNC.BATCH_SIZE_PER_GPU,
+        batch_size=_DOWNC.BATCH_SIZE // dist.get_world_size(),
         num_workers=_A.cpu_workers,
         sampler=DistributedSampler(train_dataset, shuffle=True),
         pin_memory=True,
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     val_dataset = DownstreamDatasetFactory.from_config(_C, split="val")
     val_dataloader = DataLoader(
         val_dataset,
-        batch_size=_DOWNC.BATCH_SIZE_PER_GPU,
+        batch_size=_DOWNC.BATCH_SIZE // dist.get_world_size(),
         num_workers=_A.cpu_workers,
         sampler=DistributedSampler(val_dataset),
         pin_memory=True,

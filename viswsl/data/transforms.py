@@ -2,8 +2,7 @@ from typing import List
 import unicodedata
 
 import albumentations as alb
-import numpy as np
-from PIL import Image, ImageOps
+import cv2
 
 from viswsl.data.tokenizer import SentencePieceBPETokenizer
 
@@ -119,9 +118,7 @@ class ImageCaptionHorizontalFlip(ImageCaptionTransform):
     """
 
     def apply(self, img, **params):
-        pil_image = Image.fromarray(img)
-        image = np.array(ImageOps.mirror(pil_image))
-        return image
+        return cv2.flip(img, 1)
 
     def apply_to_caption(self, caption, **params):
         caption = (

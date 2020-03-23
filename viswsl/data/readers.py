@@ -6,10 +6,9 @@ import pickle
 import random
 from typing import Dict, List, Tuple
 
+import cv2
 import lmdb
 from loguru import logger
-import numpy as np
-from PIL import Image
 from torch.utils.data import Dataset
 
 
@@ -46,7 +45,8 @@ class SimpleCocoCaptionsReader(Dataset):
         image_id, filename = self.id_filename[idx]
 
         # shape: (height, width, channels), dtype: uint8
-        image = np.array(Image.open(filename).convert("RGB"))
+        image = cv2.imread(filename)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         captions = self._id_to_captions[image_id]
 
         return {"image_id": image_id, "image": image, "captions": captions}
@@ -97,7 +97,7 @@ class LmdbReader(Dataset):
         # class goes out of scope.
         env = lmdb.open(
             self.lmdb_path, subdir=False, readonly=True, lock=False,
-            readahead=True, map_size=1099511627776 * 2,
+            readahead=False, map_size=1099511627776 * 2,
         )
         self.db_txn = env.begin()
 

@@ -4,7 +4,7 @@ from collections import Counter
 from loguru import logger
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 
 # fmt: off
@@ -67,7 +67,7 @@ def main(_A: argparse.Namespace):
 
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
+        batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
         sampler=DistributedSampler(
             train_dataset,
             num_replicas=dist.get_world_size(),
@@ -81,7 +81,7 @@ def main(_A: argparse.Namespace):
     )
     val_dataloader = DataLoader(
         val_dataset,
-        batch_size=_C.OPTIM.BATCH_SIZE_PER_GPU,
+        batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
         sampler=DistributedSampler(
             val_dataset,
             num_replicas=dist.get_world_size(),

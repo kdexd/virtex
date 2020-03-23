@@ -5,8 +5,8 @@ import os
 from typing import Callable, List, Tuple
 
 import albumentations as alb
+import cv2
 import numpy as np
-from PIL import Image
 from torch.utils.data import Dataset
 
 from viswsl.data.structures import CaptioningInstance, CaptioningBatch
@@ -87,7 +87,8 @@ class InstanceClassificationDataset(Dataset):
         image_id, filename = self.id_filename[idx]
 
         # Open image from path and apply transformation, convert to CHW format.
-        image = np.array(Image.open(filename).convert("RGB"))
+        image = cv2.imread(filename)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = self.image_transform(image=image)["image"]
         image = np.transpose(image, (2, 0, 1))
 
