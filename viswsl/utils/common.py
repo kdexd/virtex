@@ -37,7 +37,7 @@ def cycle(dataloader, device, start_iteration: int = 0):
             iteration += 1
 
 
-def common_setup(_C: Config, _A: argparse.Namespace):
+def common_setup(_C: Config, _A: argparse.Namespace, job_type: str = "pretrain"):
     r"""
     Setup common stuff at the start of every job, all listed here to avoid
     code duplication. Basic steps include::
@@ -58,6 +58,9 @@ def common_setup(_C: Config, _A: argparse.Namespace):
     ----------
     _C: viswsl.config.Config
     _A: argparse.Namespace
+    job_type: str, optional (default = "pretrain")
+        Type of job for which setup is to be done. One of ``{"pretrain",
+        "downstream"}``. Used for saving config with an appropriate name.
     """
 
     # Get process rank and world size (assuming distributed is initialized).
@@ -73,7 +76,7 @@ def common_setup(_C: Config, _A: argparse.Namespace):
 
     # Create serialization directory and save config in it.
     os.makedirs(_A.serialization_dir, exist_ok=True)
-    _C.dump(os.path.join(_A.serialization_dir, "config.yml"))
+    _C.dump(os.path.join(_A.serialization_dir, f"{job_type}_config.yml"))
 
     # Remove default logger, create a logger for each process which writes to a
     # separate log-file. This makes changes in global scope.
@@ -118,8 +121,7 @@ def common_parser(description: str = "") -> argparse.ArgumentParser:
     # fmt: off
     group = parser.add_argument_group("ViRTex pretraining config arguments.")
     group.add_argument(
-        "--config", metavar="FILE",
-        help="Path to a config file with necessary config params."
+        "--config", metavar="FILE", help="Path to a config file."
     )
     group.add_argument(
         "--config-override", nargs="*", default=[],

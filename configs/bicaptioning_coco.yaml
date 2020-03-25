@@ -2,9 +2,7 @@ RANDOM_SEED: 0
 FP16_OPT: 2
 
 DATA:
-  TRAIN_LMDB: datasets/serialized/coco_train2017.lmdb
-  VAL_LMDB: datasets/serialized/coco_val2017.lmdb
-
+  ROOT: datasets/coco
   TOKENIZER_VOCAB: "datasets/vocab/coco_10k.vocab"
   TOKENIZER_MODEL: "datasets/vocab/coco_10k.model"
 
@@ -14,11 +12,11 @@ DATA:
   IMAGE_TRANSFORM_TRAIN:
     - random_resized_crop
     - horizontal_flip
-    - color_jitter_mild
+    - color_jitter
     - normalize
 
   IMAGE_TRANSFORM_VAL:
-    - smallest_max_size
+    - smallest_resize
     - center_crop
     - normalize
 
@@ -42,6 +40,7 @@ OPTIM:
   NUM_ITERATIONS: 500000
   OPTIMIZER_NAME: sgd
   SGD_MOMENTUM: 0.9
+  SGD_NESTEROV: False
   USE_LOOKAHEAD: True
 
   BATCH_SIZE: 256
@@ -51,10 +50,3 @@ OPTIM:
   LR_DECAY_NAME: cosine
   WARMUP_STEPS: 10000
   CLIP_GRAD_NORM: 10
-
-DOWNSTREAM:
-  VOC07_CLF:
-    DATA_ROOT: datasets/VOC2007
-    BATCH_SIZE: 64
-    LAYER_NAMES: ["layer4"]
-    SVM_COSTS: [0.01, 0.1, 1.0, 10.0]

@@ -111,12 +111,12 @@ if __name__ == "__main__":
     train_dataloader_iter = cycle(train_dataloader, device)
 
     # Keep track of time per iteration and ETA.
-    timer = Timer(last_iteration=-1, total_iterations=_C.OPTIM.NUM_ITERATIONS)
+    timer = Timer(start_from=1, total_iterations=_C.OPTIM.NUM_ITERATIONS)
 
     # -------------------------------------------------------------------------
     #   BENCHMARKING LOOP
     # -------------------------------------------------------------------------
-    for iteration in range(_C.OPTIM.NUM_ITERATIONS):
+    for iteration in range(1, _C.OPTIM.NUM_ITERATIONS + 1):
         timer.tic()
         batch = next(train_dataloader_iter)
 

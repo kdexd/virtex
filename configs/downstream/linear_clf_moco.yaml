@@ -1,0 +1,32 @@
+RANDOM_SEED: 0
+DATA:
+  ROOT: datasets/imagenet
+  IMAGE_TRANSFORM_TRAIN:
+    - random_resized_crop
+    - horizontal_flip
+    - normalize
+  IMAGE_TRANSFORM_VAL:
+    - smallest_resize
+    - center_crop
+    - normalize
+
+MODEL:
+  LINEAR_CLF:
+    LAYER_NAME: avgpool
+    NUM_CLASSES: 1000
+    NORM_LAYER: ""
+
+OPTIM:
+  BATCH_SIZE: 256
+  SGD_MOMENTUM: 0.9
+  SGD_NESTEROV: False
+  WEIGHT_DECAY: 0.0
+
+  LR: 30.0
+  WARMUP_STEPS: 0
+  LR_DECAY_NAME: multistep
+  LR_GAMMA: 0.1
+  LR_STEPS:
+    - 300240  # 60 epochs
+    - 400320  # 80 epochs
+  NUM_ITERATIONS: 500400  # 100 epochs

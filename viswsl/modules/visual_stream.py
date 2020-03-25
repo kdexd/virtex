@@ -77,6 +77,10 @@ class TorchvisionVisualStream(VisualStream):
             if name in self._stage_names:
                 intermediate_outputs[name] = out
 
+        # Add pooled spatial features.
+        intermediate_outputs["avgpool"] = torch.mean(
+            intermediate_outputs["layer4"], dim=[2, 3]
+        )
         if return_intermediate_outputs:
             return intermediate_outputs
         else:

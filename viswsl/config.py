@@ -6,7 +6,6 @@ Parts of this class are adopted from several of my past projects:
 """
 from typing import Any, List, Optional
 
-from loguru import logger
 from yacs.config import CfgNode as CN
 
 
@@ -56,12 +55,6 @@ class Config(object):
         these are assumed to be relative to project root directory. If
         elsewhere, symlinking is recommended.
 
-    DATA.TRAIN_LMDB: datasets/serialized/coco_train2017.lmdb
-        Path to an LMDB file containing training examples serialized as
-        ``(image: np.ndarray, captions: List[str])``.
-    DATA.VAL_LMDB: datasets/serialized/coco_val2017.lmdb
-        Path to an LMDB file containing validation examples serialized as
-        ``(image: np.ndarray, captions: List[str])``.
     DATA.MAX_CAPTION_LENGTH: 30
         Maximum length of captions as input to the textual stream. Captions
         longer than this will be truncated to maximum length.
@@ -115,9 +108,7 @@ class Config(object):
         _C.FP16_OPT = 0
 
         _C.DATA = CN()
-        _C.DATA.TRAIN_LMDB = "datasets/serialized/coco_train2017.lmdb"
-        _C.DATA.VAL_LMDB = "datasets/serialized/coco_val2017.lmdb"
-
+        _C.DATA.ROOT = "datasets/coco"
         _C.DATA.TOKENIZER_VOCAB = "datasets/vocab/coco_10k.vocab"
         _C.DATA.TOKENIZER_MODEL = "datasets/vocab/coco_10k.model"
 
@@ -162,54 +153,32 @@ class Config(object):
         _C.MODEL.TEXTUAL.FEEDFORWARD_SIZE = 2048
         _C.MODEL.TEXTUAL.NUM_LAYERS = 1
 
+        _C.MODEL.LINEAR_CLF = CN()
+        _C.MODEL.LINEAR_CLF.LAYER_NAME = "layer4"
+        _C.MODEL.LINEAR_CLF.NORM_LAYER = "FrozenBN"
+        _C.MODEL.LINEAR_CLF.NUM_CLASSES = 1000
+
         _C.OPTIM = CN()
         _C.OPTIM.NUM_ITERATIONS = 500000
         _C.OPTIM.OPTIMIZER_NAME = "sgd"
-        _C.OPTIM.NO_DECAY = [".bn", ".norm", ".bias"]
         _C.OPTIM.CLIP_GRAD_NORM = 10
 
         _C.OPTIM.SGD_MOMENTUM = 0.9
-        _C.OPTIM.ADAM_BETAS = [0.9, 0.98]
+        _C.OPTIM.SGD_NESTEROV = False
         _C.OPTIM.USE_LOOKAHEAD = False
         _C.OPTIM.LOOKAHEAD_STEPS = 5
         _C.OPTIM.LOOKAHEAD_ALPHA = 0.5
 
-        _C.OPTIM.BATCH_SIZE = 32
-        _C.OPTIM.WEIGHT_DECAY = 1e-2
-        _C.OPTIM.LR = 1e-4
-        _C.OPTIM.CNN_LR = 1e-2
+        _C.OPTIM.BATCH_SIZE = 256
+        _C.OPTIM.WEIGHT_DECAY = 0.0001
+        _C.OPTIM.NO_DECAY = "textual.*(norm.*|bias)"
+
+        _C.OPTIM.LR = 0.001
+        _C.OPTIM.CNN_LR = 0.2
         _C.OPTIM.WARMUP_STEPS = 10000
         _C.OPTIM.LR_DECAY_NAME = "cosine"
-
-        _C.DOWNSTREAM = CN()
-        _C.DOWNSTREAM.VOC07_CLF = CN()
-        _C.DOWNSTREAM.VOC07_CLF.DATA_ROOT = "datasets/VOC2007"
-        _C.DOWNSTREAM.VOC07_CLF.BATCH_SIZE = 64
-        _C.DOWNSTREAM.VOC07_CLF.LAYER_NAMES = ["layer3", "layer4"]
-        _C.DOWNSTREAM.VOC07_CLF.SVM_COSTS = [0.01, 0.1, 1.0, 10.0]
-
-        # ---------------------------------------------------------------------
-        #   Hyperparameters for ImageNet Linear Classification Protocol
-        # ---------------------------------------------------------------------
-        # These hyperparameters follow PIRL, FAIR SSL Benchmark, Split-Brain
-        # Autoencoder, Colorization pretext, etc.
-        # ---------------------------------------------------------------------
-        _C.DOWNSTREAM.LINEAR_CLF = CN()
-        _C.DOWNSTREAM.LINEAR_CLF.DATA_ROOT = "datasets/imagenet"
-        _C.DOWNSTREAM.LINEAR_CLF.NUM_CLASSES = 1000
-
-        # All of these params all for 8 GPUs, scale linearly.
-        _C.DOWNSTREAM.LINEAR_CLF.BATCH_SIZE = 256
-        _C.DOWNSTREAM.LINEAR_CLF.NUM_ITERATIONS = 140000
-
-        _C.DOWNSTREAM.LINEAR_CLF.LR = 0.01
-        _C.DOWNSTREAM.LINEAR_CLF.GAMMA = 0.1
-        _C.DOWNSTREAM.LINEAR_CLF.STEPS = [40000, 40000, 40000]
-        _C.DOWNSTREAM.LINEAR_CLF.WEIGHT_DECAY = 0.0001
-
-        _C.DOWNSTREAM.LINEAR_CLF.MOMENTUM = 0.9
-        _C.DOWNSTREAM.LINEAR_CLF.NESTEROV = True
-        # ---------------------------------------------------------------------
+        _C.OPTIM.LR_GAMMA = 0.1
+        _C.OPTIM.LR_STEPS = []
 
         # Override parameter values from YAML file first, then from override
         # list, then add derived params.
@@ -236,10 +205,6 @@ class Config(object):
     def add_derived_params(self):
         r"""Add parameters with values derived from existing parameters."""
 
-        if self._C.FP16_OPT > 0 and "gelu" in self._C.MODEL.TEXTUAL.NAME:
-            logger.warning("Cannot use GELU with FP16 precision, changing to RELU.")
-            self._C.MODEL.TEXTUAL.NAME.replace("gelu", "relu")
-
         # ---------------------------------------------------------------------
         # Set textual stream architecture if specified in string.
         # For example: "prenorm_gelu::L6_H768_A12_F3072":
@@ -260,15 +225,7 @@ class Config(object):
         return self._C.__getattr__(attr)
 
     def __str__(self):
-        common_string: str = str(CN({"RANDOM_SEED": self._C.RANDOM_SEED})) + "\n"
-        common_string: str = str(CN({"FP16_OPT": self._C.FP16_OPT})) + "\n"
-        common_string += str(CN({"DATA": self._C.DATA})) + "\n"
-        common_string += str(CN({"PRETEXT": self._C.PRETEXT})) + "\n"
-        common_string += str(CN({"MODEL": self._C.MODEL})) + "\n"
-        common_string += str(CN({"OPTIM": self._C.OPTIM})) + "\n"
-        common_string += str(CN({"DOWNSTREAM": self._C.DOWNSTREAM})) + "\n"
-
-        return common_string
+        return self._C.__str__()
 
     def __repr__(self):
         return self._C.__repr__()

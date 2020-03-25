@@ -1,4 +1,6 @@
+from collections import Counter
 import math
+from typing import List
 
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
@@ -54,6 +56,64 @@ class LinearWarmupNoDecayLR(LambdaLR):
             A multiplier factor for the optimizer's lr.
         """
         multiplier = step / float(max(1, self.wsteps)) if step < self.wsteps else 1
+        return max(0, multiplier)
+
+
+class LinearWarmupMultiStepLR(LambdaLR):
+    r"""
+    A learning rate scheduler which linearly increases learning rate from 0
+    LR, and further decreases it by gamma once the number of steps reaches one
+    of the milestones.
+
+    Parameters
+    ----------
+    optimizer: torch.optim.Optimizer
+        Wrapper optimizer.
+    warmup_steps: int
+        Number of first few steps to do linear warmup.
+    milestones: List[int]
+        List of step indices (epochs or iterations depending on context). Must
+        be increasing.
+    gamma: float, optional (default = 0.1)
+        Multiplicative factor of learning rate decay.
+    last_epoch: int, optional (default = -1)
+        The index of last step (epoch or iteration). We named it ``last_epoch``
+        instead of ``last_step`` to keep the naming consistent with other LR
+        schedulers in PyTorch.
+    """
+
+    def __init__(
+        self,
+        optimizer: Optimizer,
+        warmup_steps: int,
+        milestones: List[int],
+        gamma: float = 0.1,
+        last_epoch: int = -1,
+    ):
+        self.wsteps = warmup_steps
+        self.milestones = Counter(milestones)
+        self.gamma = gamma
+
+        # Keep a track of number of milestones encountered.
+        self.milestones_so_far = 0
+
+        # Common sanity checks.
+        assert milestones == sorted(milestones), "milestones must be increasing"
+        assert milestones[0] > warmup_steps, "first milestone must be after warmup"
+
+        super().__init__(optimizer, self.lr_lambda, last_epoch)
+
+    def lr_lambda(self, step: int) -> float:
+        if step < self.wsteps:
+            # Linear warmup.
+            multiplier = step / float(max(1, self.wsteps))
+        else:
+            # Step decay based on milestones.
+            if step in self.milestones:
+                self.milestones_so_far += 1
+            multiplier = self.gamma ** self.milestones_so_far
+
+        # Avoid negative learning rate.
         return max(0, multiplier)
 
 

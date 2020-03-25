@@ -187,6 +187,7 @@ class ColorJitter(alb.ImageOnlyTransform):
             img,
             hue_shift=int(hue_factor * 255),
             sat_shift=int(saturation_factor * 255),
+            val_shift=0,
         )
         img = img.astype(original_dtype)
         return img
@@ -206,7 +207,7 @@ class LightingNoise(alb.ImageOnlyTransform):
     This class only works for ``uint8`` images.
     """
 
-    def __init__(self, alpha: float = 0.1, p: float = 0.5):
+    def __init__(self, alpha: float = 0.2, p: float = 0.5):
         super().__init__(p=p)
         self.alpha = alpha
         self.eigval = np.array([[0.2175], [0.0188], [0.0045]])
@@ -254,6 +255,16 @@ class CenterSquareCrop(alb.CenterCrop):
         super().__init__(height=size, width=size, *args, **kwargs)
 
 
+class SquareResize(alb.Resize):
+    r"""
+    A variant of :class:`albumentations.transforms.Resize` which assumes a
+    square resize (width = height). Everything else is same.
+    """
+
+    def __init__(self, size: int, *args, **kwargs):
+        super().__init__(height=size, width=size, *args, **kwargs)
+
+
 # =============================================================================
 #   SOME COMMON CONSTANTS AND IMAGE TRANSFORMS:
 #   These serve as references here, and are used as default params in many
@@ -271,58 +282,6 @@ DEFAULT_IMAGE_TRANSFORM = alb.Compose(
     [
         alb.SmallestMaxSize(256, p=1.0),
         CenterSquareCrop(224, p=1.0),
-        alb.Normalize(mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD, p=1.0),
-    ]
-)
-
-r"""
-Desired image transform for ImageNet and Places205 linear classification
-protocol. This follows evaluation protocol similar to several prior works::
-
-    1. `(Misra et al, 2019) "Self-Supervised Learning of Pretext-Invariant
-       Representations" <https://arxiv.org/abs/1912.01991>`_.
-
-    2. `(Goyal et al, 2019) "Scaling and Benchmarking Self-Supervised Visual
-       Representation Learning" <https://arxiv.org/abs/1905.01235>`_.
-
-    3. `(Zhang et al, 2016a) "Colorful Image Colorization" 
-       <https://arxiv.org/abs/1603.08511>`_.
-
-    4. `(Zhang et al, 2016b) "Split-Brain Autoencoders: Unsupervised Learning
-       by Cross-Channel Prediction" <https://arxiv.org/abs/1611.09842>`_.
-
-This should ideally not be changed for apples-to-apples comparison.
-"""
-LINEAR_CLF_IMAGE_TRANSFORM_TRAIN = alb.Compose(
-    [
-        RandomResizedSquareCrop(224, scale=(0.08, 1.0), ratio=(0.75, 1.33), p=1.0),
-        HorizontalFlip(p=0.5),
-        ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.4, p=0.5),
-        alb.Normalize(mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD, p=1.0),
-    ]
-)
-
-r"""
-Desired image transform for ImageNet and Places205 linear classification
-protocol during validation phase. Consistent with prior works listed above.
-"""
-LINEAR_CLF_IMAGE_TRANSFORM_VAL = alb.Compose(
-    [
-        alb.SmallestMaxSize(256, p=1.0),
-        CenterSquareCrop(224, p=1.0),
-        alb.Normalize(mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD, p=1.0),
-    ]
-)
-
-r"""
-Desired image transform for VOC2007 linear classification protocol. This
-follows evaluation protocol as introduced in `(Goyal et al, 2019) "Scaling and
-Benchmarking Self-Supervised Visual Representation Learning" <https://arxiv.org/abs/1905.01235>`_.
-This should ideally not be changed for apples-to-apples comparison.
-"""
-VOC07_CLF_IMAGE_TRANSFORM = alb.Compose(
-    [
-        alb.Resize(224, 224, p=1.0),
         alb.Normalize(mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD, p=1.0),
     ]
 )

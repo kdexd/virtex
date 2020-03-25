@@ -15,22 +15,23 @@ from viswsl.data import transforms as T
 class InstanceClassificationDataset(Dataset):
     def __init__(
         self,
-        root: str = "datasets/coco",  # TODO (kd): remove default value.
+        data_root: str,
+        split: str,
         image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
-        split: str = "train",
     ):
         self.image_transform = image_transform
-        image_filenames = glob.glob(os.path.join(root, f"{split}2017", "*.jpg"))
 
         # Make a tuple of image id and its filename, get image_id from its
         # filename (assuming directory has images with names in COCO 2017 format).
+        image_filenames = glob.glob(os.path.join(data_root, f"{split}2017", "*.jpg"))
         self.id_filename: List[Tuple[int, str]] = [
             (int(os.path.basename(name)[:-4]), name) for name in image_filenames
         ]
-
         # Load the instance (bounding box and mask) annotations.
         _annotations = json.load(
-            open(os.path.join(root, "annotations", f"instances_{split}2017.json"))
+            open(
+                os.path.join(data_root, "annotations", f"instances_{split}2017.json")
+            )
         )
         # Make a mapping between COCO category id and its index, to make IDs
         # consecutive, else COCO has 80 classes with IDs 1-90. Start index from 1

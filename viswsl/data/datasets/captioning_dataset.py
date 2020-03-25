@@ -1,3 +1,4 @@
+import os
 import random
 from typing import Callable, List
 
@@ -14,16 +15,18 @@ from viswsl.data import transforms as T
 class CaptioningPretextDataset(Dataset):
     def __init__(
         self,
-        lmdb_path: str,
+        data_root: str,
+        split: str,
         tokenizer: SentencePieceBPETokenizer,
         image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
         max_caption_length: int = 30,
         use_single_caption: bool = False,
         percentage: float = 100.0,
     ):
-        self.image_transform = image_transform
+        lmdb_path = os.path.join(data_root, f"serialized_{split}.lmdb")
         self.reader = LmdbReader(lmdb_path, percentage=percentage)
 
+        self.image_transform = image_transform
         self.caption_transform = alb.Compose(
             [
                 T.NormalizeCaption(),

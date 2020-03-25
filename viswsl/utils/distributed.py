@@ -70,14 +70,17 @@ def launch(
     # This spawns `num_gpus_per_machine` process per machine, and provides
     # the "local process rank" (GPU ID) as the first arg to `_dist_worker`.
     # fmt: off
-    mp.spawn(
-        _job_worker,
-        nprocs=num_gpus_per_machine,
-        args=(
-            job_fn, world_size, num_gpus_per_machine, machine_rank, dist_url, args
-        ),
-        daemon=False,
-    )
+    if world_size > 1:
+        mp.spawn(
+            _job_worker,
+            nprocs=num_gpus_per_machine,
+            args=(
+                job_fn, world_size, num_gpus_per_machine, machine_rank, dist_url, args
+            ),
+            daemon=False,
+        )
+    else:
+        _job_worker(0, job_fn, 1, 1, 0, dist_url, args)
     # fmt: on
 
 

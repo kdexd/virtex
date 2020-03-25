@@ -1,8 +1,7 @@
 import argparse
-from collections import defaultdict
 import multiprocessing as mp
 import os
-from typing import Any, Dict, List
+from typing import Any, List
 
 from loguru import logger
 import numpy as np
@@ -15,35 +14,27 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from viswsl.config import Config
-from viswsl.data import VOC07ClassificationDataset
-from viswsl.factories import PretrainingModelFactory
-from viswsl.models import FeatureExtractor9k
+from viswsl.factories import PretrainingModelFactory, DownstreamDatasetFactory
+from viswsl.models.downstream import FeatureExtractor
 from viswsl.utils.checkpointing import CheckpointManager
-from viswsl.utils.common import common_setup
+from viswsl.utils.common import common_parser, common_setup
 
+
+parser = common_parser(
+    description="Train SVMs on a pre-trained frozen feature extractor using VOC07."
+)
+group = parser.add_argument_group("Downstream config arguments.")
+group.add_argument(
+    "--down-config", metavar="FILE", help="Path to a downstream config file."
+)
+group.add_argument(
+    "--down-config-override",
+    nargs="*",
+    default=[],
+    help="A list of key-value pairs to modify downstream config params.",
+)
 
 # fmt: off
-parser = argparse.ArgumentParser(
-    description="""Train SVMs on intermediate features of pre-trained
-    ResNet-like models for Pascal VOC2007 classification."""
-)
-parser.add_argument(
-    "--config", required=True,
-    help="""Path to a config file used to train the model whose checkpoint will
-    be loaded."""
-)
-parser.add_argument(
-    "--config-override", nargs="*", default=[],
-    help="""A sequence of key-value pairs specifying certain config arguments
-    (with dict-like nesting) using a dot operator.""",
-)
-parser.add_argument(
-    "--gpu-id", type=int, default=0, help="ID of GPU to use (-1 for CPU)."
-)
-parser.add_argument(
-    "--cpu-workers", type=int, default=2, help="Number of CPU workers."
-)
-
 parser.add_argument_group("Checkpointing and Logging")
 parser.add_argument(
     "--weight-init", choices=["random", "imagenet", "torchvision", "checkpoint"],
@@ -72,9 +63,8 @@ parser.add_argument(
 
 def train_test_single_svm(args):
 
-    feats_train, tgts_train, feats_test, tgts_test, layer_name, cls_name, costs = (
-        args
-    )
+    feats_train, tgts_train, feats_test, tgts_test, cls_name = args
+    SVM_COSTS = [0.01, 0.1, 1.0, 10.0]
 
     cls_labels = np.copy(tgts_train)
     # Meaning of labels in VOC/COCO original loaded target files:
@@ -88,7 +78,7 @@ def train_test_single_svm(args):
     best_cost: float = 0.0
 
     # fmt: off
-    for cost in costs:
+    for cost in SVM_COSTS:
         clf = LinearSVC(
             C=cost, class_weight={1: 2, -1: 1}, penalty="l2",
             loss="squared_hinge", max_iter=2000,
@@ -98,15 +88,13 @@ def train_test_single_svm(args):
         )
         clf.fit(feats_train, cls_labels)
 
-        # Keep track of best SVM (based on cost) for each (layer, cls).
+        # Keep track of best SVM (based on cost) for each class.
         if ap_scores.mean() > best_crossval_ap:
             best_crossval_ap = ap_scores.mean()
             best_crossval_clf = clf
             best_cost = cost
 
-    logger.info(
-        f"Best SVM for: {layer_name}, {cls_name}, cost {best_cost}, mAP {best_crossval_ap}"
-    )
+    logger.info(f"Best SVM {cls_name}: cost {best_cost}, mAP {best_crossval_ap}")
     # fmt: on
 
     # -------------------------------------------------------------------------
@@ -125,24 +113,44 @@ def train_test_single_svm(args):
     return average_precision_score(targets, eval_preds)
 
 
-if __name__ == "__main__":
+def main(_A: argparse.Namespace):
 
-    # -------------------------------------------------------------------------
-    #   INPUT ARGUMENTS AND CONFIG
-    # -------------------------------------------------------------------------
-    _A = parser.parse_args()
-    if _A.weight_init == "imagenet":
-        _A.config_override.extend(["MODEL.VISUAL.PRETRAINED", True])
+    if _A.num_gpus_per_machine == 0:
+        # Set device as CPU if num_gpus_per_machine = 0.
+        device = torch.device("cpu")
+    else:
+        # Get the current device as set for current distributed process.
+        # Check `launch` function in `viswsl.utils.distributed` module.
+        device = torch.cuda.current_device()
 
+    # Create a downstream config object (this will be immutable) and perform
+    # common setup such as logging and setting up serialization directory.
+    _DOWNC = Config(_A.down_config, _A.down_config_override)
+    common_setup(_DOWNC, _A, job_type="downstream")
+
+    # Create a (pretraining) config object and backup in serializaion directory.
     _C = Config(_A.config, _A.config_override)
-    _DOWNC = _C.DOWNSTREAM.VOC07_CLF
-
-    device = torch.device(f"cuda:{_A.gpu_id}" if _A.gpu_id != -1 else "cpu")
-    common_setup(_C, _A)
+    _C.dump(os.path.join(_A.serialization_dir, "pretrain_config.yml"))
 
     # -------------------------------------------------------------------------
-    #   INSTANTIATE MODEL AND LOGGING
+    #   INSTANTIATE DATALOADER, MODEL, AND FEATURE EXTRACTOR
     # -------------------------------------------------------------------------
+
+    train_dataset = DownstreamDatasetFactory.from_config(_DOWNC, split="trainval")
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=_DOWNC.OPTIM.BATCH_SIZE,
+        num_workers=_A.cpu_workers,
+        pin_memory=True,
+    )
+    test_dataset = DownstreamDatasetFactory.from_config(_DOWNC, split="test")
+    test_dataloader = DataLoader(
+        test_dataset,
+        batch_size=_DOWNC.OPTIM.BATCH_SIZE,
+        num_workers=_A.cpu_workers,
+        pin_memory=True,
+    )
+    NUM_CLASSES = len(train_dataset.class_names)
 
     # Initialize from a checkpoint, but only keep the visual module.
     model = PretrainingModelFactory.from_config(_C)
@@ -151,6 +159,7 @@ if __name__ == "__main__":
     # `imagenet` is already taken care of.
     if _A.weight_init == "checkpoint":
         ITERATION = CheckpointManager(model=model).load(_A.checkpoint_path)
+        _A.serialization_dir = os.path.dirname(_A.checkpoint_path)
     elif _A.weight_init == "torchvision":
         # Keep strict=False because this state dict may have weights for
         # last fc layer.
@@ -159,67 +168,46 @@ if __name__ == "__main__":
             strict=False,
         )
 
+    model = (
+        FeatureExtractor(
+            model,
+            layer_name=_DOWNC.MODEL.LINEAR_CLF.LAYER_NAME,
+            flatten_and_normalize=True,
+        )
+        .to(device)
+        .eval()
+    )
+
     # -------------------------------------------------------------------------
     #   EXTRACT FEATURES FOR TRAINING SVMs
     # -------------------------------------------------------------------------
 
-    train_dataset = VOC07ClassificationDataset(_DOWNC.DATA_ROOT, split="trainval")
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=_DOWNC.BATCH_SIZE,
-        num_workers=_A.cpu_workers,
-        pin_memory=True,
-    )
-    test_dataset = VOC07ClassificationDataset(_DOWNC.DATA_ROOT, split="test")
-    test_dataloader = DataLoader(
-        test_dataset,
-        batch_size=_DOWNC.BATCH_SIZE,
-        num_workers=_A.cpu_workers,
-        pin_memory=True,
-    )
-    NUM_CLASSES = len(train_dataset.class_names)
-
-    feature_extractor = FeatureExtractor9k(model, _DOWNC.LAYER_NAMES).to(device)
-    del model
-
-    # Possible keys: {"layer1", "layer2", "layer3", "layer4"}
-    # Each key holds a list of numpy arrays, one per example.
-    features_train: Dict[str, List[torch.Tensor]] = defaultdict(list)
-    features_test: Dict[str, List[torch.Tensor]] = defaultdict(list)
-
+    features_train: List[torch.Tensor] = []
     targets_train: List[torch.Tensor] = []
+
+    features_test: List[torch.Tensor] = []
     targets_test: List[torch.Tensor] = []
 
     # VOC07 is small, extract all features and keep them in memory.
     with torch.no_grad():
         for batch in tqdm(train_dataloader, desc="Extracting train features:"):
-            targets_train.append(batch["label"])
+            features = model(batch["image"].to(device))
 
-            # Keep features from only those layers which will be used to
-            # train SVMs.
-            # keys: {"layer1", "layer2", "layer3", "layer4"}
-            features = feature_extractor(batch["image"].to(device))
-            for layer_name in features:
-                features_train[layer_name].append(
-                    features[layer_name].detach().cpu()
-                )
+            features_train.append(features.cpu())
+            targets_train.append(batch["label"])
 
         # Similarly extract test features.
         for batch in tqdm(test_dataloader, desc="Extracting test features:"):
+            features = model(batch["image"].to(device))
+
+            features_test.append(features.cpu())
             targets_test.append(batch["label"])
 
-            features = feature_extractor(batch["image"].to(device))
-            for layer_name in features:
-                features_test[layer_name].append(features[layer_name].detach().cpu())
-
     # Convert batches of features/targets to one large numpy array
-    features_train = {
-        k: torch.cat(v, dim=0).numpy() for k, v in features_train.items()
-    }
-    features_test = {
-        k: torch.cat(v, dim=0).numpy() for k, v in features_test.items()
-    }
+    features_train = torch.cat(features_train, dim=0).numpy()
     targets_train = torch.cat(targets_train, dim=0).numpy().astype(np.int32)
+
+    features_test = torch.cat(features_test, dim=0).numpy()
     targets_test = torch.cat(targets_test, dim=0).numpy().astype(np.int32)
 
     # -------------------------------------------------------------------------
@@ -227,18 +215,16 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
 
     input_args: List[Any] = []
-    # Possible keys: {"layer1", "layer2", "layer3", "layer4"}
-    for layer_idx, layer_name in enumerate(_DOWNC.LAYER_NAMES):
 
-        # Iterate over all VOC classes and train one-vs-all linear SVMs.
-        for cls_idx in range(NUM_CLASSES):
-            # fmt: off
-            input_args.append((
-                features_train[layer_name], targets_train[:, cls_idx],
-                features_test[layer_name], targets_test[:, cls_idx],
-                layer_name, train_dataset.class_names[cls_idx], _DOWNC.SVM_COSTS,
-            ))
-            # fmt: on
+    # Iterate over all VOC07 classes and train one-vs-all linear SVMs.
+    for cls_idx in range(NUM_CLASSES):
+        # fmt: off
+        input_args.append((
+            features_train, targets_train[:, cls_idx],
+            features_test, targets_test[:, cls_idx],
+            train_dataset.class_names[cls_idx],
+        ))
+        # fmt: on
 
     pool = mp.Pool(processes=_A.cpu_workers)
     pool_output = pool.map(train_test_single_svm, input_args)
@@ -251,28 +237,25 @@ if __name__ == "__main__":
     # when weight_init=checkpoint (which maybe be coming from a training job).
     tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
 
-    # Test set AP for each class, for features from every layer.
-    # shape: (num_layers, num_classes)
-    test_ap = torch.tensor(pool_output).view(-1, NUM_CLASSES)
-
-    if len(_DOWNC.LAYER_NAMES) > 1:
-        for layer_idx, layer_name in enumerate(_DOWNC.LAYER_NAMES):
-            layer_test_map = torch.mean(test_ap, dim=-1)[layer_idx]
-            logger.info(f"mAP for {layer_name}: {layer_test_map}")
-
-            # Tensorboard logging only when _A.weight_init == "checkpoint"
-            if _A.weight_init == "checkpoint":
-                tensorboard_writer.add_scalars(
-                    "metrics/voc07_clf",
-                    {f"{layer_name}_mAP": layer_test_map},
-                    ITERATION,
-                )
-
-    best_test_map = torch.max(torch.mean(test_ap, dim=-1)).item()
-    logger.info(f"Best mAP: {best_test_map}")
+    # Test set mAP for each class, for features from every layer.
+    test_map = torch.tensor(pool_output).mean()
+    logger.info(f"mAP: {test_map}")
 
     # Tensorboard logging only when _A.weight_init == "checkpoint"
     if _A.weight_init == "checkpoint":
         tensorboard_writer.add_scalars(
-            "metrics/voc07_clf", {"best_mAP": best_test_map}, ITERATION
+            "metrics/voc07_clf",
+            {f"{_DOWNC.MODEL.LINEAR_CLF.LAYER_NAME}_mAP": test_map},
+            ITERATION,
         )
+
+
+if __name__ == "__main__":
+    _A = parser.parse_args()
+
+    # Add an arg in config override if `--weight-init` is imagenet.
+    if _A.weight_init == "imagenet":
+        _A.config_override.extend(["MODEL.VISUAL.PRETRAINED", True])
+
+    # No distributed training here, just a single process.
+    main(_A)

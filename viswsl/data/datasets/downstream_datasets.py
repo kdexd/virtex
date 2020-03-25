@@ -33,15 +33,18 @@ class ImageNetDataset(ImageNet):
         default, and will be ignored if ``split`` is ``val``.
     """
 
-    def __init__(self, root: str, split: str = "train", percentage: float = 100):
-        super().__init__(root, split)
+    def __init__(
+        self,
+        data_root: str,
+        split: str = "train",
+        image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
+        percentage: float = 100,
+    ):
+        super().__init__(data_root, split)
         assert percentage > 0, "Cannot load dataset with 0 percent original size."
 
-        self.image_transform = (
-            T.LINEAR_CLF_TRAIN_TRANSFORM
-            if split == "train"
-            else T.LINEAR_CLF_VAL_TRANSFORM
-        )
+        self.image_transform = image_transform
+
         # Super class has `imgs` list and `targets` list. Make a dict of
         # class ID to index of instances in these lists and pick first K%.
         if split == "train" and percentage < 100:
@@ -81,21 +84,22 @@ class ImageNetDataset(ImageNet):
 
 
 class Places205Dataset(Dataset):
-    def __init__(self, root: str, split: str = "train"):
+    def __init__(
+        self,
+        data_root: str,
+        split: str = "train",
+        image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
+    ):
         self.split = split
-        self.image_transform = (
-            T.LINEAR_CLF_IMAGE_TRANSFORM_TRAIN
-            if split == "train"
-            else T.LINEAR_CLF_IMAGE_TRANSFORM_VAL
-        )
+        self.image_transform = image_transform
 
         # This directory contains all the images resized to (256 x 256).
         self._image_dir = os.path.join(
-            root, "data", "vision", "torralba", "deeplearning", "images256"
+            data_root, "data", "vision", "torralba", "deeplearning", "images256"
         )
         # Path to annotatios CSV file corresponding to this split.
         annotations_path = os.path.join(
-            root, "trainvalsplit_places205", f"{split}_places205.csv"
+            data_root, "trainvalsplit_places205", f"{split}_places205.csv"
         )
         # Read annotation CSV file into tuples of (image_filename, label).
         self.instances: List[Tuple[str, int]] = []
@@ -126,12 +130,17 @@ class Places205Dataset(Dataset):
 
 
 class VOC07ClassificationDataset(Dataset):
-    def __init__(self, root: str, split: str = "train"):
+    def __init__(
+        self,
+        data_root: str,
+        split: str = "train",
+        image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
+    ):
         self.split = split
-        self.image_transform: Callable = T.VOC07_CLF_IMAGE_TRANSFORM
+        self.image_transform = image_transform
 
         ann_paths = sorted(
-            glob.glob(os.path.join(root, "ImageSets", "Main", f"*_{split}.txt"))
+            glob.glob(os.path.join(data_root, "ImageSets", "Main", f"*_{split}.txt"))
         )
         # A list like; ["aeroplane", "bicycle", "bird", ...]
         self.class_names = [
@@ -160,7 +169,10 @@ class VOC07ClassificationDataset(Dataset):
         # Convert the dict to a list of tuples for easy indexing.
         # Replace image name with full image path.
         self.instances: List[Tuple[str, torch.Tensor]] = [
-            (os.path.join(root, "JPEGImages", f"{image_name}.jpg"), label.tolist())
+            (
+                os.path.join(data_root, "JPEGImages", f"{image_name}.jpg"),
+                label.tolist(),
+            )
             for image_name, label in image_names_to_labels.items()
         ]
 

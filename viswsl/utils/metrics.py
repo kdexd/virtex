@@ -240,12 +240,11 @@ def spice(
     return np.mean(spice_scores)
 
 
-class ImageNetTopkAccuracy(object):
+class TopkAccuracy(object):
     r"""
-    An accumulator for imagenet Top-K accuracy. This can accumulate per-batch
-    accuracy during validation and the final accuracy can be retrieved at the
-    end of validation. Assumes integer labels (0-1000) and predictions for
-    ImageNet categories.
+    An accumulator for Top-K classification accuracy. This can accumulate
+    per-batch accuracy during validation and the final accuracy can be
+    retrieved at the end of validation. Assumes integer labels and predictions.
 
     Note
     ----
@@ -261,7 +260,7 @@ class ImageNetTopkAccuracy(object):
         self.num_total = 0.0
         self.num_correct = 0.0
 
-    def __call__(self, ground_truth: torch.Tensor, predictions: torch.Tensor):
+    def __call__(self, predictions: torch.Tensor, ground_truth: torch.Tensor):
         r"""
         Accumulate accuracy of current batch.
 

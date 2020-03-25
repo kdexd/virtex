@@ -1,4 +1,5 @@
 from functools import partial
+import re
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 import albumentations as alb
@@ -65,19 +66,20 @@ class ImageTransformsFactory(Factory):
         "random_resized_crop": partial(
             T.RandomResizedSquareCrop, scale=(0.2, 1.0), ratio=(0.75, 1.333), p=1.0
         ),
-        "smallest_max_size": partial(alb.SmallestMaxSize, p=1.0),
         "center_crop": partial(T.CenterSquareCrop, p=1.0),
+        "smallest_resize": partial(alb.SmallestMaxSize, p=1.0),
+        "global_resize": partial(T.SquareResize, p=1.0),
 
         # Data augmentations: whenever selected, these are applied with 50%
-        # probability, except ColorJitter which is always applied.
+        # probability, one exception being ColorJitter.
         "horizontal_flip": partial(T.HorizontalFlip, p=0.5),
-        "color_jitter_mild": partial(
-            T.ColorJitter, brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=1.0
+
+        # Keep hue limits small in color jitter because it changes color drastically
+        # and captions often mention colors. Apply with higher probability.
+        "color_jitter": partial(
+            T.ColorJitter, brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1, p=0.8
         ),
-        "color_jitter_heavy": partial(
-            T.ColorJitter, brightness=0.4, contrast=0.4, saturation=0.4, hue=0.4, p=1.0
-        ),
-        "lighting_noise": partial(T.LightingNoise, alpha=0.1, p=0.5),
+        "lighting_noise": partial(T.LightingNoise, alpha=0.2, p=0.5),
         "gaussian_blur": partial(alb.GaussianBlur, blur_limit=7, p=0.5),
 
         # Color normalization: whenever selected, always applied.
@@ -111,66 +113,41 @@ class DatasetFactory(Factory):
         split: str = "train",  # one of {"train", "val"}
     ):
         _C = config
-        tokenizer = tokenizer or TokenizerFactory.from_config(_C)
+        kwargs = {"data_root": _C.DATA.ROOT, "split": split}
+
+        # Create a list of image transformations based on transform names.
+        image_transform_list: List[Callable] = []
+
+        for name in getattr(_C.DATA, f"IMAGE_TRANSFORM_{split.upper()}"):
+            # Pass dimensions if cropping / resizing, else rely on the defaults
+            # as per `ImageTransformsFactory`.
+            if "resize" in name or "crop" in name:
+                image_transform_list.append(
+                    ImageTransformsFactory.create(name, _C.DATA.IMAGE_CROP_SIZE)
+                )
+            else:
+                image_transform_list.append(ImageTransformsFactory.create(name))
+
+        kwargs["image_transform"] = alb.Compose(image_transform_list)
 
         # Add model specific kwargs. Refer call signatures of specific datasets.
-        # TODO (kd): InstanceClassificationDataset does not accept most of the
-        # args. Make the API more consistent.
         if _C.MODEL.NAME != "instance_classification":
-            kwargs = {
-                "lmdb_path": _C.DATA.VAL_LMDB
-                if split == "val"
-                else _C.DATA.TRAIN_LMDB,
-                "tokenizer": tokenizer,
-                "max_caption_length": _C.DATA.MAX_CAPTION_LENGTH,
-                "use_single_caption": _C.DATA.USE_SINGLE_CAPTION,
-                "percentage": _C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
-            }
+            tokenizer = tokenizer or TokenizerFactory.from_config(_C)
+            kwargs.update(
+                tokenizer=tokenizer,
+                max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
+                use_single_caption=_C.DATA.USE_SINGLE_CAPTION,
+                percentage=_C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
+            )
             if _C.MODEL.NAME == "word_masking":
                 kwargs.update(
                     mask_proportion=_C.PRETEXT.WORD_MASKING.MASK_PROPORTION,
                     mask_probability=_C.PRETEXT.WORD_MASKING.MASK_PROBABILITY,
                     replace_probability=_C.PRETEXT.WORD_MASKING.REPLACE_PROBABILITY,
                 )
-        else:
-            # TODO: add `root` argument after adding to config.
-            kwargs = {"split": split}
 
-        image_transform_names: List[str] = list(
-            _C.DATA.IMAGE_TRANSFORM_TRAIN
-            if split == "train"
-            else _C.DATA.IMAGE_TRANSFORM_VAL
-        )
-        # Create a list of image transformations based on names.
-        augmentation_list: List[Callable] = []
-
-        for name in image_transform_names:
-            # Pass dimensions if cropping / resizing, else rely on the defaults
-            # as per `ImageTransformsFactory`.
-            if name in {"random_resize_crop", "center_crop", "smallest_max_size"}:
-                augmentation_list.append(
-                    ImageTransformsFactory.create(name, _C.DATA.IMAGE_CROP_SIZE)
-                )
-            else:
-                augmentation_list.append(ImageTransformsFactory.create(name))
-
-        kwargs["image_transform"] = alb.Compose(augmentation_list)
         # Dataset names match with model names (and ofcourse pretext names).
         return cls.create(_C.MODEL.NAME, **kwargs)
-
-
-class DownstreamDatasetFactory(Factory):
-    # We use `DOWNSTREAM.LINEAR_CLF.DATA_ROOT` so these keys look like paths.
-    PRODUCTS = {
-        "datasets/imagenet": vdata.ImageNetDataset,
-        "datasets/places205": vdata.Places205Dataset,
-    }
-
-    @classmethod
-    def from_config(cls, config: Config, split: str = "train"):
-        _C = config
-        kwargs = {"root": _C.DOWNSTREAM.LINEAR_CLF.DATA_ROOT, "split": split}
-        return cls.create(_C.DOWNSTREAM.LINEAR_CLF.DATA_ROOT, **kwargs)
 
 
 class VisualStreamFactory(Factory):
@@ -190,7 +167,8 @@ class VisualStreamFactory(Factory):
             kwargs["frozen"] = _C.MODEL.VISUAL.FROZEN
 
             return cls.create(zoo_name, cnn_name, **kwargs)
-        return cls.create(_C.MODEL.VISUAL.NAME, **kwargs)
+        else:
+            return cls.create(_C.MODEL.VISUAL.NAME, **kwargs)
 
 
 class TextualStreamFactory(Factory):
@@ -275,7 +253,7 @@ class PretrainingModelFactory(Factory):
 
 class OptimizerFactory(Factory):
 
-    PRODUCTS = {"sgd": optim.SGD, "adam": optim.Adam, "adamw": optim.AdamW}
+    PRODUCTS = {"sgd": optim.SGD}
 
     @classmethod
     def from_config(  # type: ignore
@@ -283,25 +261,20 @@ class OptimizerFactory(Factory):
     ) -> optim.Optimizer:
         _C = config
 
-        # Form param groups on two criterions:
-        #   1. no weight decay for some parameters (usually norm and bias)
-        #   2. different LR and weight decay for CNN and rest of model.
-        # fmt: off
-        param_groups: List[Dict[str, Any]] = []
+        # Set different learning rate for CNN and rest of the model during
+        # pretraining. This doesn't matter for downstream evaluation because
+        # there are no modules with "cnn" in their name.
+        # Also turn off weight decay for layer norm and bias in textual stream.
+        param_groups = []
         for name, param in named_parameters:
+            wd = 0.0 if re.match(_C.OPTIM.NO_DECAY, name) else _C.OPTIM.WEIGHT_DECAY
             lr = _C.OPTIM.CNN_LR if "cnn" in name else _C.OPTIM.LR
-
-            is_no_decay = any(n in name for n in _C.OPTIM.NO_DECAY)
-            wd = 0.0 if is_no_decay else _C.OPTIM.WEIGHT_DECAY
-
             param_groups.append({"params": [param], "lr": lr, "weight_decay": wd})
-        # fmt: on
 
-        if "adam" in _C.OPTIM.OPTIMIZER_NAME:
-            kwargs = {"betas": tuple(_C.OPTIM.ADAM_BETAS)}
-        else:
-            kwargs = {"momentum": _C.OPTIM.SGD_MOMENTUM}
-
+        kwargs = {
+            "momentum": _C.OPTIM.SGD_MOMENTUM,
+            "nesterov": _C.OPTIM.SGD_NESTEROV,
+        }
         optimizer = cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
         if _C.OPTIM.USE_LOOKAHEAD:
             optimizer = Lookahead(
@@ -314,6 +287,7 @@ class LRSchedulerFactory(Factory):
 
     PRODUCTS = {
         "none": lr_scheduler.LinearWarmupNoDecayLR,
+        "multistep": lr_scheduler.LinearWarmupMultiStepLR,
         "linear": lr_scheduler.LinearWarmupLinearDecayLR,
         "cosine": lr_scheduler.LinearWarmupCosineAnnealingLR,
     }
@@ -323,9 +297,51 @@ class LRSchedulerFactory(Factory):
         cls, config: Config, optimizer: optim.Optimizer
     ) -> optim.lr_scheduler.LambdaLR:
         _C = config
-        return cls.create(
-            _C.OPTIM.LR_DECAY_NAME,
-            optimizer,
-            total_steps=_C.OPTIM.NUM_ITERATIONS,
-            warmup_steps=_C.OPTIM.WARMUP_STEPS,
+
+        kwargs = {"warmup_steps": _C.OPTIM.WARMUP_STEPS}
+
+        # Multistep LR requires multiplicative factor and milestones.
+        if _C.OPTIM.LR_DECAY_NAME == "multistep":
+            kwargs["gamma"] = _C.OPTIM.LR_GAMMA
+            kwargs["milestones"] = _C.OPTIM.LR_STEPS
+        else:
+            kwargs["total_steps"] = _C.OPTIM.NUM_ITERATIONS
+
+        return cls.create(_C.OPTIM.LR_DECAY_NAME, optimizer, **kwargs)
+
+
+class DownstreamDatasetFactory(Factory):
+    # Key names correspond to `DATA.ROOT` of downstream config.
+    PRODUCTS = {
+        "datasets/VOC2007": vdata.VOC07ClassificationDataset,
+        "datasets/imagenet": vdata.ImageNetDataset,
+        "datasets/places205": vdata.Places205Dataset,
+    }
+
+    @classmethod
+    def from_config(cls, config: Config, split: str = "train"):
+        _C = config
+        kwargs = {"data_root": _C.DATA.ROOT, "split": split}
+
+        image_transform_names: List[str] = list(
+            _C.DATA.IMAGE_TRANSFORM_TRAIN
+            if "train" in split
+            else _C.DATA.IMAGE_TRANSFORM_VAL
         )
+        # Create a list of image transformations based on names.
+        image_transform_list: List[Callable] = []
+
+        for name in image_transform_names:
+            # Pass dimensions if cropping / resizing, else rely on the defaults
+            # as per `ImageTransformsFactory`.
+            if name in {"random_resized_crop", "center_crop", "global_resize"}:
+                transform = ImageTransformsFactory.create(name, 224)
+            elif name in {"smallest_resize"}:
+                transform = ImageTransformsFactory.create(name, 256)
+            else:
+                transform = ImageTransformsFactory.create(name)
+            image_transform_list.append(transform)
+
+        kwargs["image_transform"] = alb.Compose(image_transform_list)
+
+        return cls.create(_C.DATA.ROOT, **kwargs)

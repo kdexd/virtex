@@ -142,7 +142,7 @@ def main(_A: argparse.Namespace):
 
     # Keep track of time per iteration and ETA.
     timer = Timer(
-        last_iteration=start_iteration - 1,
+        start_from=start_iteration + 1,
         total_iterations=_C.OPTIM.NUM_ITERATIONS,
     )
     # Create an iterator from dataloader to sample batches perpetually.
@@ -151,7 +151,7 @@ def main(_A: argparse.Namespace):
     # -------------------------------------------------------------------------
     #   TRAINING LOOP
     # -------------------------------------------------------------------------
-    for iteration in range(start_iteration, _C.OPTIM.NUM_ITERATIONS):
+    for iteration in range(start_iteration + 1, _C.OPTIM.NUM_ITERATIONS + 1):
         timer.tic()
         optimizer.zero_grad()
 

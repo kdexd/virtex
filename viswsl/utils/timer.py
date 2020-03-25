@@ -9,8 +9,8 @@ class Timer(object):
 
     Parameters
     ----------
-    last_iteration: int, optional (default = -1)
-        Iteration from which the training was started/resumed.
+    start_from: int, optional (default = 1)
+        Iteration from which counting should be started/resumed.
     total_iterations: int, optional (default = None)
         Total number of iterations. ETA will not be tracked (will remain "N/A")
         if this is not provided.
@@ -20,11 +20,13 @@ class Timer(object):
 
     def __init__(
         self,
-        last_iteration: int = -1,
+        start_from: int = 1,
         total_iterations: Optional[int] = None,
         window_size: int = 20,
     ):
-        self.current_iter = last_iteration
+        # We decrement by 1 because `current_iter` changes increment during
+        # an iteration (for example, will change from 0 -> 1 on iteration 1).
+        self.current_iter = start_from - 1
         self.total_iters = total_iterations
 
         self._start_time = time.time()

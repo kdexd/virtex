@@ -23,7 +23,6 @@ import argparse
 import os
 import random
 import shutil
-import warnings
 
 import albumentations as alb
 from loguru import logger
@@ -39,7 +38,7 @@ from torchvision import models
 
 from viswsl.data.datasets.downstream_datasets import ImageNetDataset
 import viswsl.utils.distributed as vdist
-from viswsl.utils.metrics import ImageNetTopkAccuracy
+from viswsl.utils.metrics import TopkAccuracy
 from viswsl.utils.timer import Timer
 
 # fmt: off
@@ -211,7 +210,7 @@ def main_worker(gpu, ngpus_per_node, _A):
     # -------------------------------------------------------------------------
 
     # Keep track of time per iteration and ETA.
-    timer = Timer(last_iteration=-1, total_iterations=_A.epochs * len(train_loader))
+    timer = Timer(start_from=0, total_iterations=_A.epochs * len(train_loader))
 
     writer = SummaryWriter(log_dir=_A.serialization_dir)
     for epoch in range(_A.start_epoch, _A.epochs):
@@ -278,8 +277,8 @@ def train(train_loader, model, criterion, optimizer, epoch, timer, writer, _A):
 
 def validate(val_loader, model, criterion, writer, _A):
     global GLOBAL_ITER
-    top1 = ImageNetTopkAccuracy(top_k=1)
-    top5 = ImageNetTopkAccuracy(top_k=5)
+    top1 = TopkAccuracy(top_k=1)
+    top5 = TopkAccuracy(top_k=5)
     model.eval()
 
     with torch.no_grad():
@@ -293,8 +292,8 @@ def validate(val_loader, model, criterion, writer, _A):
             loss = criterion(output, target)
 
             # Accumulate accuracies for current batch.
-            top1(target, output)
-            top5(target, output)
+            top1(output, target)
+            top5(output, target)
 
         # Average Top-1 and Top-5 accuracies across all processes.
         top1_avg = torch.tensor(top1.get_metric(reset=True)).cuda(_A.gpu)
