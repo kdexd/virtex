@@ -4,38 +4,19 @@ import json
 import os
 from typing import Callable, List, Tuple
 
-import albumentations as alb
 import cv2
 import numpy as np
 from torch.utils.data import Dataset
 
 from viswsl.data.structures import CaptioningInstance, CaptioningBatch
+from viswsl.data import transforms as T
 
 
 class InstanceClassificationDataset(Dataset):
     def __init__(
         self,
         root: str = "datasets/coco",  # TODO (kd): remove default value.
-        image_transform: Callable = alb.Compose(
-            [
-                alb.SmallestMaxSize(256, always_apply=True),
-                alb.RandomResizedCrop(
-                    224,
-                    224,
-                    scale=(0.08, 1.0),
-                    ratio=(0.75, 1.33),
-                    always_apply=True,
-                ),
-                alb.ToFloat(max_value=255.0, always_apply=True),
-                alb.Normalize(
-                    mean=(0.485, 0.456, 0.406),
-                    std=(0.229, 0.224, 0.225),
-                    max_pixel_value=1.0,
-                    always_apply=True,
-                ),
-            ]
-        ),
-        shuffle: bool = False,
+        image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
         split: str = "train",
     ):
         self.image_transform = image_transform
@@ -55,7 +36,8 @@ class InstanceClassificationDataset(Dataset):
         # consecutive, else COCO has 80 classes with IDs 1-90. Start index from 1
         # as 0 is reserved for background (padding idx).
         _category_ids = {
-            ann["id"]: index + 1 for index, ann in enumerate(_annotations["categories"])
+            ann["id"]: index + 1
+            for index, ann in enumerate(_annotations["categories"])
         }
 
         # A mapping between image ID and list of unique category IDs (indices as above)
@@ -65,9 +47,11 @@ class InstanceClassificationDataset(Dataset):
         for ann in _annotations["annotations"]:
             self.instances[ann["image_id"]].append(_category_ids[ann["category_id"]])
 
-        # De-duplicate instances and drop empty labels, we only need to do classification.
+        # De-duplicate instances and drop empty labels, we only need to do
+        # classification.
         self.instances = {
-            image_id: list(set(ins)) for image_id, ins in self.instances.items()
+            image_id: list(set(ins))
+            for image_id, ins in self.instances.items()
             if len(ins) > 0
         }
         # Filter out image IDs which didn't have any instances.

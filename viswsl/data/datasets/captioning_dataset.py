@@ -8,13 +8,7 @@ from torch.utils.data import Dataset
 from viswsl.data.readers import LmdbReader
 from viswsl.data.structures import CaptioningInstance, CaptioningBatch
 from viswsl.data.tokenizer import SentencePieceBPETokenizer
-from viswsl.data.transforms import (
-    IMAGENET_COLOR_MEAN,
-    IMAGENET_COLOR_STD,
-    NormalizeCaption,
-    TokenizeCaption,
-    TruncateCaptionTokens,
-)
+from viswsl.data import transforms as T 
 
 
 class CaptioningPretextDataset(Dataset):
@@ -22,18 +16,7 @@ class CaptioningPretextDataset(Dataset):
         self,
         lmdb_path: str,
         tokenizer: SentencePieceBPETokenizer,
-        image_transform: Callable = alb.Compose(
-            [
-                alb.RandomResizedCrop(224, 224, always_apply=True),
-                alb.ToFloat(always_apply=True),
-                alb.Normalize(
-                    mean=IMAGENET_COLOR_MEAN,
-                    std=IMAGENET_COLOR_STD,
-                    max_pixel_value=1.0,
-                    always_apply=True,
-                ),
-            ]
-        ),
+        image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
         max_caption_length: int = 30,
         use_single_caption: bool = False,
         percentage: float = 100.0,
@@ -43,9 +26,9 @@ class CaptioningPretextDataset(Dataset):
 
         self.caption_transform = alb.Compose(
             [
-                NormalizeCaption(),
-                TokenizeCaption(tokenizer),
-                TruncateCaptionTokens(max_caption_length),
+                T.NormalizeCaption(),
+                T.TokenizeCaption(tokenizer),
+                T.TruncateCaptionTokens(max_caption_length),
             ]
         )
         self.use_single_caption = use_single_caption

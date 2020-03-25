@@ -127,6 +127,18 @@ class Config(object):
         _C.DATA.USE_SINGLE_CAPTION = False
         _C.DATA.USE_PERCENTAGE = 100.0
 
+        _C.DATA.IMAGE_TRANSFORM_TRAIN = [
+            "random_resized_crop",
+            "horizontal_flip",
+            "color_jitter_mild",
+            "normalize",
+        ]
+        _C.DATA.IMAGE_TRANSFORM_VAL = [
+            "smallest_max_size",
+            "center_crop",
+            "normalize",
+        ]
+
         _C.PRETEXT = CN()
         _C.PRETEXT.WORD_MASKING = CN()
         _C.PRETEXT.WORD_MASKING.MASK_PROPORTION = 0.15

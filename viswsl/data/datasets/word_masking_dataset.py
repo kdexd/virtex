@@ -9,13 +9,7 @@ from torch.utils.data import Dataset
 from viswsl.data.readers import LmdbReader
 from viswsl.data.structures import WordMaskingInstance, WordMaskingBatch
 from viswsl.data.tokenizer import SentencePieceBPETokenizer
-from viswsl.data.transforms import (
-    IMAGENET_COLOR_MEAN,
-    IMAGENET_COLOR_STD,
-    NormalizeCaption,
-    TokenizeCaption,
-    TruncateCaptionTokens,
-)
+from viswsl.data import transforms as T
 
 
 class WordMaskingPretextDataset(Dataset):
@@ -26,18 +20,7 @@ class WordMaskingPretextDataset(Dataset):
         mask_proportion: float = 0.15,
         mask_probability: float = 0.80,
         replace_probability: float = 0.10,
-        image_transform: Callable = alb.Compose(
-            [
-                alb.RandomResizedCrop(224, 224, always_apply=True),
-                alb.ToFloat(always_apply=True),
-                alb.Normalize(
-                    mean=IMAGENET_COLOR_MEAN,
-                    std=IMAGENET_COLOR_STD,
-                    max_pixel_value=1.0,
-                    always_apply=True,
-                ),
-            ]
-        ),
+        image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
         max_caption_length: int = 30,
         use_single_caption: bool = False,
         percentage: float = 100.0,
@@ -47,9 +30,9 @@ class WordMaskingPretextDataset(Dataset):
 
         self.caption_transform = alb.Compose(
             [
-                NormalizeCaption(),
-                TokenizeCaption(tokenizer),
-                TruncateCaptionTokens(max_caption_length),
+                T.NormalizeCaption(),
+                T.TokenizeCaption(tokenizer),
+                T.TruncateCaptionTokens(max_caption_length),
             ]
         )
         self.use_single_caption = use_single_caption

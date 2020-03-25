@@ -11,6 +11,17 @@ DATA:
   IMAGE_CROP_SIZE: 224
   MAX_CAPTION_LENGTH: 30
 
+  IMAGE_TRANSFORM_TRAIN:
+    - random_resized_crop
+    - horizontal_flip
+    - color_jitter_mild
+    - normalize
+
+  IMAGE_TRANSFORM_VAL:
+    - smallest_max_size
+    - center_crop
+    - normalize
+
   USE_PERCENTAGE: 100.0
   USE_SINGLE_CAPTION: False
 

@@ -4,7 +4,6 @@ import glob
 import os
 from typing import Callable, Dict, List, Tuple
 
-import albumentations as alb
 import cv2
 import numpy as np
 import torch
@@ -15,62 +14,7 @@ from viswsl.data.structures import (
     LinearClassificationInstance,
     LinearClassificationBatch,
 )
-from viswsl.data.transforms import IMAGENET_COLOR_MEAN, IMAGENET_COLOR_STD
-
-
-r"""
-Desired image transform for ImageNet and Places205 linear classification
-protocol. This follows evaluation protocol similar to several prior works::
-
-    1. `(Misra et al, 2019) "Self-Supervised Learning of Pretext-Invariant
-       Representations" <https://arxiv.org/abs/1912.01991>`_.
-
-    2. `(Goyal et al, 2019) "Scaling and Benchmarking Self-Supervised Visual
-       Representation Learning" <https://arxiv.org/abs/1905.01235>`_.
-
-    3. `(Zhang et al, 2016a) "Colorful Image Colorization" 
-       <https://arxiv.org/abs/1603.08511>`_.
-
-    4. `(Zhang et al, 2016b) "Split-Brain Autoencoders: Unsupervised Learning
-       by Cross-Channel Prediction" <https://arxiv.org/abs/1611.09842>`_.
-
-This should ideally not be changed for apples-to-apples comparison.
-"""
-IMAGENET_AND_PLACES205_TRAIN_TRANSFORM_LIST = [
-    alb.SmallestMaxSize(256, always_apply=True),
-    alb.RandomResizedCrop(
-        224, 224, scale=(0.08, 1.0), ratio=(0.75, 1.33), always_apply=True
-    ),
-    alb.HorizontalFlip(p=0.5),
-    alb.RandomBrightnessContrast(brightness_limit=0.4, contrast_limit=0.4, p=0.5),
-    alb.HueSaturationValue(
-        hue_shift_limit=40, sat_shift_limit=40, val_shift_limit=0, p=0.5
-    ),
-    alb.ToFloat(max_value=255.0, always_apply=True),
-    alb.Normalize(
-        mean=IMAGENET_COLOR_MEAN,
-        std=IMAGENET_COLOR_STD,
-        max_pixel_value=1.0,
-        always_apply=True,
-    ),
-]
-
-
-r"""
-Desired image transform for ImageNet and Places205 linear classification
-protocol during validation phase. Consistent with prior works listed above.
-"""
-IMAGENET_AND_PLACES205_VAL_TRANSFORM_LIST = [
-    alb.SmallestMaxSize(256, always_apply=True),
-    alb.CenterCrop(224, 224, always_apply=True),
-    alb.ToFloat(max_value=255.0, always_apply=True),
-    alb.Normalize(
-        mean=IMAGENET_COLOR_MEAN,
-        std=IMAGENET_COLOR_STD,
-        max_pixel_value=1.0,
-        always_apply=True,
-    ),
-]
+from viswsl.data import transforms as T
 
 
 class ImageNetDataset(ImageNet):
@@ -89,25 +33,15 @@ class ImageNetDataset(ImageNet):
         default, and will be ignored if ``split`` is ``val``.
     """
 
-    def __init__(
-        self,
-        root: str,
-        split: str = "train",
-        percentage: float = 100,
-    ):
+    def __init__(self, root: str, split: str = "train", percentage: float = 100):
         super().__init__(root, split)
         assert percentage > 0, "Cannot load dataset with 0 percent original size."
 
-        if split == "train":
-            transform_list = IMAGENET_AND_PLACES205_TRAIN_TRANSFORM_LIST
-        else:
-            transform_list = IMAGENET_AND_PLACES205_VAL_TRANSFORM_LIST
-
-        # Super class handle transformation, but let's do this in this class
-        # because albumentations. Compose accepts inputs differently than
-        # `torchvision.transforms.Compose`.
-        self.image_transform = alb.Compose(transform_list)
-
+        self.image_transform = (
+            T.LINEAR_CLF_TRAIN_TRANSFORM
+            if split == "train"
+            else T.LINEAR_CLF_VAL_TRANSFORM
+        )
         # Super class has `imgs` list and `targets` list. Make a dict of
         # class ID to index of instances in these lists and pick first K%.
         if split == "train" and percentage < 100:
@@ -149,13 +83,11 @@ class ImageNetDataset(ImageNet):
 class Places205Dataset(Dataset):
     def __init__(self, root: str, split: str = "train"):
         self.split = split
-
-        if split == "train":
-            transform_list = IMAGENET_AND_PLACES205_TRAIN_TRANSFORM_LIST
-        else:
-            transform_list = IMAGENET_AND_PLACES205_VAL_TRANSFORM_LIST
-
-        self.image_transform = alb.Compose(transform_list)
+        self.image_transform = (
+            T.LINEAR_CLF_IMAGE_TRANSFORM_TRAIN
+            if split == "train"
+            else T.LINEAR_CLF_IMAGE_TRANSFORM_VAL
+        )
 
         # This directory contains all the images resized to (256 x 256).
         self._image_dir = os.path.join(
@@ -196,26 +128,7 @@ class Places205Dataset(Dataset):
 class VOC07ClassificationDataset(Dataset):
     def __init__(self, root: str, split: str = "train"):
         self.split = split
-
-        # ---------------------------------------------------------------------
-        # Build desired tranform for VOC07 linear classification protocol.
-        # This follows evaluation protocol similar to several prior works and
-        # should ideally not be changed for apples-to-apples comparison.
-        # This is DIFFERENT than ImageNet and Places205 transforms.
-        # ---------------------------------------------------------------------
-        self.image_transform: Callable = alb.Compose(
-            [
-                alb.Resize(224, 224, always_apply=True),
-                alb.ToFloat(max_value=255.0, always_apply=True),
-                alb.Normalize(
-                    mean=(0.485, 0.456, 0.406),
-                    std=(0.229, 0.224, 0.225),
-                    max_pixel_value=1.0,
-                    always_apply=True,
-                ),
-            ]
-        )
-        # ---------------------------------------------------------------------
+        self.image_transform: Callable = T.VOC07_CLF_IMAGE_TRANSFORM
 
         ann_paths = sorted(
             glob.glob(os.path.join(root, "ImageSets", "Main", f"*_{split}.txt"))

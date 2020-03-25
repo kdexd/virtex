@@ -249,8 +249,8 @@ if __name__ == "__main__":
                     val_batch[key] = val_batch[key].to(device)
 
                 # Keep features only from last layer (for this evaluation protocol).
-                features = feature_extractor(batch["image"])
-                output_dict = classifiers(features, batch["label"])
+                features = feature_extractor(val_batch["image"])
+                output_dict = classifiers(features, val_batch["label"])
                 val_loss_counter.update(output_dict["loss"])
 
             # Divide each loss component by number of val batches per GPU.

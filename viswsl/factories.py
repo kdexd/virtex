@@ -6,8 +6,8 @@ from torch import nn, optim
 
 from viswsl.config import Config
 import viswsl.data as vdata
+from viswsl.data import transforms as T
 from viswsl.data.tokenizer import SentencePieceBPETokenizer
-from viswsl.data.transforms import IMAGENET_COLOR_MEAN, IMAGENET_COLOR_STD
 import viswsl.models as vmodels
 from viswsl.modules import visual_stream as vs, textual_stream as ts
 from viswsl.optim import Lookahead, lr_scheduler
@@ -56,7 +56,45 @@ class TokenizerFactory(Factory):
         return tokenizer
 
 
+class ImageTransformsFactory(Factory):
+
+    # fmt: off
+    PRODUCTS = {
+        # Input resize transforms: whenever selected, these are always applied.
+        # These transforms require one position argument: image dimension.
+        "random_resized_crop": partial(
+            T.RandomResizedSquareCrop, scale=(0.2, 1.0), ratio=(0.75, 1.333), p=1.0
+        ),
+        "smallest_max_size": partial(alb.SmallestMaxSize, p=1.0),
+        "center_crop": partial(T.CenterSquareCrop, p=1.0),
+
+        # Data augmentations: whenever selected, these are applied with 50%
+        # probability, except ColorJitter which is always applied.
+        "horizontal_flip": partial(T.HorizontalFlip, p=0.5),
+        "color_jitter_mild": partial(
+            T.ColorJitter, brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=1.0
+        ),
+        "color_jitter_heavy": partial(
+            T.ColorJitter, brightness=0.4, contrast=0.4, saturation=0.4, hue=0.4, p=1.0
+        ),
+        "lighting_noise": partial(T.LightingNoise, alpha=0.1, p=0.5),
+        "gaussian_blur": partial(alb.GaussianBlur, blur_limit=7, p=0.5),
+
+        # Color normalization: whenever selected, always applied.
+        "normalize": partial(
+            alb.Normalize, mean=T.IMAGENET_COLOR_MEAN, std=T.IMAGENET_COLOR_STD, p=1.0
+        ),
+    }
+    # fmt: on
+
+    @classmethod
+    def from_config(cls, config: Config):
+        r"""Augmentations cannot be created from config, only :meth:`create`."""
+        raise NotImplementedError
+
+
 class DatasetFactory(Factory):
+
     PRODUCTS = {
         "word_masking": vdata.WordMaskingPretextDataset,
         "captioning": vdata.CaptioningDataset,
@@ -96,53 +134,25 @@ class DatasetFactory(Factory):
                 )
         else:
             # TODO: add `root` argument after adding to config.
-            kwargs = {
-                "shuffle": split == "train",
-                "split": split,
-            }
+            kwargs = {"split": split}
 
-        # Set random flip as image only or image-caption based on pretext task.
-        HorizontalFlip = (
-            vdata.transforms.ImageCaptionHorizontalFlip
-            if _C.MODEL.NAME != "instance_classification"
-            else alb.HorizontalFlip
+        image_transform_names: List[str] = list(
+            _C.DATA.IMAGE_TRANSFORM_TRAIN
+            if split == "train"
+            else _C.DATA.IMAGE_TRANSFORM_VAL
         )
-        # Prepare a list of augmentations based on split (train or val).
-        if split == "train":
-            augmentation_list: List[Callable] = [
-                alb.RandomResizedCrop(
-                    _C.DATA.IMAGE_CROP_SIZE,
-                    _C.DATA.IMAGE_CROP_SIZE,
-                    scale=(0.2, 1.0),
-                    ratio=(0.75, 1.333),
-                    always_apply=True,
-                ),
-                HorizontalFlip(p=0.5),
-                alb.RandomBrightnessContrast(
-                    brightness_limit=0.4, contrast_limit=0.4, p=0.5
-                ),
-                alb.HueSaturationValue(
-                    hue_shift_limit=40, sat_shift_limit=40, val_shift_limit=0, p=0.5
-                ),
-            ]
-        else:
-            augmentation_list = [
-                alb.SmallestMaxSize(
-                    max_size=_C.DATA.IMAGE_CROP_SIZE, always_apply=True
-                ),
-                alb.CenterCrop(
-                    _C.DATA.IMAGE_CROP_SIZE,
-                    _C.DATA.IMAGE_CROP_SIZE,
-                    always_apply=True,
-                ),
-            ]
+        # Create a list of image transformations based on names.
+        augmentation_list: List[Callable] = []
 
-        augmentation_list.append(alb.ToFloat(max_value=255.0))
-        augmentation_list.append(
-            alb.Normalize(
-                mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD, max_pixel_value=1.0
-            )
-        )
+        for name in image_transform_names:
+            # Pass dimensions if cropping / resizing, else rely on the defaults
+            # as per `ImageTransformsFactory`.
+            if name in {"random_resize_crop", "center_crop", "smallest_max_size"}:
+                augmentation_list.append(
+                    ImageTransformsFactory.create(name, _C.DATA.IMAGE_CROP_SIZE)
+                )
+            else:
+                augmentation_list.append(ImageTransformsFactory.create(name))
 
         kwargs["image_transform"] = alb.Compose(augmentation_list)
         # Dataset names match with model names (and ofcourse pretext names).
