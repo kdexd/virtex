@@ -1,6 +1,6 @@
 from functools import partial
 import re
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 import albumentations as alb
 from torch import nn, optim
@@ -70,17 +70,12 @@ class ImageTransformsFactory(Factory):
         "smallest_resize": partial(alb.SmallestMaxSize, p=1.0),
         "global_resize": partial(T.SquareResize, p=1.0),
 
-        # Data augmentations: whenever selected, these are applied with 50%
-        # probability, one exception being ColorJitter.
-        "horizontal_flip": partial(T.HorizontalFlip, p=0.5),
-
         # Keep hue limits small in color jitter because it changes color drastically
         # and captions often mention colors. Apply with higher probability.
         "color_jitter": partial(
             T.ColorJitter, brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1, p=0.8
         ),
-        "lighting_noise": partial(T.LightingNoise, alpha=0.2, p=0.5),
-        "gaussian_blur": partial(alb.GaussianBlur, blur_limit=7, p=0.5),
+        "horizontal_flip": partial(T.HorizontalFlip, p=0.5),
 
         # Color normalization: whenever selected, always applied.
         "normalize": partial(
@@ -177,18 +172,21 @@ class TextualStreamFactory(Factory):
     PRODUCTS: Dict[str, Callable] = {
         "allfuse_prenorm": partial(ts.AllLayersFusionTextualStream, norm_type="pre"),
         "allfuse_postnorm": partial(ts.AllLayersFusionTextualStream, norm_type="post"),
+        "none": None,  # Keep for pretext tasks which don't use captions.
     }
     # fmt: on
 
     @classmethod
     def from_config(
         cls, config: Config, tokenizer: Optional[SentencePieceBPETokenizer] = None
-    ) -> nn.Module:
+    ) -> Union[None, nn.Module]:
 
         _C = config
         name = _C.MODEL.TEXTUAL.NAME.split("::")[0]
-        tokenizer = tokenizer or TokenizerFactory.from_config(_C)
+        if name == "none":
+            return None
 
+        tokenizer = tokenizer or TokenizerFactory.from_config(_C)
         # Transformer will be bidirectional only for word masking pretext.
         kwargs = {
             "vocab_size": tokenizer.get_vocab_size(),
@@ -225,6 +223,13 @@ class PretrainingModelFactory(Factory):
         visual = VisualStreamFactory.from_config(_C)
         textual = TextualStreamFactory.from_config(_C, tokenizer)
 
+        # Check textual stream being none for fixed set of pretext tasks.
+        if textual is None:
+            assert _C.MODEL.NAME in {
+                "token_classification",
+                "instance_classification",
+            }, f"Textual stream can't be none for {_C.MODEL.NAME}"
+
         # Add model specific kwargs. Refer call signatures of specific models
         # for matching kwargs here.
         kwargs = {}
@@ -245,10 +250,16 @@ class PretrainingModelFactory(Factory):
                     tokenizer.token_to_id("[MASK]"),
                 ],
             )
-        # Let the default values in `instance_classification` do the job right
-        # now. Change them later.
+        elif _C.MODEL.NAME == "instance_classification":
+            kwargs.update(
+                vocab_size=81,  # 80 COCO categories + background (padding, 0)
+                ignore_indices=[0],  # background index
+            )
 
-        return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
+        if textual is not None:
+            return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
+        else:
+            return cls.create(_C.MODEL.NAME, visual, **kwargs)
 
 
 class OptimizerFactory(Factory):
@@ -256,7 +267,7 @@ class OptimizerFactory(Factory):
     PRODUCTS = {"sgd": optim.SGD}
 
     @classmethod
-    def from_config(  # type: ignore
+    def from_config(
         cls, config: Config, named_parameters: Iterable[Any]
     ) -> optim.Optimizer:
         _C = config
@@ -271,11 +282,9 @@ class OptimizerFactory(Factory):
             lr = _C.OPTIM.CNN_LR if "cnn" in name else _C.OPTIM.LR
             param_groups.append({"params": [param], "lr": lr, "weight_decay": wd})
 
-        kwargs = {
-            "momentum": _C.OPTIM.SGD_MOMENTUM,
-            "nesterov": _C.OPTIM.SGD_NESTEROV,
-        }
+        kwargs = {"momentum": _C.OPTIM.SGD_MOMENTUM}
         optimizer = cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
+
         if _C.OPTIM.USE_LOOKAHEAD:
             optimizer = Lookahead(
                 optimizer, k=_C.OPTIM.LOOKAHEAD_STEPS, alpha=_C.OPTIM.LOOKAHEAD_ALPHA
@@ -293,7 +302,7 @@ class LRSchedulerFactory(Factory):
     }
 
     @classmethod
-    def from_config(  # type: ignore
+    def from_config(
         cls, config: Config, optimizer: optim.Optimizer
     ) -> optim.lr_scheduler.LambdaLR:
         _C = config
@@ -315,7 +324,6 @@ class DownstreamDatasetFactory(Factory):
     PRODUCTS = {
         "datasets/VOC2007": vdata.VOC07ClassificationDataset,
         "datasets/imagenet": vdata.ImageNetDataset,
-        "datasets/places205": vdata.Places205Dataset,
     }
 
     @classmethod

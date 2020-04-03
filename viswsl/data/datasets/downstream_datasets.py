@@ -1,5 +1,4 @@
 from collections import defaultdict
-import csv
 import glob
 import os
 from typing import Callable, Dict, List, Tuple
@@ -83,52 +82,6 @@ class ImageNetDataset(ImageNet):
         return LinearClassificationBatch(instances)
 
 
-class Places205Dataset(Dataset):
-    def __init__(
-        self,
-        data_root: str,
-        split: str = "train",
-        image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
-    ):
-        self.split = split
-        self.image_transform = image_transform
-
-        # This directory contains all the images resized to (256 x 256).
-        self._image_dir = os.path.join(
-            data_root, "data", "vision", "torralba", "deeplearning", "images256"
-        )
-        # Path to annotatios CSV file corresponding to this split.
-        annotations_path = os.path.join(
-            data_root, "trainvalsplit_places205", f"{split}_places205.csv"
-        )
-        # Read annotation CSV file into tuples of (image_filename, label).
-        self.instances: List[Tuple[str, int]] = []
-        with open(annotations_path, "r") as f:
-            reader = csv.reader(f, delimiter=" ")
-            for row in reader:
-                self.instances.append((row[0], int(row[1])))
-
-    def __len__(self):
-        return len(self.instances)
-
-    def __getitem__(self, idx: int):
-        image_filename, label = self.instances[idx]
-        image_path = os.path.join(self._image_dir, image_filename)
-
-        # Open image from path and apply transformation, convert to CHW format.
-        image = cv2.imread(image_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = self.image_transform(image=image)["image"]
-        image = np.transpose(image, (2, 0, 1))
-
-        return LinearClassificationInstance(image=image, label=label)
-
-    def collate_fn(
-        self, instances: List[LinearClassificationInstance]
-    ) -> LinearClassificationBatch:
-        return LinearClassificationBatch(instances)
-
-
 class VOC07ClassificationDataset(Dataset):
     def __init__(
         self,
@@ -188,7 +141,7 @@ class VOC07ClassificationDataset(Dataset):
         image = self.image_transform(image=image)["image"]
         image = np.transpose(image, (2, 0, 1))
 
-        return LinearClassificationInstance(image=image, label=label)  # type: ignore
+        return LinearClassificationInstance(image=image, label=label)
 
     def collate_fn(
         self, instances: List[LinearClassificationInstance]

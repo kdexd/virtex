@@ -10,17 +10,12 @@ DATA:
     - center_crop
     - normalize
 
-MODEL:
-  LINEAR_CLF:
-    LAYER_NAME: avgpool
-    NUM_CLASSES: 1000
-    NORM_LAYER: ""
-
 OPTIM:
   BATCH_SIZE: 256
   SGD_MOMENTUM: 0.9
-  SGD_NESTEROV: False
   WEIGHT_DECAY: 0.0
+  NO_DECAY: ""
+  USE_LOOKAHEAD: False
 
   LR: 30.0
   WARMUP_STEPS: 0

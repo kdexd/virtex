@@ -21,7 +21,7 @@ from viswsl.utils.common import common_parser, common_setup
 
 
 parser = common_parser(
-    description="Train SVMs on a pre-trained frozen feature extractor using VOC07."
+    description="Train SVMs on a pre-trained feature extractor using VOC 2007."
 )
 group = parser.add_argument_group("Downstream config arguments.")
 group.add_argument(
@@ -98,7 +98,7 @@ def train_test_single_svm(args):
     # fmt: on
 
     # -------------------------------------------------------------------------
-    #   TEST THE TRAINED SVM (PER LAYER, PER CLASS)
+    #   TEST THE TRAINED SVM (PER CLASS)
     # -------------------------------------------------------------------------
     predictions = best_crossval_clf.decision_function(feats_test)
     evaluate_data_inds = tgts_test != -1
@@ -168,15 +168,8 @@ def main(_A: argparse.Namespace):
             strict=False,
         )
 
-    model = (
-        FeatureExtractor(
-            model,
-            layer_name=_DOWNC.MODEL.LINEAR_CLF.LAYER_NAME,
-            flatten_and_normalize=True,
-        )
-        .to(device)
-        .eval()
-    )
+    model = FeatureExtractor(model, layer_name="layer4", flatten_and_normalize=True)
+    model = model.to(device).eval()
 
     # -------------------------------------------------------------------------
     #   EXTRACT FEATURES FOR TRAINING SVMs
@@ -244,9 +237,7 @@ def main(_A: argparse.Namespace):
     # Tensorboard logging only when _A.weight_init == "checkpoint"
     if _A.weight_init == "checkpoint":
         tensorboard_writer.add_scalars(
-            "metrics/voc07_clf",
-            {f"{_DOWNC.MODEL.LINEAR_CLF.LAYER_NAME}_mAP": test_map},
-            ITERATION,
+            "metrics/voc07_clf", {"mAP": test_map}, ITERATION,
         )
 
 

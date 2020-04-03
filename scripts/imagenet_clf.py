@@ -15,10 +15,7 @@ from viswsl.factories import (
     OptimizerFactory,
     LRSchedulerFactory,
 )
-from viswsl.models.downstream import (
-    FeatureExtractor,
-    LinearClassificationProtocolModel,
-)
+from viswsl.models.downstream import FeatureExtractor, LinearClassifier
 from viswsl.utils.checkpointing import CheckpointManager
 from viswsl.utils.common import common_parser, common_setup, cycle
 import viswsl.utils.distributed as dist
@@ -90,9 +87,6 @@ def main(_A: argparse.Namespace):
     _C = Config(_A.config, _A.config_override)
     _C.dump(os.path.join(_A.serialization_dir, "main_config.yml"))
 
-    # Either "imagenet" or "places205", useful for tensorboard logging.
-    DATASET = _DOWNC.DATA.ROOT.split("/")[-1]
-
     # -------------------------------------------------------------------------
     #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER, SCHEDULER
     # -------------------------------------------------------------------------
@@ -144,17 +138,11 @@ def main(_A: argparse.Namespace):
             strict=False,
         )
 
-    feature_extractor = FeatureExtractor(
-        pretrained_model,
-        layer_name=_DOWNC.MODEL.LINEAR_CLF.LAYER_NAME,
-    ).to(device)
-    feature_extractor = feature_extractor.eval()
+    feature_extractor = FeatureExtractor(pretrained_model, layer_name="avgpool")
+    feature_extractor = feature_extractor.to(device).eval()
 
-    model = LinearClassificationProtocolModel(
-        feature_extractor,
-        num_classes=_DOWNC.MODEL.LINEAR_CLF.NUM_CLASSES,
-        norm_layer=_DOWNC.MODEL.LINEAR_CLF.NORM_LAYER,
-    ).to(device)
+    # Instantiate a linear classifier for ImageNet on top of feature extractor.
+    model = LinearClassifier(feature_size=2048, num_classes=1000,).to(device)
     del pretrained_model
 
     optimizer = OptimizerFactory.from_config(_DOWNC, model.named_parameters())
@@ -190,7 +178,7 @@ def main(_A: argparse.Namespace):
             features = feature_extractor(batch["image"])
 
         output_dict = model(features, batch["label"])
-        loss = output_dict["loss"][_DOWNC.MODEL.LINEAR_CLF.LAYER_NAME]
+        loss = output_dict["loss"]
 
         loss.backward()
         optimizer.step()
@@ -201,8 +189,11 @@ def main(_A: argparse.Namespace):
             logger.info(
                 f"{timer.stats} | Loss: {loss:.3f} | GPU: {dist.gpu_mem_usage()} MB"
             )
-            tensorboard_writer.add_scalars(
-                f"{DATASET}/train_loss", output_dict["loss"], iteration
+            tensorboard_writer.add_scalar("imagenet/train_loss", loss, iteration)
+            tensorboard_writer.add_scalar(
+                "imagenet/learning_rate",
+                optimizer.param_groups[0]["lr"],
+                iteration,
             )
 
         # ---------------------------------------------------------------------
@@ -212,20 +203,19 @@ def main(_A: argparse.Namespace):
             torch.set_grad_enabled(False)
             model.eval()
 
-            val_loss_counter: Counter = Counter()
+            total_val_loss = torch.tensor(0.0).to(device)
+
             for val_iteration, val_batch in enumerate(val_dataloader, start=1):
                 for key in val_batch:
                     val_batch[key] = val_batch[key].to(device)
 
                 features = feature_extractor(val_batch["image"])
                 output_dict = model(features, val_batch["label"])
-                val_loss_counter.update(output_dict["loss"])
+                total_val_loss += output_dict["loss"]
 
             # Divide each loss component by number of val batches per GPU.
-            val_loss_dict = {
-                k: v / val_iteration for k, v in dict(val_loss_counter).items()
-            }
-            dist.average_across_processes(val_loss_dict)
+            total_val_loss = total_val_loss / val_iteration
+            dist.average_across_processes(total_val_loss)
 
             # Get accumulated Top-1 accuracy for logging across GPUs.
             if dist.get_world_size() > 1:
@@ -244,12 +234,12 @@ def main(_A: argparse.Namespace):
 
         if iteration % _A.checkpoint_every == 0 and dist.is_master_process():
             logger.info(f"Iter: {iteration} | Accuracies: {acc})")
-            tensorboard_writer.add_scalars(
-                f"{DATASET}/val_loss", val_loss_dict, iteration
+            tensorboard_writer.add_scalar(
+                "imagenet/val_loss", total_val_loss, iteration
             )
             # This name scoping will result in Tensorboard displaying all metrics
             # (VOC07, caption, etc.) together.
-            tensorboard_writer.add_scalars(f"metrics/{DATASET}", acc, iteration)
+            tensorboard_writer.add_scalars(f"metrics/imagenet", acc, iteration)
 
         # All processes will wait till master process is done logging.
         dist.synchronize()

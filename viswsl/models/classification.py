@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import torch
 from torch import nn
@@ -6,7 +6,6 @@ from torch.nn import functional as F
 
 from viswsl.data.structures import Batch
 from viswsl.data.tokenizer import SentencePieceBPETokenizer
-from viswsl.modules.textual_stream import TextualStream
 from viswsl.modules.visual_stream import VisualStream
 
 
@@ -14,23 +13,14 @@ class TokenClassificationModel(nn.Module):
     def __init__(
         self,
         visual: VisualStream,
-        textual: Optional[TextualStream] = None,
-        vocab_size: Optional[int] = None,
+        vocab_size: int,
         ignore_indices: List[int] = [0, 1, 2, 3],
     ):
         # We do not use `textual_stream` but keep it for consistent call signature.
         super().__init__()
         self.visual = visual
+        self.vocab_size = vocab_size
         self.ignore_indices = ignore_indices
-
-        # Find the `vocab_size` (output size for classification). Use if provided
-        # directly or get it from `textual_stream`.
-        if vocab_size is not None:
-            self.vocab_size = vocab_size
-        elif textual is not None:
-            self.vocab_size = textual.vocab_size
-        else:
-            raise ValueError("Need one of `textual` or `vocab_size`, found none.")
 
         # Linear layer to perform token classification using global average
         # pooled visual features.
@@ -114,17 +104,22 @@ class TokenClassificationModel(nn.Module):
         return predictions_str
 
 
-# TODO (kd): make the class hierarchy better.
-class InstanceClassificationModel(TokenClassificationModel):
+class InstanceClassificationModel(nn.Module):
     def __init__(
         self,
         visual: VisualStream,
-        textual: Optional[TextualStream] = None,
-        vocab_size: Optional[int] = 81,  # 80 COCO categories + padding idx.
+        vocab_size: int = 81,
         ignore_indices: List[int] = [0],
     ):
         # We do not use `textual_stream` but keep it for consistent call signature.
-        super().__init__(visual, textual, vocab_size, ignore_indices)
+        super().__init__()
+        self.visual = visual
+        self.vocab_size = vocab_size
+        self.ignore_indices = ignore_indices
+
+        # Linear layer to perform token classification using global average
+        # pooled visual features.
+        self.output = nn.Linear(self.visual.visual_feature_size, self.vocab_size)
 
     def forward(self, batch: Batch):
         output_dict = super().forward(batch)

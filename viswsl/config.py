@@ -121,11 +121,11 @@ class Config(object):
         _C.DATA.IMAGE_TRANSFORM_TRAIN = [
             "random_resized_crop",
             "horizontal_flip",
-            "color_jitter_mild",
+            "color_jitter",
             "normalize",
         ]
         _C.DATA.IMAGE_TRANSFORM_VAL = [
-            "smallest_max_size",
+            "smallest_resize",
             "center_crop",
             "normalize",
         ]
@@ -153,25 +153,19 @@ class Config(object):
         _C.MODEL.TEXTUAL.FEEDFORWARD_SIZE = 2048
         _C.MODEL.TEXTUAL.NUM_LAYERS = 1
 
-        _C.MODEL.LINEAR_CLF = CN()
-        _C.MODEL.LINEAR_CLF.LAYER_NAME = "layer4"
-        _C.MODEL.LINEAR_CLF.NORM_LAYER = "FrozenBN"
-        _C.MODEL.LINEAR_CLF.NUM_CLASSES = 1000
-
         _C.OPTIM = CN()
         _C.OPTIM.NUM_ITERATIONS = 500000
         _C.OPTIM.OPTIMIZER_NAME = "sgd"
         _C.OPTIM.CLIP_GRAD_NORM = 10
 
         _C.OPTIM.SGD_MOMENTUM = 0.9
-        _C.OPTIM.SGD_NESTEROV = False
         _C.OPTIM.USE_LOOKAHEAD = False
         _C.OPTIM.LOOKAHEAD_STEPS = 5
         _C.OPTIM.LOOKAHEAD_ALPHA = 0.5
 
         _C.OPTIM.BATCH_SIZE = 256
         _C.OPTIM.WEIGHT_DECAY = 0.0001
-        _C.OPTIM.NO_DECAY = "textual.*(norm.*|bias)"
+        _C.OPTIM.NO_DECAY = ".*textual.*(norm.*|bias)"
 
         _C.OPTIM.LR = 0.001
         _C.OPTIM.CNN_LR = 0.2

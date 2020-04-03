@@ -1,5 +1,5 @@
 import copy
-from typing import Iterable, List
+from typing import Iterable, List, Optional, Union
 
 import torch
 
@@ -207,7 +207,7 @@ class LinearClassificationInstance(Instance):
 
     __slots__ = ["image", "label"]
 
-    def __init__(self, image: Iterable[float], label: int):
+    def __init__(self, image: Iterable[float], label: Union[int, torch.Tensor]):
         super().__init__(
             image=torch.tensor(image, dtype=torch.float),
             label=torch.tensor(label, dtype=torch.long),

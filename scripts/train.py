@@ -129,8 +129,8 @@ def main(_A: argparse.Namespace):
         # process will log events to tensorboard to avoid clutter.
         tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
 
-        # Add whitespace before line breaks because Tensorboard takes Markdown.
-        tensorboard_writer.add_text("config", str(_C).replace("\n", "  \n"))
+        # Quote backticks: Tensorboard supports Markdown.
+        tensorboard_writer.add_text("config", "```\n" + str(_C) + "\n```")
 
     # Load checkpoint to resume training if specified.
     if _A.resume_from is not None:

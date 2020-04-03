@@ -1,5 +1,5 @@
 from .captioning import CaptioningModel
-from .token_classification import (
+from .classification import (
     InstanceClassificationModel,
     TokenClassificationModel,
 )
