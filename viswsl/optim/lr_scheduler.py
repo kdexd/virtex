@@ -1,4 +1,4 @@
-from collections import Counter
+import bisect
 import math
 from typing import List
 
@@ -91,7 +91,7 @@ class LinearWarmupMultiStepLR(LambdaLR):
         last_epoch: int = -1,
     ):
         self.wsteps = warmup_steps
-        self.milestones = Counter(milestones)
+        self.milestones = milestones
         self.gamma = gamma
 
         # Keep a track of number of milestones encountered.
@@ -109,9 +109,7 @@ class LinearWarmupMultiStepLR(LambdaLR):
             multiplier = step / float(max(1, self.wsteps))
         else:
             # Step decay based on milestones.
-            if step in self.milestones:
-                self.milestones_so_far += 1
-            multiplier = self.gamma ** self.milestones_so_far
+            multiplier = self.gamma ** bisect.bisect_right(self.milestones, step)
 
         # Avoid negative learning rate.
         return max(0, multiplier)
