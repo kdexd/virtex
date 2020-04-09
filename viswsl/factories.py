@@ -170,8 +170,8 @@ class TextualStreamFactory(Factory):
 
     # fmt: off
     PRODUCTS: Dict[str, Callable] = {
-        "allfuse_prenorm": partial(ts.AllLayersFusionTextualStream, norm_type="pre"),
-        "allfuse_postnorm": partial(ts.AllLayersFusionTextualStream, norm_type="post"),
+        "transformer_prenorm": partial(ts.TransformerTextualStream, norm_type="pre"),
+        "transformer_postnorm": partial(ts.TransformerTextualStream, norm_type="post"),
         "none": None,  # Keep for pretext tasks which don't use captions.
     }
     # fmt: on

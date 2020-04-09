@@ -5,10 +5,7 @@ import torch
 from torch import nn
 
 from viswsl.modules.embedding import WordAndPositionalEmbedding
-from viswsl.modules.transformer import (
-    PreNormTransformerEncoderLayer,
-    PreNormTransformerDecoderLayer,
-)
+from viswsl.modules.transformer import PreNormTransformerDecoderLayer
 
 
 class TextualStream(nn.Module):
@@ -79,7 +76,7 @@ class TextualStream(nn.Module):
         return mask
 
 
-class AllLayersFusionTextualStream(TextualStream):
+class TransformerTextualStream(TextualStream):
     def __init__(
         self,
         vocab_size: int,

@@ -9,14 +9,13 @@ from viswsl.data.tokenizer import SentencePieceBPETokenizer
 from viswsl.modules.visual_stream import VisualStream
 
 
-class TokenClassificationModel(nn.Module):
+class ClassificationModel(nn.Module):
     def __init__(
         self,
         visual: VisualStream,
         vocab_size: int,
-        ignore_indices: List[int] = [0, 1, 2, 3],
+        ignore_indices: List[int],
     ):
-        # We do not use `textual_stream` but keep it for consistent call signature.
         super().__init__()
         self.visual = visual
         self.vocab_size = vocab_size
@@ -32,7 +31,7 @@ class TokenClassificationModel(nn.Module):
         visual_features = self.visual(batch["image"])
         batch_size = visual_features.size(0)
 
-        # Perform global avergae pooling of visual features.
+        # Perform global average pooling of visual features.
         # shape: (batch_size, ..., visual_feature_size)
         visual_features = visual_features.view(
             batch_size, self.visual.visual_feature_size, -1
@@ -71,7 +70,7 @@ class TokenClassificationModel(nn.Module):
 
         # Single scalar per batch for logging to tensorboard in training script.
         output_dict["loss_components"] = {
-            "token_classification": loss.clone().detach() / batch_size
+            "classification": loss.clone().detach() / batch_size
         }
         # Return top-10 tokens according to log-probabilities during validation.
         # Useful for logging.
@@ -80,6 +79,9 @@ class TokenClassificationModel(nn.Module):
             output_dict["predictions"] = top_tokens
 
         return output_dict
+
+
+class TokenClassificationModel(ClassificationModel):
 
     def log_predictions(
         self, batch: Batch, tokenizer: SentencePieceBPETokenizer
@@ -104,31 +106,7 @@ class TokenClassificationModel(nn.Module):
         return predictions_str
 
 
-class InstanceClassificationModel(nn.Module):
-    def __init__(
-        self,
-        visual: VisualStream,
-        vocab_size: int = 81,
-        ignore_indices: List[int] = [0],
-    ):
-        # We do not use `textual_stream` but keep it for consistent call signature.
-        super().__init__()
-        self.visual = visual
-        self.vocab_size = vocab_size
-        self.ignore_indices = ignore_indices
-
-        # Linear layer to perform token classification using global average
-        # pooled visual features.
-        self.output = nn.Linear(self.visual.visual_feature_size, self.vocab_size)
-
-    def forward(self, batch: Batch):
-        output_dict = super().forward(batch)
-
-        # Rename `loss_components`.
-        output_dict["loss_components"]["instance_classification"] = output_dict[
-            "loss_components"
-        ].pop("token_classification")
-        return output_dict
+class InstanceClassificationModel(ClassificationModel):
 
     def log_predictions(
         self, batch: Batch, tokenizer: SentencePieceBPETokenizer = None,
@@ -146,8 +124,8 @@ class InstanceClassificationModel(nn.Module):
             tokens = sorted([t for t in tokens.tolist() if t != 0])
             preds = sorted(preds.tolist()[:len(tokens)])
             predictions_str += f"""
-                Instances (GT) : {tokens}
-                Instances (PR) : {preds}
+                COCO Instance IDs (GT)   : {tokens}
+                COCO Instance IDs (Pred) : {preds}
 
                 """
         return predictions_str

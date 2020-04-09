@@ -147,7 +147,7 @@ class Config(object):
         _C.MODEL.VISUAL.FROZEN = False
 
         _C.MODEL.TEXTUAL = CN()
-        _C.MODEL.TEXTUAL.NAME = "allfuse_postnorm"
+        _C.MODEL.TEXTUAL.NAME = "transformer_postnorm"
         _C.MODEL.TEXTUAL.HIDDEN_SIZE = 512
         _C.MODEL.TEXTUAL.ATTENTION_HEADS = 8
         _C.MODEL.TEXTUAL.FEEDFORWARD_SIZE = 2048
@@ -201,7 +201,7 @@ class Config(object):
 
         # ---------------------------------------------------------------------
         # Set textual stream architecture if specified in string.
-        # For example: "prenorm_gelu::L6_H768_A12_F3072":
+        # For example: "transformer_postnorm::L6_H768_A12_F3072":
         #     L = layers, H = hidden_size, A = attention_heads, F= feedforward_size
         tstream_name_parts = self._C.MODEL.TEXTUAL.NAME.split("::")[-1].split("_")
         for name_part in tstream_name_parts:

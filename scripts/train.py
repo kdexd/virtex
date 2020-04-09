@@ -130,7 +130,9 @@ def main(_A: argparse.Namespace):
         tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
 
         # Quote backticks: Tensorboard supports Markdown.
-        tensorboard_writer.add_text("config", "```\n" + str(_C) + "\n```")
+        tensorboard_writer.add_text(
+            "config", "```\n" + str(_C).replace("\n", "\n\t") + "\n```"
+        )
 
     # Load checkpoint to resume training if specified.
     if _A.resume_from is not None:
