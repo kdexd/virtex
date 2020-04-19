@@ -7,7 +7,7 @@ import albumentations as alb
 import lmdb
 from tqdm import tqdm
 
-from viswsl.data.readers import SimpleCocoCaptionsReader
+from virtex.data.readers import SimpleCocoCaptionsReader
 
 
 # fmt: off

@@ -9,11 +9,11 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.datasets import ImageNet
 
-from viswsl.data.structures import (
+from virtex.data.structures import (
     LinearClassificationInstance,
     LinearClassificationBatch,
 )
-from viswsl.data import transforms as T
+from virtex.data import transforms as T
 
 
 class ImageNetDataset(ImageNet):

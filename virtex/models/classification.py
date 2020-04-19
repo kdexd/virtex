@@ -4,9 +4,9 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from viswsl.data.structures import Batch
-from viswsl.data.tokenizer import SentencePieceBPETokenizer
-from viswsl.modules.visual_stream import VisualStream
+from virtex.data.structures import Batch
+from virtex.data.tokenizer import SentencePieceBPETokenizer
+from virtex.modules.visual_stream import VisualStream
 
 
 class ClassificationModel(nn.Module):

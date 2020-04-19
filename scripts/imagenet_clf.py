@@ -8,18 +8,18 @@ from torch import nn
 from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 
-from viswsl.config import Config
-from viswsl.factories import (
+from virtex.config import Config
+from virtex.factories import (
     DownstreamDatasetFactory,
     PretrainingModelFactory,
     OptimizerFactory,
     LRSchedulerFactory,
 )
-from viswsl.models.downstream import FeatureExtractor, LinearClassifier
-from viswsl.utils.checkpointing import CheckpointManager
-from viswsl.utils.common import common_parser, common_setup, cycle
-import viswsl.utils.distributed as dist
-from viswsl.utils.timer import Timer
+from virtex.models.downstream import FeatureExtractor, LinearClassifier
+from virtex.utils.checkpointing import CheckpointManager
+from virtex.utils.common import common_parser, common_setup, cycle
+import virtex.utils.distributed as dist
+from virtex.utils.timer import Timer
 
 
 # fmt: off
@@ -75,7 +75,7 @@ def main(_A: argparse.Namespace):
         device = torch.device("cpu")
     else:
         # Get the current device as set for current distributed process.
-        # Check `launch` function in `viswsl.utils.distributed` module.
+        # Check `launch` function in `virtex.utils.distributed` module.
         device = torch.cuda.current_device()
 
     # Create a downstream config object (this will be immutable) and perform

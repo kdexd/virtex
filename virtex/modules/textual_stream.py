@@ -4,8 +4,8 @@ from typing import Optional
 import torch
 from torch import nn
 
-from viswsl.modules.embedding import WordAndPositionalEmbedding
-from viswsl.modules.transformer import PreNormTransformerDecoderLayer
+from virtex.modules.embedding import WordAndPositionalEmbedding
+from virtex.modules.transformer import PreNormTransformerDecoderLayer
 
 
 class TextualStream(nn.Module):

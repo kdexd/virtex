@@ -6,11 +6,11 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from viswsl.data.structures import CaptioningBatch
-from viswsl.data.tokenizer import SentencePieceBPETokenizer
-from viswsl.modules.textual_stream import TextualStream
-from viswsl.modules.visual_stream import VisualStream
-from viswsl.utils.beam_search import AutoRegressiveBeamSearch
+from virtex.data.structures import CaptioningBatch
+from virtex.data.tokenizer import SentencePieceBPETokenizer
+from virtex.modules.textual_stream import TextualStream
+from virtex.modules.visual_stream import VisualStream
+from virtex.utils.beam_search import AutoRegressiveBeamSearch
 
 
 class CaptioningModel(nn.Module):
@@ -137,7 +137,7 @@ class CaptioningModel(nn.Module):
         r"""
         Given visual features and a batch of (assumed) partial captions, predict
         the distribution over vocabulary tokens for next time-step. This method
-        is used by :class:`~viswsl.utils.beam_search.AutoRegressiveBeamSearch`.
+        is used by :class:`~virtex.utils.beam_search.AutoRegressiveBeamSearch`.
 
         Parameters
         ----------

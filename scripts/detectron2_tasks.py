@@ -30,9 +30,9 @@ from detectron2.evaluation import (
     COCOEvaluator,
 )
 
-from viswsl.config import Config
-from viswsl.factories import PretrainingModelFactory
-import viswsl.utils.distributed as dist
+from virtex.config import Config
+from virtex.factories import PretrainingModelFactory
+import virtex.utils.distributed as dist
 
 
 parser = argparse.ArgumentParser(

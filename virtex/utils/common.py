@@ -7,8 +7,8 @@ from loguru import logger
 import numpy as np
 import torch
 
-from viswsl.config import Config
-import viswsl.utils.distributed as dist
+from virtex.config import Config
+import virtex.utils.distributed as dist
 
 
 def cycle(dataloader, device, start_iteration: int = 0):
@@ -52,11 +52,11 @@ def common_setup(_C: Config, _A: argparse.Namespace, job_type: str = "pretrain")
 
         It is assumed that multiple processes for distributed training have
         already been launched from outside and functions from
-        :mod:`viswsl.util.distributed` will return process info.
+        :mod:`virtex.util.distributed` will return process info.
 
     Parameters
     ----------
-    _C: viswsl.config.Config
+    _C: virtex.config.Config
     _A: argparse.Namespace
     job_type: str, optional (default = "pretrain")
         Type of job for which setup is to be done. One of ``{"pretrain",

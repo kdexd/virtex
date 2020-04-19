@@ -1,8 +1,5 @@
-viswsl
-======
-
-Weakly supervised learning to solve multiple vision tasks together.
-
+VirTex: Learning Visual Representations from Textual Annotations
+================================================================
 
 Install Dependencies
 --------------------
@@ -15,21 +12,21 @@ For these steps to install through Anaconda / Miniconda.
 2. Clone the repository first.
 
 ```
-git clone https://www.github.com/kdexd/viswsl
+git clone https://www.github.com/kdexd/virtex
 ```
 
 3. Create a conda environment and install all the dependencies.
 
 ```
-cd viswsl
-conda create -n viswsl python=3.7
-conda activate viswsl
+cd virtex
+conda create -n virtex python=3.7
+conda activate virtex
 pip install -r requirements.txt
 ```
 
 <!-- Mention apt dependency: ZeroMQ (libzmq3-dev) -->
 
-4. **[Optional]** Install NVIDIA Apex for Half-precision training. (Requires GCC 5+)
+4. Install NVIDIA Apex for Half-precision training. (Requires GCC 5+)
 
 ```
 pip install -v --no-cache-dir --global-option="--cpp_ext" \

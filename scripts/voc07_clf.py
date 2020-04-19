@@ -13,11 +13,11 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from viswsl.config import Config
-from viswsl.factories import PretrainingModelFactory, DownstreamDatasetFactory
-from viswsl.models.downstream import FeatureExtractor
-from viswsl.utils.checkpointing import CheckpointManager
-from viswsl.utils.common import common_parser, common_setup
+from virtex.config import Config
+from virtex.factories import PretrainingModelFactory, DownstreamDatasetFactory
+from virtex.models.downstream import FeatureExtractor
+from virtex.utils.checkpointing import CheckpointManager
+from virtex.utils.common import common_parser, common_setup
 
 
 parser = common_parser(
@@ -120,7 +120,7 @@ def main(_A: argparse.Namespace):
         device = torch.device("cpu")
     else:
         # Get the current device as set for current distributed process.
-        # Check `launch` function in `viswsl.utils.distributed` module.
+        # Check `launch` function in `virtex.utils.distributed` module.
         device = torch.cuda.current_device()
 
     # Create a downstream config object (this will be immutable) and perform

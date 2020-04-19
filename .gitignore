@@ -34,7 +34,7 @@ MANIFEST
 
 # Datasets and preprocessed files
 data/
-!viswsl/data
+!virtex/data
 
 # IPython Notebook
 .ipynb_checkpoints
@@ -50,5 +50,5 @@ scripts/test_*
 data/
 datasets/
 checkpoints/
-viswsl/utils/assets/
-!viswsl/data/
+virtex/utils/assets/
+!virtex/data/

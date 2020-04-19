@@ -5,13 +5,13 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 import albumentations as alb
 from torch import nn, optim
 
-from viswsl.config import Config
-import viswsl.data as vdata
-from viswsl.data import transforms as T
-from viswsl.data.tokenizer import SentencePieceBPETokenizer
-import viswsl.models as vmodels
-from viswsl.modules import visual_stream as vs, textual_stream as ts
-from viswsl.optim import Lookahead, lr_scheduler
+from virtex.config import Config
+import virtex.data as vdata
+from virtex.data import transforms as T
+from virtex.data.tokenizer import SentencePieceBPETokenizer
+import virtex.models as vmodels
+from virtex.modules import visual_stream as vs, textual_stream as ts
+from virtex.optim import Lookahead, lr_scheduler
 
 
 class Factory(object):

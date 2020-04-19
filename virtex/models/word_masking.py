@@ -3,10 +3,10 @@ from typing import Any, Dict
 import torch
 from torch import nn
 
-from viswsl.data.structures import WordMaskingBatch
-from viswsl.data.tokenizer import SentencePieceBPETokenizer
-from viswsl.modules.textual_stream import TextualStream
-from viswsl.modules.visual_stream import VisualStream
+from virtex.data.structures import WordMaskingBatch
+from virtex.data.tokenizer import SentencePieceBPETokenizer
+from virtex.modules.textual_stream import TextualStream
+from virtex.modules.visual_stream import VisualStream
 
 
 class WordMaskingModel(nn.Module):

@@ -11,12 +11,12 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 # fmt: off
-from viswsl.config import Config
-from viswsl.data.readers import SimpleCocoCaptionsReader
-from viswsl.factories import (
-    TokenizerFactory, DatasetFactory, PretrainingModelFactory,
+from virtex.config import Config
+from virtex.data.readers import SimpleCocoCaptionsReader
+from virtex.factories import (
+    TokenizerFactory, PretrainingModelFactory,
 )
-from viswsl.utils.metrics import CocoCaptionsEvaluator
+from virtex.utils.metrics import CocoCaptionsEvaluator
 
 
 parser = argparse.ArgumentParser(

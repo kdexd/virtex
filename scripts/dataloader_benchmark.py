@@ -7,11 +7,11 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, DistributedSampler
 
-from viswsl.config import Config
-from viswsl.factories import TokenizerFactory, DatasetFactory
-import viswsl.utils.distributed as dist
-from viswsl.utils.common import cycle
-from viswsl.utils.timer import Timer
+from virtex.config import Config
+from virtex.factories import TokenizerFactory, DatasetFactory
+import virtex.utils.distributed as dist
+from virtex.utils.common import cycle
+from virtex.utils.timer import Timer
 
 
 # fmt: off

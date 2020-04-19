@@ -7,10 +7,10 @@ import albumentations as alb
 import numpy as np
 from torch.utils.data import Dataset
 
-from viswsl.data.readers import LmdbReader
-from viswsl.data.structures import WordMaskingInstance, WordMaskingBatch
-from viswsl.data.tokenizer import SentencePieceBPETokenizer
-from viswsl.data import transforms as T
+from virtex.data.readers import LmdbReader
+from virtex.data.structures import WordMaskingInstance, WordMaskingBatch
+from virtex.data.tokenizer import SentencePieceBPETokenizer
+from virtex.data import transforms as T
 
 
 class WordMaskingPretextDataset(Dataset):

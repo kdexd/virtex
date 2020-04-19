@@ -6,7 +6,7 @@ from loguru import logger
 import torch
 from torch import nn
 
-import viswsl.utils.distributed as dist
+import virtex.utils.distributed as dist
 
 
 class CheckpointManager(object):

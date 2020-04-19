@@ -8,8 +8,8 @@ import cv2
 import numpy as np
 from torch.utils.data import Dataset
 
-from viswsl.data.structures import CaptioningInstance, CaptioningBatch
-from viswsl.data import transforms as T
+from virtex.data.structures import CaptioningInstance, CaptioningBatch
+from virtex.data import transforms as T
 
 
 class InstanceClassificationDataset(Dataset):

@@ -3,7 +3,7 @@ from typing import Any, Dict
 import torch
 from torch import nn
 
-from viswsl.utils.metrics import TopkAccuracy
+from virtex.utils.metrics import TopkAccuracy
 
 
 class FeatureExtractor(nn.Module):

@@ -36,10 +36,10 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import models
 
-from viswsl.data.datasets.downstream_datasets import ImageNetDataset
-import viswsl.utils.distributed as vdist
-from viswsl.utils.metrics import TopkAccuracy
-from viswsl.utils.timer import Timer
+from virtex.data.datasets.downstream_datasets import ImageNetDataset
+import virtex.utils.distributed as vdist
+from virtex.utils.metrics import TopkAccuracy
+from virtex.utils.timer import Timer
 
 # fmt: off
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")

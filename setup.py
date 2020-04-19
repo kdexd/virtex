@@ -3,10 +3,10 @@ from setuptools import setup
 
 
 setup(
-    name="viswsl",
-    version="0.0.1",
+    name="virtex",
+    version="0.9",
     author="Karan Desai, Justin Johnson",
-    description="Weakly supervised learning for solving multiple vision tasks together.",
+    description="VirTex: Learning Visual Representations with Textual Annotations",
     license="Apache 2.0",
     zip_safe=True,
 )
