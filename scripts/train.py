@@ -68,12 +68,7 @@ def main(_A: argparse.Namespace):
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
-        sampler=DistributedSampler(
-            train_dataset,
-            num_replicas=dist.get_world_size(),
-            rank=dist.get_rank(),
-            shuffle=True,
-        ),
+        sampler=DistributedSampler(train_dataset, shuffle=True),
         num_workers=_A.cpu_workers,
         pin_memory=True,
         drop_last=True,
@@ -82,12 +77,7 @@ def main(_A: argparse.Namespace):
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
-        sampler=DistributedSampler(
-            val_dataset,
-            num_replicas=dist.get_world_size(),
-            rank=dist.get_rank(),
-            shuffle=False,
-        ),
+        sampler=DistributedSampler(val_dataset, shuffle=False),
         num_workers=_A.cpu_workers,
         pin_memory=True,
         drop_last=False,
@@ -97,6 +87,26 @@ def main(_A: argparse.Namespace):
     model = PretrainingModelFactory.from_config(_C).to(device)
     optimizer = OptimizerFactory.from_config(_C, model.named_parameters())
     scheduler = LRSchedulerFactory.from_config(_C, optimizer)
+
+    # -------------------------------------------------------------------------
+    #   BEFORE TRAINING STARTS
+    # -------------------------------------------------------------------------
+
+    # Load checkpoint to resume training if specified.
+    if _A.resume_from is not None:
+        start_iteration = CheckpointManager(
+            model=model, optimizer=optimizer, scheduler=scheduler
+        ).load(_A.resume_from)
+    else:
+        start_iteration = 0
+
+    # Keep track of time per iteration and ETA.
+    timer = Timer(
+        start_from=start_iteration + 1,
+        total_iterations=_C.OPTIM.NUM_ITERATIONS,
+    )
+    # Create an iterator from dataloader to sample batches perpetually.
+    train_dataloader_iter = cycle(train_dataloader, device, start_iteration)
 
     # Wrap model and optimizer using NVIDIA Apex for mixed precision training.
     # NOTE: Always do this before wrapping model with DistributedDataParallel.
@@ -114,41 +124,16 @@ def main(_A: argparse.Namespace):
             model, device_ids=[device], find_unused_parameters=True
         )
 
-    # -------------------------------------------------------------------------
-    #  BEFORE TRAINING STARTS
-    # -------------------------------------------------------------------------
+    # Create checkpoint manager and tensorboard writer (only in master process).
     if dist.is_master_process():
-        # Only the master process would serialize checkpoints.
         checkpoint_manager = CheckpointManager(
             _A.serialization_dir,
             model=model,
             optimizer=optimizer,
             scheduler=scheduler,
         )
-        # Tensorboard writer for logging training curves. Only the master
-        # process will log events to tensorboard to avoid clutter.
         tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
-
-        # Quote backticks: Tensorboard supports Markdown.
-        tensorboard_writer.add_text(
-            "config", "```\n" + str(_C).replace("\n", "\n\t") + "\n```"
-        )
-
-    # Load checkpoint to resume training if specified.
-    if _A.resume_from is not None:
-        start_iteration = CheckpointManager(
-            model=model, optimizer=optimizer, scheduler=scheduler
-        ).load(_A.resume_from)
-    else:
-        start_iteration = 0
-
-    # Keep track of time per iteration and ETA.
-    timer = Timer(
-        start_from=start_iteration + 1,
-        total_iterations=_C.OPTIM.NUM_ITERATIONS,
-    )
-    # Create an iterator from dataloader to sample batches perpetually.
-    train_dataloader_iter = cycle(train_dataloader, device, start_iteration)
+        tensorboard_writer.add_text("config", f"```\n{_C}\n```")
 
     # -------------------------------------------------------------------------
     #   TRAINING LOOP

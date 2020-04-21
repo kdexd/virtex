@@ -57,8 +57,8 @@ class CocoCaptionsEvaluator(object):
         for k in self.ground_truth:
             res[k] = res.get(k, [""])
 
-        cider_score = cider(self.ground_truth, res)
-        spice_score = spice(self.ground_truth, res)
+        cider_score = cider(res, self.ground_truth)
+        spice_score = spice(res, self.ground_truth)
 
         return {"CIDEr": 100 * cider_score, "SPICE": 100 * spice_score}
 
@@ -111,8 +111,8 @@ def tokenize(
 
 
 def cider(
-    ground_truth: Dict[ImageID, List[Caption]],
     predictions: Dict[ImageID, List[Caption]],
+    ground_truth: Dict[ImageID, List[Caption]],
     n: int = 4,
     sigma: float = 6.0,
 ) -> float:
@@ -201,8 +201,8 @@ def cider(
 
 
 def spice(
-    ground_truth: Dict[ImageID, List[Caption]],
     predictions: Dict[ImageID, List[Caption]],
+    ground_truth: Dict[ImageID, List[Caption]],
 ) -> float:
     r"""Compute SPICE score given ground truth captions and predictions."""
 

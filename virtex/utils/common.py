@@ -81,10 +81,12 @@ def common_setup(_C: Config, _A: argparse.Namespace, job_type: str = "pretrain")
     # Remove default logger, create a logger for each process which writes to a
     # separate log-file. This makes changes in global scope.
     logger.remove(0)
-    logger.add(
-        os.path.join(_A.serialization_dir, f"log-rank{RANK}.txt"),
-        format="{time} {level} {message}",
-    )
+    if dist.get_world_size() > 1:
+        logger.add(
+            os.path.join(_A.serialization_dir, f"log-rank{RANK}.txt"),
+            format="{time} {level} {message}",
+        )
+
     # Add a logger for stdout only for the master process.
     if dist.is_master_process():
         logger.add(

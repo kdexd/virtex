@@ -1,50 +1,27 @@
 import argparse
-import os
-import random
-import sys
 from typing import Any, Dict, List
 
 from loguru import logger
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 # fmt: off
 from virtex.config import Config
-from virtex.data.readers import SimpleCocoCaptionsReader
 from virtex.factories import (
-    TokenizerFactory, PretrainingModelFactory,
+    TokenizerFactory, PretextDatasetFactory, PretrainingModelFactory,
 )
+from virtex.utils.checkpointing import CheckpointManager
+from virtex.utils.common import common_parser, common_setup
 from virtex.utils.metrics import CocoCaptionsEvaluator
 
 
-parser = argparse.ArgumentParser(
+parser = common_parser(
     description="Evaluate a pre-trained model based on captioning metrics."
 )
 parser.add_argument(
-    "--config", help="Path to a config file with all configuration parameters."
-)
-parser.add_argument(
-    "--config-override", nargs="*", default=[],
-    help="""A sequence of key-value pairs specifying certain config arguments
-    (with dict-like nesting) using a dot operator.""",
-)
-parser.add_argument(
-    "--data-root", default="datasets/coco",
-    help="Path to the root directory of COCO dataset.",
-)
-parser.add_argument(
-    "--gpu-id", type=int, default=0, help="ID of GPU to use (-1 for CPU)."
-)
-parser.add_argument(
-    "--cpu-workers", type=int, default=2, help="Number of CPU workers."
-)
-parser.add_argument(
     "--checkpoint-path", required=True,
-    help="""Path to load checkpoint and run captioning evaluation. The
-    name of checkpoint file is required to be `checkpoint_*.pth`, where * is
-    iteration number from which the checkpoint was serialized."""
+    help="Path to load checkpoint and run captioning evaluation."
 )
 parser.add_argument(
     "--serialization-dir", default=None,
@@ -54,45 +31,25 @@ parser.add_argument(
 # fmt: on
 
 
-if __name__ == "__main__":
-    # -------------------------------------------------------------------------
-    #   INPUT ARGUMENTS AND CONFIG
-    # -------------------------------------------------------------------------
-    _A = parser.parse_args()
+def main(_A: argparse.Namespace):
+
+    if _A.num_gpus_per_machine == 0:
+        # Set device as CPU if num_gpus_per_machine = 0.
+        device = torch.device("cpu")
+    else:
+        # Get the current device (this will be zero here by default).
+        device = torch.cuda.current_device()
+
+    # Create a config object (this will be immutable) and perform common setup
+    # such as logging and setting up serialization directory.
     _C = Config(_A.config, _A.config_override)
-
-    # Set random seeds for reproucibility.
-    random.seed(_C.RANDOM_SEED)
-    np.random.seed(_C.RANDOM_SEED)
-    torch.manual_seed(_C.RANDOM_SEED)
-
-    device = torch.device(f"cuda:{_A.gpu_id}" if _A.gpu_id != -1 else "cpu")
-
-    # Configure our custom logger.
-    logger.remove(0)
-    logger.add(
-        sys.stdout, format="<g>{time}</g>: <lvl>{message}</lvl>", colorize=True
-    )
-    # Set up a serialization directory.
-    if not _A.serialization_dir:
-        _A.serialization_dir = os.path.dirname(_A.checkpoint_path)
-    os.makedirs(_A.serialization_dir, exist_ok=True)
-
-    # Print config and args.
-    for arg in vars(_A):
-        logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))
-
-    # Tensorboard writer for logging mAP scores.
-    tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
-    CHECKPOINT_ITERATION = int(
-        os.path.basename(_A.checkpoint_path).split("_")[-1][:-4]
-    )
+    common_setup(_C, _A)
 
     # -------------------------------------------------------------------------
-    #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER
+    #   INSTANTIATE DATALOADER, MODEL
     # -------------------------------------------------------------------------
     tokenizer = TokenizerFactory.from_config(_C)
-    val_dataset = SimpleCocoCaptionsReader(_A.data_root, "val")
+    val_dataset = PretextDatasetFactory.from_config(_C, tokenizer, "val")
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE,
@@ -102,24 +59,38 @@ if __name__ == "__main__":
     )
     # Initialize model from a checkpoint.
     model = PretrainingModelFactory.from_config(_C).to(device)
-    model.load_state_dict(torch.load(_A.checkpoint_path))
-    torch.set_grad_enabled(False)
-    model.eval()
+    ITERATION = CheckpointManager(model=model).load(_A.checkpoint_path)
+
+    # Tensorboard writer for logging CIDEr and SPICE scores.
+    tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
 
     # ---------------------------------------------------------------------
     #   VALIDATION
     # ---------------------------------------------------------------------
 
-    # TODO : fix this later.
+    torch.set_grad_enabled(False)
+    model.eval()
 
+    # Make a list of predictions and ground truth captions to evaluate.
     predictions: List[Dict[str, Any]] = []
-    for val_iteration, val_batch in tqdm(enumerate(val_dataloader, start=1)):
+    ground_truth: List[Dict[str, Any]] = []
 
+    for val_iteration, val_batch in tqdm(enumerate(val_dataloader, start=1)):
         for key in val_batch:
             val_batch[key] = val_batch[key].to(device)
-        output_dict = model(val_batch)
+
+        # Remove ground truth from batch so model could work in inference mode.
+        batch_ground_truth = val_batch.pop("caption_tokens")
+        for image_id, caption in zip(val_batch["image_id"], batch_ground_truth):
+            ground_truth.append(
+                {
+                    "image_id": image_id.item(),
+                    "caption": tokenizer.decode(caption.tolist()),
+                }
+            )
 
         # Make a dictionary of predictions in COCO format.
+        output_dict = model(val_batch)
         for image_id, caption in zip(
             val_batch["image_id"], output_dict["predictions"]
         ):
@@ -133,12 +104,20 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------
     #   CALCULATE AND LOG METRICS
     # ---------------------------------------------------------------------
-    metrics = CocoCaptionsEvaluator(_A.captions).evaluate(predictions)
-    logger.info(f"Iter: {CHECKPOINT_ITERATION} | Metrics: {metrics}")
-    tensorboard_writer.add_scalars("val", metrics, CHECKPOINT_ITERATION)
+    metrics = CocoCaptionsEvaluator(ground_truth).evaluate(predictions)
+    logger.info(f"Iter: {ITERATION} | Metrics: {metrics}")
     tensorboard_writer.add_scalars(
-        "metrics/cider", {"forward": metrics["CIDEr"]}, CHECKPOINT_ITERATION
+        "metrics/cider", {"forward": metrics["CIDEr"]}, ITERATION
     )
     tensorboard_writer.add_scalars(
-        "metrics/spice", {"forward": metrics["SPICE"]}, CHECKPOINT_ITERATION
+        "metrics/spice", {"forward": metrics["SPICE"]}, ITERATION
     )
+
+
+if __name__ == "__main__":
+    _A = parser.parse_args()
+    if _A.num_gpus_per_machine > 1:
+        raise ValueError("Using multiple GPUs is not supported for this script.")
+
+    # No distributed training here, just a single process.
+    main(_A)

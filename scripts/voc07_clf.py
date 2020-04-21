@@ -48,9 +48,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--checkpoint-path",
-    help="""Path to load checkpoint and run downstream task evaluation. The
-    name of checkpoint file is required to be `checkpoint_*.pth`, where * is
-    iteration number from which the checkpoint was serialized."""
+    help="Path to load checkpoint and run downstream task evaluation."
 )
 parser.add_argument(
     "--serialization-dir", default="/tmp/voc07_clf",
@@ -119,8 +117,7 @@ def main(_A: argparse.Namespace):
         # Set device as CPU if num_gpus_per_machine = 0.
         device = torch.device("cpu")
     else:
-        # Get the current device as set for current distributed process.
-        # Check `launch` function in `virtex.utils.distributed` module.
+        # Get the current device (this will be zero here by default).
         device = torch.cuda.current_device()
 
     # Create a downstream config object (this will be immutable) and perform
@@ -243,6 +240,9 @@ def main(_A: argparse.Namespace):
 
 if __name__ == "__main__":
     _A = parser.parse_args()
+
+    if _A.num_gpus_per_machine > 1:
+        raise ValueError("Using multiple GPUs is not supported for this script.")
 
     # Add an arg in config override if `--weight-init` is imagenet.
     if _A.weight_init == "imagenet":
