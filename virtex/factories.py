@@ -10,7 +10,7 @@ import virtex.data as vdata
 from virtex.data import transforms as T
 from virtex.data.tokenizer import SentencePieceBPETokenizer
 import virtex.models as vmodels
-from virtex.modules import visual_stream as vs, textual_stream as ts
+from virtex.modules import visual_backbone as vs, textual_head as ts
 from virtex.optim import Lookahead, lr_scheduler
 
 
@@ -145,15 +145,15 @@ class DatasetFactory(Factory):
         return cls.create(_C.MODEL.NAME, **kwargs)
 
 
-class VisualStreamFactory(Factory):
+class VisualBackboneFactory(Factory):
 
     PRODUCTS = {
-        "blind": vs.BlindVisualStream,
-        "torchvision": vs.TorchvisionVisualStream,
+        "blind": vs.BlindVisualBackbone,
+        "torchvision": vs.TorchvisionVisualBackbone,
     }
 
     @classmethod
-    def from_config(cls, config: Config) -> vs.VisualStream:
+    def from_config(cls, config: Config) -> vs.VisualBackbone:
         _C = config
         kwargs = {"visual_feature_size": _C.MODEL.VISUAL.FEATURE_SIZE}
         if "torchvision" in _C.MODEL.VISUAL.NAME:
@@ -166,13 +166,13 @@ class VisualStreamFactory(Factory):
             return cls.create(_C.MODEL.VISUAL.NAME, **kwargs)
 
 
-class TextualStreamFactory(Factory):
+class TextualHeadFactory(Factory):
 
     # fmt: off
     PRODUCTS: Dict[str, Callable] = {
-        "transformer_prenorm": partial(ts.TransformerTextualStream, norm_type="pre"),
-        "transformer_postnorm": partial(ts.TransformerTextualStream, norm_type="post"),
-        "none": None,  # Keep for pretext tasks which don't use captions.
+        "transformer_prenorm": partial(ts.TransformerTextualHead, norm_type="pre"),
+        "transformer_postnorm": partial(ts.TransformerTextualHead, norm_type="post"),
+        "none": None,  # type: ignore
     }
     # fmt: on
 
@@ -191,10 +191,10 @@ class TextualStreamFactory(Factory):
         name, architecture = _C.MODEL.TEXTUAL.NAME.split("::")
         architecture = re.match(r"L(\d+)_H(\d+)_A(\d+)_F(\d+)", architecture)
 
-        num_layers = architecture.group(1)
-        hidden_size = architecture.group(2)
-        attention_heads = architecture.group(3)
-        feedforward_size = architecture.group(4)
+        num_layers = int(architecture.group(1))
+        hidden_size = int(architecture.group(2))
+        attention_heads = int(architecture.group(3))
+        feedforward_size = int(architecture.group(4))
 
         # Transformer will be bidirectional only for word masking pretext.
         kwargs = {
@@ -229,8 +229,9 @@ class PretrainingModelFactory(Factory):
         _C = config
         tokenizer = tokenizer or TokenizerFactory.from_config(_C)
 
-        visual = VisualStreamFactory.from_config(_C)
-        textual = TextualStreamFactory.from_config(_C, tokenizer)
+        # Build visual and textual streams based on config.
+        visual = VisualBackboneFactory.from_config(_C)
+        textual = TextualHeadFactory.from_config(_C, tokenizer)
 
         # Check textual stream being none for fixed set of pretext tasks.
         if textual is None:
@@ -291,7 +292,7 @@ class OptimizerFactory(Factory):
             lr = _C.OPTIM.CNN_LR if "cnn" in name else _C.OPTIM.LR
             param_groups.append({"params": [param], "lr": lr, "weight_decay": wd})
 
-        if _C.OPTIMIZER.NAME == "sgd":
+        if _C.OPTIM.OPTIMIZER_NAME == "sgd":
             kwargs = {"momentum": _C.OPTIM.SGD_MOMENTUM}
         else:
             kwargs = {}

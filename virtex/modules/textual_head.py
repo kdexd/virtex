@@ -8,7 +8,7 @@ from virtex.modules.embedding import WordAndPositionalEmbedding
 from virtex.modules.transformer import PreNormTransformerDecoderLayer
 
 
-class TextualStream(nn.Module):
+class TextualHead(nn.Module):
     def __init__(
         self,
         vocab_size: int,
@@ -76,7 +76,7 @@ class TextualStream(nn.Module):
         return mask
 
 
-class TransformerTextualStream(TextualStream):
+class TransformerTextualHead(TextualHead):
     def __init__(
         self,
         vocab_size: int,

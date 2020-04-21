@@ -5,10 +5,10 @@ from torch import nn
 import torchvision
 
 
-class VisualStream(nn.Module):
+class VisualBackbone(nn.Module):
     r"""
-    A simple base class for all visual streams. We mainly add it for uniformity
-    in type annotations. All child classes can simply inherit from
+    A simple base class for all visual backbones. We mainly add it for
+    uniformity in type annotations. All child classes can simply inherit from
     :class:`~torch.nn.Module` otherwise.
     """
 
@@ -21,8 +21,8 @@ class VisualStream(nn.Module):
         return self._visual_feature_size
 
 
-class BlindVisualStream(VisualStream):
-    r"""A visual stream which cannot see the image."""
+class BlindVisualBackbone(VisualBackbone):
+    r"""A visual backbone which cannot see the image."""
 
     def __init__(self, visual_feature_size: int = 2048, bias_value: float = 1.0):
         super().__init__(visual_feature_size)
@@ -39,7 +39,7 @@ class BlindVisualStream(VisualStream):
         return self._bias.unsqueeze(0).repeat(batch_size, 1, 1)
 
 
-class TorchvisionVisualStream(VisualStream):
+class TorchvisionVisualBackbone(VisualBackbone):
     def __init__(
         self,
         name: str,

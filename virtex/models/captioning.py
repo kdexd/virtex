@@ -8,16 +8,16 @@ from torch.nn import functional as F
 
 from virtex.data.structures import CaptioningBatch
 from virtex.data.tokenizer import SentencePieceBPETokenizer
-from virtex.modules.textual_stream import TextualStream
-from virtex.modules.visual_stream import VisualStream
+from virtex.modules.textual_head import TextualHead
+from virtex.modules.visual_backbone import VisualBackbone
 from virtex.utils.beam_search import AutoRegressiveBeamSearch
 
 
 class CaptioningModel(nn.Module):
     def __init__(
         self,
-        visual: VisualStream,
-        textual: TextualStream,
+        visual: VisualBackbone,
+        textual: TextualHead,
         is_bidirectional: bool = False,
         beam_size: int = 5,
         max_decoding_steps: int = 30,

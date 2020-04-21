@@ -6,13 +6,13 @@ from torch.nn import functional as F
 
 from virtex.data.structures import Batch
 from virtex.data.tokenizer import SentencePieceBPETokenizer
-from virtex.modules.visual_stream import VisualStream
+from virtex.modules.visual_backbone import VisualBackbone
 
 
 class ClassificationModel(nn.Module):
     def __init__(
         self,
-        visual: VisualStream,
+        visual: VisualBackbone,
         vocab_size: int,
         ignore_indices: List[int],
     ):

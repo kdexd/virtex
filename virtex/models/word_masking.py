@@ -5,12 +5,12 @@ from torch import nn
 
 from virtex.data.structures import WordMaskingBatch
 from virtex.data.tokenizer import SentencePieceBPETokenizer
-from virtex.modules.textual_stream import TextualStream
-from virtex.modules.visual_stream import VisualStream
+from virtex.modules.textual_head import TextualHead
+from virtex.modules.visual_backbone import VisualBackbone
 
 
 class WordMaskingModel(nn.Module):
-    def __init__(self, visual: VisualStream, textual: TextualStream):
+    def __init__(self, visual: VisualBackbone, textual: TextualHead):
         super().__init__()
         self.visual = visual
         self.textual = textual
