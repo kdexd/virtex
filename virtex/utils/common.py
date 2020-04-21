@@ -76,7 +76,7 @@ def common_setup(_C: Config, _A: argparse.Namespace, job_type: str = "pretrain")
 
     # Create serialization directory and save config in it.
     os.makedirs(_A.serialization_dir, exist_ok=True)
-    _C.dump(os.path.join(_A.serialization_dir, f"{job_type}_config.yml"))
+    _C.dump(os.path.join(_A.serialization_dir, f"{job_type}_config.yaml"))
 
     # Remove default logger, create a logger for each process which writes to a
     # separate log-file. This makes changes in global scope.

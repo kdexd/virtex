@@ -13,9 +13,9 @@ class TextualStream(nn.Module):
         self,
         vocab_size: int,
         hidden_size: int,
-        feedforward_size: int,
-        attention_heads: int,
         num_layers: int,
+        attention_heads: int,
+        feedforward_size: int,
         dropout: float = 0.1,
         is_bidirectional: bool = True,
         padding_idx: int = 0,
@@ -23,9 +23,9 @@ class TextualStream(nn.Module):
         super().__init__()
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
-        self.feedforward_size = feedforward_size
-        self.attention_heads = attention_heads
         self.num_layers = num_layers
+        self.attention_heads = attention_heads
+        self.feedforward_size = feedforward_size
         self.dropout = dropout
         self.is_bidirectional = is_bidirectional
         self.padding_idx = padding_idx
@@ -81,9 +81,9 @@ class TransformerTextualStream(TextualStream):
         self,
         vocab_size: int,
         hidden_size: int,
-        feedforward_size: int,
-        attention_heads: int,
         num_layers: int,
+        attention_heads: int,
+        feedforward_size: int,
         dropout: float = 0.1,
         is_bidirectional: bool = True,
         norm_type: str = "pre",
@@ -93,9 +93,9 @@ class TransformerTextualStream(TextualStream):
         super().__init__(
             vocab_size,
             hidden_size,
-            feedforward_size,
-            attention_heads,
             num_layers,
+            attention_heads,
+            feedforward_size,
             dropout=dropout,
             is_bidirectional=is_bidirectional,
             padding_idx=padding_idx,

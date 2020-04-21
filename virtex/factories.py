@@ -136,9 +136,9 @@ class DatasetFactory(Factory):
             )
             if _C.MODEL.NAME == "word_masking":
                 kwargs.update(
-                    mask_proportion=_C.PRETEXT.WORD_MASKING.MASK_PROPORTION,
-                    mask_probability=_C.PRETEXT.WORD_MASKING.MASK_PROBABILITY,
-                    replace_probability=_C.PRETEXT.WORD_MASKING.REPLACE_PROBABILITY,
+                    mask_proportion=_C.DATA.WORD_MASKING.MASK_PROPORTION,
+                    mask_probability=_C.DATA.WORD_MASKING.MASK_PROBABILITY,
+                    replace_probability=_C.DATA.WORD_MASKING.REPLACE_PROBABILITY,
                 )
 
         # Dataset names match with model names (and ofcourse pretext names).
@@ -182,22 +182,31 @@ class TextualStreamFactory(Factory):
     ) -> Union[None, nn.Module]:
 
         _C = config
-        name = _C.MODEL.TEXTUAL.NAME.split("::")[0]
-        if name == "none":
+        if _C.MODEL.TEXTUAL.NAME == "none":
             return None
 
         tokenizer = tokenizer or TokenizerFactory.from_config(_C)
+
+        # Get architectural hyper-params as per name by matching regex.
+        name, architecture = _C.MODEL.TEXTUAL.NAME.split("::")
+        architecture = re.match(r"L(\d+)_H(\d+)_A(\d+)_F(\d+)", architecture)
+
+        num_layers = architecture.group(1)
+        hidden_size = architecture.group(2)
+        attention_heads = architecture.group(3)
+        feedforward_size = architecture.group(4)
+
         # Transformer will be bidirectional only for word masking pretext.
         kwargs = {
             "vocab_size": tokenizer.get_vocab_size(),
-            "hidden_size": _C.MODEL.TEXTUAL.HIDDEN_SIZE,
-            "dropout": _C.MODEL.DROPOUT,
+            "hidden_size": hidden_size,
+            "num_layers": num_layers,
+            "attention_heads": attention_heads,
+            "feedforward_size": feedforward_size,
+            "dropout": _C.MODEL.TEXTUAL.DROPOUT,
             "is_bidirectional": _C.MODEL.NAME == "word_masking",
             "padding_idx": tokenizer.token_to_id("[UNK]"),
             "max_caption_length": _C.DATA.MAX_CAPTION_LENGTH,
-            "feedforward_size": _C.MODEL.TEXTUAL.FEEDFORWARD_SIZE,
-            "attention_heads": _C.MODEL.TEXTUAL.ATTENTION_HEADS,
-            "num_layers": _C.MODEL.TEXTUAL.NUM_LAYERS,
         }
         return cls.create(name, **kwargs)
 
@@ -264,7 +273,7 @@ class PretrainingModelFactory(Factory):
 
 class OptimizerFactory(Factory):
 
-    PRODUCTS = {"sgd": optim.SGD}
+    PRODUCTS = {"sgd": optim.SGD, "adamw": optim.AdamW}
 
     @classmethod
     def from_config(
@@ -282,9 +291,12 @@ class OptimizerFactory(Factory):
             lr = _C.OPTIM.CNN_LR if "cnn" in name else _C.OPTIM.LR
             param_groups.append({"params": [param], "lr": lr, "weight_decay": wd})
 
-        kwargs = {"momentum": _C.OPTIM.SGD_MOMENTUM}
-        optimizer = cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
+        if _C.OPTIMIZER.NAME == "sgd":
+            kwargs = {"momentum": _C.OPTIM.SGD_MOMENTUM}
+        else:
+            kwargs = {}
 
+        optimizer = cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
         if _C.OPTIM.USE_LOOKAHEAD:
             optimizer = Lookahead(
                 optimizer, k=_C.OPTIM.LOOKAHEAD_STEPS, alpha=_C.OPTIM.LOOKAHEAD_ALPHA
