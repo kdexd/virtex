@@ -1,0 +1,78 @@
+body {
+    padding: 40px 0 0 0;
+    font-family: "Ubuntu Mono", monospace !important;
+}
+
+/* Make main content wider */
+div.document {
+    margin: auto;
+    width: 65%;
+}
+
+div.body {
+    color: black;
+    max-width: 100%
+}
+
+/* Darker headings */
+h1, h2, h3, h4, div.sphinxsidebar h1, div.sphinxsidebar h2,
+div.sphinxsidebar h3, div.sphinxsidebar h4, div.body h1,
+div.body h2, div.body h3, div.body h4 {
+    color: black;
+}
+
+/* Darker bold words */
+strong {
+    color: #252525;
+}
+
+/* Ubuntu Mono everywhere */
+h1, h2, h3, h4, div.sphinxsidebar h1, div.sphinxsidebar h2,
+div.sphinxsidebar h3, div.sphinxsidebar h4, div.body h1,
+div.body h2, div.body h3, div.body h4, div.body, .admonition-title {
+    font-family: "Ubuntu Mono", monospace !important;
+}
+
+/* TOC tree anchor tag & view source link styling like kdexd.github.io */
+div.sphinxsidebar a, .viewcode-link, a.reference {
+    color: darkgreen;
+    text-decoration: none;
+    border-bottom: 1px dashed green;
+    text-underline-position: under;
+}
+
+/* TOC tree anchor tag & view source link styling like kdexd.github.io */
+div.sphinxsidebar a:hover, .viewcode-link:hover, a.reference:hover {
+    font-weight: 700;
+    border-bottom: 1px solid green;
+}
+
+/* Add a light background to class signatures. */
+dl.class > dt:first-of-type, dl.function > dt:first-of-type, dl.method > dt:first-of-type, dl.classmethod > dt:first-of-type, dl.attribute > dt:first-of-type {
+    background-color: #d8f6e9;
+    padding: 10px;
+    border: 1px solid #1b5e20;
+}
+
+/* Add same light background to code examples. */
+pre, .highlight-shell {
+    background-color: #e8f6e9 !important;
+}
+
+.admonition, .note {
+    background-color: #c8e6c9 !important;
+}
+
+/* Make "Parameters" subsection wider - display heading and content vertically. */
+dl.field-list {
+    display: block;
+}
+
+/* Increase font size of subsection headings ("Parameters", "Examples" etc.) */
+.rubric, dl.field-list > dt.field-odd, dl.field-list > dt.field-even {
+    color: black;
+    font-size: 1.2em;
+    font-weight: bold;
+    line-height: 1.3em;
+    margin: 20px 0px 10px 0px;
+}

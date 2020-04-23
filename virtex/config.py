@@ -15,18 +15,11 @@ class Config(object):
     or ``override_list`` arguments. For adding more parameters at runtime
     (based on existing parameters), modify :meth:`add_derived_params`.
 
-    .. seealso::
-
-        Parts of this class are adopted from several of my past projects::
-
-          - `https://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py`_
-          - `https://github.com/nocaps-org/updown-baseline/blob/master/updown/config.py`_
-
     Parameters
     ----------
     config_file: str
         Path to a YAML file containing configuration parameters to override.
-    config_override: List[Any], optional (default= [])
+    config_override: List[Any], optional (default = [])
         A list of sequential attributes and values of parameters to override.
         This happens after overriding from YAML file.
 
@@ -34,13 +27,13 @@ class Config(object):
     --------
     Let a YAML file named "config.yaml" specify these parameters to override::
 
-        RANDOM_SEED: 42
         OPTIM:
           BATCH_SIZE: 512
+          LR: 0.01
 
     >>> _C = Config("config.yaml", ["OPTIM.BATCH_SIZE", 1024])
-    >>> _C.RANDOM_SEED  # default: 0
-    42
+    >>> _C.LR  # default: 0.001
+    0.01
     >>> _C.OPTIM.BATCH_SIZE  # default: 256, file: 512
     1024
     """

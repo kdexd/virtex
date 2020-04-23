@@ -1,8 +1,8 @@
 r"""
 A collection of common utilities for distributed training. These are a bunch of
-wrappers over utilities from :class:`torch.distributed` module, but they
-return sensible default values when using single process / CPU, instead of
-raising exceptions.
+wrappers over utilities from :mod:`torch.distributed` module, but they do not
+raise exceptions in absence of distributed training / CPU-only training, and
+fall back to sensible default behavior.
 """
 from typing import Callable, Dict, Tuple, Union
 
@@ -21,17 +21,18 @@ def launch(
     args=(),
 ):
     r"""
-    Launch a job in a distributed fashion: given ``num_machines`` with
-    ``num_gpus_per_machine``, this job will launch one process per GPU. This
-    wrapper uses :func:`torch.multiprocessing.spawn` utility.
+    Launch a job in a distributed fashion: given ``num_machines`` machines,
+    each with ``num_gpus_per_machine`` GPUs, this utility will launch one
+    process per GPU. This wrapper uses :func:`torch.multiprocessing.spawn`.
 
-    The user has to launch one job on each machine with manually specifying
-    a machine rank, this utility will launch multiple processes and adjust the
-    process ranks. One process on ``machine_rank = 0`` will be called the
-    _master process_ and the IP + free port on this machine will serve as the
-    distributed process communication URL.
+    The user has to launch one job on each machine, manually specifying a
+    machine rank (incrementing integers from 0), this utility will adjust
+    process ranks per machine. One process on ``machine_rank = 0`` will be
+    refered as the *master process*, and the IP + a free port on this machine
+    will serve as the distributed process communication URL.
 
-    Default arguments imply one machine with one GPU, and dist URL as localhost.
+    Default arguments imply one machine with one GPU, and communication URL
+    as ``localhost``.
 
     .. note::
 
@@ -57,18 +58,17 @@ def launch(
         Disributed process communication URL as ``tcp://x.x.x.x:port``. Set
         this as the IP (and a free port) of machine with rank 0.
     args: Tuple
-        Arguments to be passed to ``main_func``.
+        Arguments to be passed to ``job_fn``.
     """
 
     assert (
         torch.cuda.is_available()
     ), "CUDA not available, Cannot launch distributed processes."
 
-    # Set world size based on number of machines and GPUs per machine.
     world_size = num_machines * num_gpus_per_machine
 
-    # This spawns `num_gpus_per_machine` process per machine, and provides
-    # the "local process rank" (GPU ID) as the first arg to `_dist_worker`.
+    # Spawn ``num_gpus_per_machine``` processes per machine, and provide
+    # "local process rank" (GPU ID) as the first arg to ``_dist_worker``.
     # fmt: off
     if world_size > 1:
         mp.spawn(
@@ -80,6 +80,7 @@ def launch(
             daemon=False,
         )
     else:
+        # Default to single machine, single GPU, with ID 0.
         _job_worker(0, job_fn, 1, 1, 0, dist_url, args)
     # fmt: on
 
@@ -98,7 +99,7 @@ def _job_worker(
     only used by :func:`launch`.
     """
 
-    # Adjust global rank of process based on its machine.
+    # Adjust global rank of process based on its machine rank.
     global_rank = machine_rank * num_gpus_per_machine + local_rank
     try:
         dist.init_process_group(
@@ -112,12 +113,13 @@ def _job_worker(
         raise e
 
     synchronize()
+    # Set GPU ID for each process according to its rank.
     torch.cuda.set_device(local_rank)
     job_fn(*args)
 
 
 def synchronize() -> None:
-    r"""Synchronize (barrier) processes in a process group."""
+    r"""Synchronize (barrier) all processes in a process group."""
     if dist.is_initialized():
         dist.barrier()
 
@@ -134,17 +136,26 @@ def get_rank() -> int:
 
 def is_master_process() -> bool:
     r"""
-    Check if current process is the master process in distributed training
-    process group. useful to make checks while tensorboard logging and
-    serializing checkpoints. Always ``True`` for single-GPU single-machine.
+    Check whether current process is the master process. This check is useful
+    to restrict logging and checkpointing to master process. It will always
+    return ``True`` for single machine, single GPU execution.
     """
     return get_rank() == 0
 
 
-def average_across_processes(t: Union[Dict[str, torch.Tensor], torch.Tensor]):
+def average_across_processes(t: Union[torch.Tensor, Dict[str, torch.Tensor]]):
     r"""
-    Averages a tensor, or a (flat) dict of tensors across all processes in a
-    process group. All processes finally have the same mean value.
+    Averages a tensor, or a dict of tensors across all processes in a process
+    group. Objects in all processes will finally have same mean value.
+
+    .. note::
+
+        Nested dicts of tensors are not supported.
+
+    Parameters
+    ----------
+    t: torch.Tensor or Dict[str, torch.Tensor]
+        A tensor or dict of tensors to average across processes.
     """
     if dist.is_initialized():
         if isinstance(t, torch.Tensor):
@@ -158,10 +169,11 @@ def average_across_processes(t: Union[Dict[str, torch.Tensor], torch.Tensor]):
 
 def gpu_mem_usage() -> int:
     r"""
-    Return gpu memory usage in MB, and return zero without raising an error if
-    not using GPU.
+    Return gpu memory usage (in megabytes). If not using GPU, return 0 without
+    raising any exceptions.
     """
     if torch.cuda.is_available():
+        # This will be in bytes, so we divide by (1024 * 1024).
         return torch.cuda.max_memory_allocated() // 1048576
     else:
         return 0

@@ -11,10 +11,9 @@ import virtex.utils.distributed as dist
 
 class CheckpointManager(object):
     r"""
-    A :class:`CheckpointManager` periodically serializes models and other
-    checkpointable objects (which implement ``state_dict`` method) as .pth
-    files during training, and optionally keeps track of best performing
-    checkpoint based on an observed metric.
+    This class periodically serializes models and other checkpointable objects
+    (which implement ``state_dict`` method) as .pth files during training, and
+    optionally records best performing checkpoint based on an observed metric.
 
     This class closely follows the API of PyTorch optimizers and learning rate
     schedulers.
@@ -22,7 +21,7 @@ class CheckpointManager(object):
     .. note::
 
         For :class:`~torch.nn.parallel.DistributedDataParallel` objects,
-        ``module.state_dict`` is called instead of ``state_dict``.
+        ``state_dict`` of internal model is serialized.
 
     .. note::
 
@@ -33,13 +32,12 @@ class CheckpointManager(object):
     ----------
     serialization_dir: str
         Path to an empty or non-existent directory to save checkpoints.
-    keep_recent: int, optional (default=100)
+    keep_recent: int, optional (default = 100)
         Number of recent 'k' checkpoints to keep on disk. Older checkpoints
         will be removed. Set to a very large value for keeping all checkpoints.
     checkpointables: Any
         Keyword arguments with any checkpointable objects, for example: model,
-        optimizer, learning rate scheduler. Their state dicts can be accessed
-        as the name of keyword.
+        optimizer, learning rate scheduler.
 
     Examples
     --------
