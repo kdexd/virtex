@@ -14,6 +14,7 @@ from virtex.data.structures import (
     LinearClassificationBatch,
 )
 from virtex.data import transforms as T
+from virtex.data.readers import LmdbReader
 
 
 class ImageNetDataset(ImageNet):
@@ -147,3 +148,28 @@ class VOC07ClassificationDataset(Dataset):
         self, instances: List[LinearClassificationInstance]
     ) -> LinearClassificationBatch:
         return LinearClassificationBatch(instances)
+
+
+class CocoCaptionsEvalDataset(Dataset):
+    def __init__(
+        self,
+        data_root: str,
+        image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
+    ):
+        lmdb_path = os.path.join(data_root, f"serialized_val.lmdb")
+        self.reader = LmdbReader(lmdb_path)
+        self.image_transform = image_transform
+
+    def __len__(self):
+        return len(self.reader)
+
+    def __getitem__(self, idx: int):
+
+        image_id, image, _ = self.reader[idx]
+        image = self.image_transform(image=image)["image"]
+        image = np.transpose(image, (2, 0, 1))
+
+        return {
+            "image_id": torch.tensor(image_id).long(),
+            "image": torch.tensor(image),
+        }

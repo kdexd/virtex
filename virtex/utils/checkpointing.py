@@ -54,7 +54,7 @@ class CheckpointManager(object):
     def __init__(
         self,
         serialization_dir: str = "/tmp",
-        keep_recent: int = 100,
+        keep_recent: int = 200,
         **checkpointables: Any,
     ):
         self.serialization_dir = pathlib.Path(serialization_dir)

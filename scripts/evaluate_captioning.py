@@ -1,4 +1,5 @@
 import argparse
+import os
 from typing import Any, Dict, List
 
 from loguru import logger
@@ -8,9 +9,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 # fmt: off
 from virtex.config import Config
-from virtex.factories import (
-    TokenizerFactory, PretextDatasetFactory, PretrainingModelFactory,
-)
+from virtex.data import CocoCaptionsEvalDataset
+from virtex.factories import TokenizerFactory, PretrainingModelFactory
 from virtex.utils.checkpointing import CheckpointManager
 from virtex.utils.common import common_parser, common_setup
 from virtex.utils.metrics import CocoCaptionsEvaluator
@@ -49,13 +49,12 @@ def main(_A: argparse.Namespace):
     #   INSTANTIATE DATALOADER, MODEL
     # -------------------------------------------------------------------------
     tokenizer = TokenizerFactory.from_config(_C)
-    val_dataset = PretextDatasetFactory.from_config(_C, tokenizer, "val")
+    val_dataset = CocoCaptionsEvalDataset(_C.DATA.ROOT)
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE,
         num_workers=_A.cpu_workers,
         pin_memory=True,
-        collate_fn=val_dataset.collate_fn,
     )
     # Initialize model from a checkpoint.
     model = PretrainingModelFactory.from_config(_C).to(device)
@@ -71,23 +70,12 @@ def main(_A: argparse.Namespace):
     torch.set_grad_enabled(False)
     model.eval()
 
-    # Make a list of predictions and ground truth captions to evaluate.
+    # Make a list of predictions to evaluate.
     predictions: List[Dict[str, Any]] = []
-    ground_truth: List[Dict[str, Any]] = []
 
     for val_iteration, val_batch in tqdm(enumerate(val_dataloader, start=1)):
         for key in val_batch:
             val_batch[key] = val_batch[key].to(device)
-
-        # Remove ground truth from batch so model could work in inference mode.
-        batch_ground_truth = val_batch.pop("caption_tokens")
-        for image_id, caption in zip(val_batch["image_id"], batch_ground_truth):
-            ground_truth.append(
-                {
-                    "image_id": image_id.item(),
-                    "caption": tokenizer.decode(caption.tolist()),
-                }
-            )
 
         # Make a dictionary of predictions in COCO format.
         output_dict = model(val_batch)
@@ -102,9 +90,12 @@ def main(_A: argparse.Namespace):
             )
 
     # ---------------------------------------------------------------------
-    #   CALCULATE AND LOG METRICS
+    #   EVALUATE AND LOG METRICS
     # ---------------------------------------------------------------------
-    metrics = CocoCaptionsEvaluator(ground_truth).evaluate(predictions)
+    # Assume ground truth (COCO val2017 annotations) exist.
+    gt = os.path.join(_C.DATA.ROOT, "annotations", "captions_val2017.json")
+
+    metrics = CocoCaptionsEvaluator(gt).evaluate(predictions)
     logger.info(f"Iter: {ITERATION} | Metrics: {metrics}")
     tensorboard_writer.add_scalars(
         "metrics/cider", {"forward": metrics["CIDEr"]}, ITERATION
