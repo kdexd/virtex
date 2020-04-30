@@ -17,7 +17,7 @@ OPTIM:
   NO_DECAY: ""
   USE_LOOKAHEAD: False
 
-  LR: 30.0
+  LR: 0.3
   WARMUP_STEPS: 0
   LR_DECAY_NAME: multistep
   LR_GAMMA: 0.1

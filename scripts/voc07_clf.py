@@ -125,9 +125,9 @@ def main(_A: argparse.Namespace):
     _DOWNC = Config(_A.down_config, _A.down_config_override)
     common_setup(_DOWNC, _A, job_type="downstream")
 
-    # Create a (pretraining) config object and backup in serializaion directory.
+    # Create a (pretraining) config object and backup in serialization directory.
     _C = Config(_A.config, _A.config_override)
-    _C.dump(os.path.join(_A.serialization_dir, "pretrain_config.yml"))
+    _C.dump(os.path.join(_A.serialization_dir, "pretrain_config.yaml"))
 
     # -------------------------------------------------------------------------
     #   INSTANTIATE DATALOADER, MODEL, AND FEATURE EXTRACTOR

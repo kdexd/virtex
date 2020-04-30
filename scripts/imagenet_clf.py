@@ -85,7 +85,7 @@ def main(_A: argparse.Namespace):
 
     # Create a (pretraining) config object and backup in serializaion directory.
     _C = Config(_A.config, _A.config_override)
-    _C.dump(os.path.join(_A.serialization_dir, "main_config.yml"))
+    _C.dump(os.path.join(_A.serialization_dir, "pretrain_config.yaml"))
 
     # -------------------------------------------------------------------------
     #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER, SCHEDULER
