@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 # fmt: off
 from virtex.config import Config
 from virtex.factories import (
-    TokenizerFactory, DatasetFactory, PretrainingModelFactory,
+    TokenizerFactory, PretrainingDatasetFactory, PretrainingModelFactory,
     OptimizerFactory, LRSchedulerFactory,
 )
 from virtex.utils.checkpointing import CheckpointManager
@@ -62,8 +62,8 @@ def main(_A: argparse.Namespace):
     #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER
     # -------------------------------------------------------------------------
     tokenizer = TokenizerFactory.from_config(_C)
-    train_dataset = DatasetFactory.from_config(_C, tokenizer, split="train")
-    val_dataset = DatasetFactory.from_config(_C, tokenizer, split="val")
+    train_dataset = PretrainingDatasetFactory.from_config(_C, split="train")
+    val_dataset = PretrainingDatasetFactory.from_config(_C, split="val")
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -218,16 +218,9 @@ def main(_A: argparse.Namespace):
             torch.set_grad_enabled(True)
             model.train()
 
-        # ---------------------------------------------------------------------
-        #   TENSORBOARD LOGGING
-        # ---------------------------------------------------------------------
         if iteration % _A.checkpoint_every == 0 and dist.is_master_process():
             logger.info(f"Iter: {iteration} | Val loss: {val_loss_dict}")
             tensorboard_writer.add_scalars("val", val_loss_dict, iteration)
-
-            if dist.get_world_size() > 1:
-                predstr = model.module.log_predictions(val_batch, tokenizer)
-                tensorboard_writer.add_text("predictions", predstr, iteration)
 
         # All processes will wait till master process is done logging.
         dist.synchronize()

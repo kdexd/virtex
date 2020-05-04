@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import DataLoader, DistributedSampler
 
 from virtex.config import Config
-from virtex.factories import TokenizerFactory, DatasetFactory
+from virtex.factories import TokenizerFactory, PretrainingDatasetFactory
 import virtex.utils.distributed as dist
 from virtex.utils.common import cycle
 from virtex.utils.timer import Timer
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     #   INSTANTIATE VOCABULARY, TOKENIZER, DATALOADER
     # -------------------------------------------------------------------------
     tokenizer = TokenizerFactory.from_config(_C)
-    train_dataset = DatasetFactory.from_config(_C, tokenizer, split="train")
+    train_dataset = PretrainingDatasetFactory.from_config(_C, split="train")
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),

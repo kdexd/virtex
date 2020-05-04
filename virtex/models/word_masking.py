@@ -4,9 +4,9 @@ import torch
 from torch import nn
 
 from virtex.data.structures import WordMaskingBatch
-from virtex.data.tokenizer import SentencePieceBPETokenizer
-from virtex.modules.textual_head import TextualHead
-from virtex.modules.visual_backbone import VisualBackbone
+from virtex.data.tokenizers import SentencePieceBPETokenizer
+from virtex.modules.textual_heads import TextualHead
+from virtex.modules.visual_backbones import VisualBackbone
 
 
 class WordMaskingModel(nn.Module):

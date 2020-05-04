@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 
 from virtex.data.readers import LmdbReader
 from virtex.data.structures import WordMaskingInstance, WordMaskingBatch
-from virtex.data.tokenizer import SentencePieceBPETokenizer
+from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.data import transforms as T
 
 

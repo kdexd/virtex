@@ -69,6 +69,8 @@ class LinearWarmupMultiStepLR(LambdaLR):
     ----------
     optimizer: torch.optim.Optimizer
         Wrapper optimizer.
+    total_steps: int
+        Total epochs (or iterations) for training.
     warmup_steps: int
         Number of first few steps to do linear warmup.
     milestones: List[int]
@@ -85,6 +87,7 @@ class LinearWarmupMultiStepLR(LambdaLR):
     def __init__(
         self,
         optimizer: Optimizer,
+        total_steps: int,
         warmup_steps: int,
         milestones: List[int],
         gamma: float = 0.1,
@@ -100,6 +103,9 @@ class LinearWarmupMultiStepLR(LambdaLR):
         # Common sanity checks.
         assert milestones == sorted(milestones), "milestones must be increasing"
         assert milestones[0] > warmup_steps, "first milestone must be after warmup"
+        assert (
+            milestones[-1] < total_steps
+        ), "last milestone must be less than total steps"
 
         super().__init__(optimizer, self.lr_lambda, last_epoch)
 

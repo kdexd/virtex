@@ -7,9 +7,9 @@ from torch import nn
 from torch.nn import functional as F
 
 from virtex.data.structures import CaptioningBatch
-from virtex.data.tokenizer import SentencePieceBPETokenizer
-from virtex.modules.textual_head import TextualHead
-from virtex.modules.visual_backbone import VisualBackbone
+from virtex.data.tokenizers import SentencePieceBPETokenizer
+from virtex.modules.textual_heads import TextualHead
+from virtex.modules.visual_backbones import VisualBackbone
 from virtex.utils.beam_search import AutoRegressiveBeamSearch
 
 

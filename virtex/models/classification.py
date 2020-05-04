@@ -5,8 +5,8 @@ from torch import nn
 from torch.nn import functional as F
 
 from virtex.data.structures import Batch
-from virtex.data.tokenizer import SentencePieceBPETokenizer
-from virtex.modules.visual_backbone import VisualBackbone
+from virtex.data.tokenizers import SentencePieceBPETokenizer
+from virtex.modules.visual_backbones import VisualBackbone
 
 
 class ClassificationModel(nn.Module):

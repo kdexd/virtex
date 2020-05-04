@@ -11,6 +11,7 @@ API Reference
     :maxdepth: 2
 
     virtex/config
+    virtex/factories
     virtex/utils
 
 

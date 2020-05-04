@@ -5,7 +5,7 @@ import unicodedata
 import albumentations as alb
 import cv2
 
-from virtex.data.tokenizer import SentencePieceBPETokenizer
+from virtex.data.tokenizers import SentencePieceBPETokenizer
 
 
 class CaptionOnlyTransform(alb.BasicTransform):

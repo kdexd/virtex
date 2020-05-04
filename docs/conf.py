@@ -119,7 +119,10 @@ autodoc_default_options = {
 
 # -- Intersphinx configuration --------------------------------------------
 
-intersphinx_mapping = {"torch": ("https://pytorch.org/docs/stable/", None)}
+intersphinx_mapping = {
+    "torch": ("https://pytorch.org/docs/stable/", None),
+    "albumentations": ("https://albumentations.readthedocs.io/en/latest/", None),
+}
 
 # -- Miscellaneous Extra Tweaks -------------------------------------------
 
