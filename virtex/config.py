@@ -89,16 +89,6 @@ class Config(object):
             "normalize",
         ]
 
-        # Hyper-parameters for word masking pretext. These are only used when
-        # ``MODEL.NAME`` is "word_masking".
-        _C.DATA.WORD_MASKING = CN()
-        # Fraction of tokens to choose for masking, this must be less than 1.
-        _C.DATA.WORD_MASKING.MASK_PROPORTION = 0.15
-        # Probability to replace chosen tokens with [MASK] token.
-        _C.DATA.WORD_MASKING.MASK_PROBABILITY = 0.85
-        # Probability to replace chosen tokens with a random token.
-        _C.DATA.WORD_MASKING.REPLACE_PROBABILITY = 0.10
-
         # ---------------------------------------------------------------------
         #   Model architecture: visual backbone and textual head.
         # ---------------------------------------------------------------------
@@ -106,7 +96,7 @@ class Config(object):
 
         # Name of model, based on pretraining task.
         # Possible choices: {"token_classification", "instance_classification",
-        # "captioning", "bicaptioning", "word_masking"}
+        # "captioning", "bicaptioning"}
         _C.MODEL.NAME = "bicaptioning"
 
         _C.MODEL.VISUAL = CN()

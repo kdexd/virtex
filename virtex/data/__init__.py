@@ -8,7 +8,6 @@ from .datasets.downstream_datasets import (
     VOC07ClassificationDataset,
     CocoCaptionsEvalDataset,
 )
-from .datasets.word_masking_dataset import WordMaskingPretextDataset
 
 __all__ = [
     "CocoCaptionsEvalDataset",
@@ -17,5 +16,4 @@ __all__ = [
     "ImageNetDataset",
     "InstanceClassificationDataset",
     "VOC07ClassificationDataset",
-    "WordMaskingPretextDataset",
 ]

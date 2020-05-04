@@ -163,14 +163,13 @@ class PretrainingDatasetFactory(Factory):
     As an exception, the dataset for ``instance_classification`` provides
     COCO images and labels of their bounding box annotations.
 
-    Possible choices: ``{"bicaptioning", "captioning", "word_masking",
-    "token_classification", "instance_classification"}``.
+    Possible choices: ``{"bicaptioning", "captioning", "token_classification",
+    "instance_classification"}``.
     """
 
     PRODUCTS: Dict[str, Callable] = {
         "bicaptioning": vdata.CaptioningPretextDataset,
         "captioning": vdata.CaptioningPretextDataset,
-        "word_masking": vdata.WordMaskingPretextDataset,
         "token_classification": vdata.CaptioningPretextDataset,
         "instance_classification": vdata.InstanceClassificationDataset,
     }
@@ -218,12 +217,6 @@ class PretrainingDatasetFactory(Factory):
                 use_single_caption=_C.DATA.USE_SINGLE_CAPTION,
                 percentage=_C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
             )
-            if _C.MODEL.NAME == "word_masking":
-                kwargs.update(
-                    mask_proportion=_C.DATA.WORD_MASKING.MASK_PROPORTION,
-                    mask_probability=_C.DATA.WORD_MASKING.MASK_PROBABILITY,
-                    replace_probability=_C.DATA.WORD_MASKING.REPLACE_PROBABILITY,
-                )
 
         # Dataset names match with model names (and ofcourse pretext names).
         return cls.create(_C.MODEL.NAME, **kwargs)
@@ -382,7 +375,6 @@ class TextualHeadFactory(Factory):
         attention_heads = int(architecture.group(3))
         feedforward_size = int(architecture.group(4))
 
-        # Transformer will be bidirectional only for word masking pretext.
         kwargs = {
             "vocab_size": tokenizer.get_vocab_size(),
             "hidden_size": hidden_size,
@@ -390,7 +382,6 @@ class TextualHeadFactory(Factory):
             "attention_heads": attention_heads,
             "feedforward_size": feedforward_size,
             "dropout": _C.MODEL.TEXTUAL.DROPOUT,
-            "is_bidirectional": _C.MODEL.NAME == "word_masking",
             "padding_idx": tokenizer.token_to_id("[UNK]"),
             "max_caption_length": _C.DATA.MAX_CAPTION_LENGTH,
         }
@@ -401,12 +392,11 @@ class PretrainingModelFactory(Factory):
     r"""
     Factory to create :mod:`~virtex.models` for different pretraining tasks.
 
-    Possible choices: ``{"word_masking", "captioning", "bicaptioning",
-    "token_classification", "instance_classification"}``.
+    Possible choices: ``{"captioning", "bicaptioning", "token_classification",
+    "instance_classification"}``.
     """
 
     PRODUCTS: Dict[str, Callable] = {
-        "word_masking": vmodels.WordMaskingModel,
         "captioning": partial(vmodels.CaptioningModel, is_bidirectional=False),
         "bicaptioning": partial(vmodels.CaptioningModel, is_bidirectional=True),
         "token_classification": vmodels.TokenClassificationModel,
