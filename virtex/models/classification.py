@@ -106,7 +106,7 @@ class TokenClassificationModel(ClassificationModel):
         return predictions_str
 
 
-class InstanceClassificationModel(ClassificationModel):
+class MultiLabelClassificationModel(ClassificationModel):
 
     def log_predictions(
         self, batch: Batch, tokenizer: SentencePieceBPETokenizer = None,

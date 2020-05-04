@@ -1,12 +1,13 @@
-from .captioning import CaptioningModel
+from .captioning import ForwardCaptioningModel, BidirectionalCaptioningModel
 from .classification import (
-    InstanceClassificationModel,
+    MultiLabelClassificationModel,
     TokenClassificationModel,
 )
 
 
 __all__ = [
-    "CaptioningModel",
-    "InstanceClassificationModel",
+    "BidirectionalCaptioningModel",
+    "ForwardCaptioningModel",
+    "MultiLabelClassificationModel",
     "TokenClassificationModel",
 ]

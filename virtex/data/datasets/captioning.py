@@ -7,12 +7,12 @@ import numpy as np
 from torch.utils.data import Dataset
 
 from virtex.data.readers import LmdbReader
-from virtex.data.structures import CaptioningInstance, CaptioningBatch
+from virtex.data.structures import ImageCaptionInstance, ImageCaptionBatch
 from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.data import transforms as T 
 
 
-class CaptioningPretextDataset(Dataset):
+class CaptioningDataset(Dataset):
     def __init__(
         self,
         data_root: str,
@@ -40,7 +40,7 @@ class CaptioningPretextDataset(Dataset):
     def __len__(self):
         return len(self.reader)
 
-    def __getitem__(self, idx: int) -> CaptioningInstance:
+    def __getitem__(self, idx: int) -> ImageCaptionInstance:
 
         image_id, image, captions = self.reader[idx]
 
@@ -58,7 +58,7 @@ class CaptioningPretextDataset(Dataset):
         image = np.transpose(image, (2, 0, 1))
 
         caption_tokens = self.caption_transform(caption=caption)["caption"]
-        return CaptioningInstance(image_id, image, caption_tokens)
+        return ImageCaptionInstance(image_id, image, caption_tokens)
 
-    def collate_fn(self, instances: List[CaptioningInstance]) -> CaptioningBatch:
-        return CaptioningBatch(instances, padding_value=self.padding_idx)
+    def collate_fn(self, instances: List[ImageCaptionInstance]) -> ImageCaptionBatch:
+        return ImageCaptionBatch(instances, padding_value=self.padding_idx)

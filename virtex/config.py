@@ -95,7 +95,7 @@ class Config(object):
         _C.MODEL = CN()
 
         # Name of model, based on pretraining task.
-        # Possible choices: {"token_classification", "instance_classification",
+        # Possible choices: {"token_classification", "multilabel_classification",
         # "captioning", "bicaptioning"}
         _C.MODEL.NAME = "bicaptioning"
 

@@ -1,19 +1,15 @@
-from .datasets.captioning_dataset import (
-    CaptioningPretextDataset,
-    CocoCaptionsEvalDataset,
-)
-from .datasets.instanceclf_dataset import InstanceClassificationDataset
-from .datasets.downstream_datasets import (
+from .datasets.captioning import CaptioningDataset
+from .datasets.multilabel import MultiLabelClassificationDataset
+from .datasets.downstream import (
     ImageNetDataset,
     VOC07ClassificationDataset,
     CocoCaptionsEvalDataset,
 )
 
 __all__ = [
-    "CocoCaptionsEvalDataset",
-    "CaptioningPretextDataset",
+    "CaptioningDataset",
+    "MultiLabelClassificationDataset",
     "CocoCaptionsEvalDataset",
     "ImageNetDataset",
-    "InstanceClassificationDataset",
     "VOC07ClassificationDataset",
 ]

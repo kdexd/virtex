@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from virtex.data.structures import CaptioningBatch
+from virtex.data.structures import Batch
 from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.modules.textual_heads import TextualHead
 from virtex.modules.visual_backbones import VisualBackbone
@@ -18,23 +18,23 @@ class CaptioningModel(nn.Module):
         self,
         visual: VisualBackbone,
         textual: TextualHead,
-        is_bidirectional: bool = False,
         beam_size: int = 5,
         max_decoding_steps: int = 30,
         sos_index: int = 1,
         eos_index: int = 2,
+        caption_backward: bool = False,
     ):
         super().__init__()
         self.visual = visual
         self.textual = textual
-        self.is_bidirectional = is_bidirectional
         self.padding_idx = self.textual.padding_idx
+        self.caption_backward = caption_backward
 
         self.visual_projection = nn.Linear(
             self.visual.visual_feature_size, self.textual.textual_feature_size
         )
         self.output = nn.Linear(
-            self.textual.textual_feature_size, self.textual.vocab_size,
+            self.textual.textual_feature_size, self.textual.vocab_size
         )
         self.loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
 
@@ -43,7 +43,7 @@ class CaptioningModel(nn.Module):
 
         # Clone the textual module for backward direction if doing captioning
         # in both directions (separately).
-        if self.is_bidirectional:
+        if self.caption_backward:
             self.backward_textual = copy.deepcopy(self.textual)
             self.backward_textual.embedding = self.textual.embedding
 
@@ -54,7 +54,7 @@ class CaptioningModel(nn.Module):
             self.eos_index, beam_size=5, max_steps=max_decoding_steps
         )
 
-    def forward(self, batch: CaptioningBatch):
+    def forward(self, batch: Batch):
 
         # shape: (batch_size, visual_feature_size, ...)
         visual_features = self.visual(batch["image"])
@@ -88,8 +88,8 @@ class CaptioningModel(nn.Module):
             # Single scalar per batch for logging in training script.
             "loss_components": {"captioning_forward": loss.clone().detach()},
         }
-        # Do captioning in backward direction.
-        if self.is_bidirectional:
+        # Do captioning in backward direction if specified.
+        if self.caption_backward:
             backward_caption_tokens = batch["noitpac_tokens"]
 
             backward_textual_features = self.backward_textual(
@@ -156,8 +156,9 @@ class CaptioningModel(nn.Module):
             distribution over tokens for next time-step.
         """
 
-        batch_size, num_features, textual_feature_size = projected_visual_features.size()
-
+        batch_size, num_features, textual_feature_size = (
+            projected_visual_features.size()
+        )
         # Expand and repeat image features while doing beam search.
         beam_size = int(partial_captions.size(0) / batch_size)
         if beam_size > 1:
@@ -189,15 +190,15 @@ class CaptioningModel(nn.Module):
         # shape: (batch_size * beam_size, vocab_size)
         next_logprobs = F.log_softmax(output_logits, dim=1)
 
-        # Set logprobs of recently predicted caption as high negative value to avoid
-        # two consecutive repeated tokens.
+        # Set logprobs of last predicted tokens as high negative value to avoid
+        # repetition in caption.
         for index in range(batch_size * beam_size):
             next_logprobs[index, partial_captions[index, -1]] = -1000000
 
         return next_logprobs
 
     def log_predictions(
-        self, batch: CaptioningBatch, tokenizer: SentencePieceBPETokenizer
+        self, batch: Batch, tokenizer: SentencePieceBPETokenizer
     ) -> str:
 
         self.eval()
@@ -213,3 +214,45 @@ class CaptioningModel(nn.Module):
 
                 """
         return predictions_str
+
+
+class ForwardCaptioningModel(CaptioningModel):
+    def __init__(
+        self,
+        visual: VisualBackbone,
+        textual: TextualHead,
+        beam_size: int = 5,
+        max_decoding_steps: int = 30,
+        sos_index: int = 1,
+        eos_index: int = 2,
+    ):
+        super().__init__(
+            visual,
+            textual,
+            beam_size=beam_size,
+            max_decoding_steps=max_decoding_steps,
+            sos_index=sos_index,
+            eos_index=eos_index,
+            caption_backward=False,
+        )
+
+
+class BidirectionalCaptioningModel(CaptioningModel):
+    def __init__(
+        self,
+        visual: VisualBackbone,
+        textual: TextualHead,
+        beam_size: int = 5,
+        max_decoding_steps: int = 30,
+        sos_index: int = 1,
+        eos_index: int = 2,
+    ):
+        super().__init__(
+            visual,
+            textual,
+            beam_size=beam_size,
+            max_decoding_steps=max_decoding_steps,
+            sos_index=sos_index,
+            eos_index=eos_index,
+            caption_backward=True,
+        )

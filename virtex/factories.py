@@ -160,18 +160,18 @@ class PretrainingDatasetFactory(Factory):
     Typically these datasets either provide image-caption pairs, or only images
     from COCO Captions dataset (serialized to an LMDB file).
 
-    As an exception, the dataset for ``instance_classification`` provides
+    As an exception, the dataset for ``multilabel_classification`` provides
     COCO images and labels of their bounding box annotations.
 
     Possible choices: ``{"bicaptioning", "captioning", "token_classification",
-    "instance_classification"}``.
+    "multilabel_classification"}``.
     """
 
     PRODUCTS: Dict[str, Callable] = {
-        "bicaptioning": vdata.CaptioningPretextDataset,
-        "captioning": vdata.CaptioningPretextDataset,
-        "token_classification": vdata.CaptioningPretextDataset,
-        "instance_classification": vdata.InstanceClassificationDataset,
+        "bicaptioning": vdata.CaptioningDataset,
+        "captioning": vdata.CaptioningDataset,
+        "token_classification": vdata.CaptioningDataset,
+        "multilabel_classification": vdata.MultiLabelClassificationDataset,
     }
 
     @classmethod
@@ -209,7 +209,7 @@ class PretrainingDatasetFactory(Factory):
         kwargs["image_transform"] = alb.Compose(image_transform_list)
 
         # Add dataset specific kwargs.
-        if _C.MODEL.NAME != "instance_classification":
+        if _C.MODEL.NAME != "multilabel_classification":
             tokenizer = TokenizerFactory.from_config(_C)
             kwargs.update(
                 tokenizer=tokenizer,
@@ -393,14 +393,14 @@ class PretrainingModelFactory(Factory):
     Factory to create :mod:`~virtex.models` for different pretraining tasks.
 
     Possible choices: ``{"captioning", "bicaptioning", "token_classification",
-    "instance_classification"}``.
+    "multilabel_classification"}``.
     """
 
     PRODUCTS: Dict[str, Callable] = {
-        "captioning": partial(vmodels.CaptioningModel, is_bidirectional=False),
-        "bicaptioning": partial(vmodels.CaptioningModel, is_bidirectional=True),
+        "captioning": vmodels.ForwardCaptioningModel,
+        "bicaptioning": vmodels.BidirectionalCaptioningModel,
         "token_classification": vmodels.TokenClassificationModel,
-        "instance_classification": vmodels.InstanceClassificationModel,
+        "multilabel_classification": vmodels.MultiLabelClassificationModel,
     }
 
     @classmethod
@@ -430,13 +430,13 @@ class PretrainingModelFactory(Factory):
         if textual is None:
             assert _C.MODEL.NAME in {
                 "token_classification",
-                "instance_classification",
+                "multilabel_classification",
             }, f"Textual stream can't be none for {_C.MODEL.NAME}"
 
         # Add model specific kwargs. Refer call signatures of specific models
         # for matching kwargs here.
         kwargs = {}
-        if _C.MODEL.NAME == "captioning":
+        if "captioning" in _C.MODEL.NAME:
             kwargs.update(
                 max_decoding_steps=_C.DATA.MAX_CAPTION_LENGTH,
                 sos_index=tokenizer.token_to_id("[SOS]"),
@@ -453,7 +453,7 @@ class PretrainingModelFactory(Factory):
                     tokenizer.token_to_id("[MASK]"),
                 ],
             )
-        elif _C.MODEL.NAME == "instance_classification":
+        elif _C.MODEL.NAME == "multilabel_classification":
             kwargs.update(
                 vocab_size=81,  # 80 COCO categories + background (padding, 0)
                 ignore_indices=[0],  # background index

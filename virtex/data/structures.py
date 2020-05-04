@@ -68,7 +68,7 @@ class Batch(dict):
         return copy.deepcopy(self)
 
 
-class CaptioningInstance(Instance):
+class ImageCaptionInstance(Instance):
 
     __slots__ = [
         "image_id",
@@ -90,7 +90,7 @@ class CaptioningInstance(Instance):
         )
 
 
-class CaptioningBatch(Batch):
+class ImageCaptionBatch(Batch):
 
     __slots__ = [
         "image_id",
@@ -100,7 +100,9 @@ class CaptioningBatch(Batch):
         "caption_lengths",
     ]
 
-    def __init__(self, instances: List[CaptioningInstance], padding_value: int = 0):
+    def __init__(
+        self, instances: List[ImageCaptionInstance], padding_value: int = 0
+    ):
 
         # Stack `image_id` and `image` from instances to create batch at dim 0.
         image_id = torch.stack([ins["image_id"] for ins in instances], dim=0)

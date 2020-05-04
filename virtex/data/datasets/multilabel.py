@@ -8,11 +8,11 @@ import cv2
 import numpy as np
 from torch.utils.data import Dataset
 
-from virtex.data.structures import CaptioningInstance, CaptioningBatch
+from virtex.data.structures import ImageCaptionInstance, ImageCaptionBatch
 from virtex.data import transforms as T
 
 
-class InstanceClassificationDataset(Dataset):
+class MultiLabelClassificationDataset(Dataset):
     def __init__(
         self,
         data_root: str,
@@ -82,7 +82,7 @@ class InstanceClassificationDataset(Dataset):
 
         # Treat list of instances as "caption tokens" for reusability.
         # TODO (kd): it is hacky and written in deadline rush, make it better.
-        return CaptioningInstance(image_id, image, caption_tokens=instances)
+        return ImageCaptionInstance(image_id, image, caption_tokens=instances)
 
-    def collate_fn(self, instances: List[CaptioningInstance]) -> CaptioningBatch:
-        return CaptioningBatch(instances, padding_value=self.padding_idx)
+    def collate_fn(self, instances: List[ImageCaptionInstance]) -> ImageCaptionBatch:
+        return ImageCaptionBatch(instances, padding_value=self.padding_idx)

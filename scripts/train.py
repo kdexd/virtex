@@ -20,7 +20,7 @@ from virtex.utils.timer import Timer
 
 
 parser = common_parser(
-    description="Train a ViRTex model (CNN + Transformer) on COCO Captions."
+    description="Train a VirTex model (CNN + Transformer) on COCO Captions."
 )
 group = parser.add_argument_group("Checkpointing and Logging")
 group.add_argument(
