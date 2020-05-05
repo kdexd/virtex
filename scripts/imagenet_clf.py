@@ -58,10 +58,6 @@ parser.add_argument(
     iteration number from which the checkpoint was serialized."""
 )
 parser.add_argument(
-    "--serialization-dir", required=True,
-    help="Path to a directory to save checkpoints and log stats."
-)
-parser.add_argument(
     "--checkpoint-every", type=int, default=5000,
     help="Serialize model to a checkpoint after every these many iterations.",
 )

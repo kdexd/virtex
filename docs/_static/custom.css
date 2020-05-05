@@ -6,7 +6,16 @@ body {
 /* Make main content wider */
 div.document {
     margin: auto;
-    width: 65%;
+    width: 70%;
+}
+
+/* Make sidebar slightly wider. */
+div.sphinxsidebar {
+    width: 250px;
+}
+
+div.bodywrapper {
+    margin: 0 0 0 250px;
 }
 
 div.body {

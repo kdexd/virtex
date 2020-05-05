@@ -23,11 +23,6 @@ parser.add_argument(
     "--checkpoint-path", required=True,
     help="Path to load checkpoint and run captioning evaluation."
 )
-parser.add_argument(
-    "--serialization-dir", default=None,
-    help="""Path to a directory to save results log as a Tensorboard event
-    file. If not provided, this will be the parent directory of checkpoint."""
-)
 # fmt: on
 
 

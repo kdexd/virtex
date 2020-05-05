@@ -11,12 +11,10 @@ import virtex.utils.distributed as dist
 
 class CheckpointManager(object):
     r"""
-    This class periodically serializes models and other checkpointable objects
-    (which implement ``state_dict`` method) as .pth files during training, and
-    optionally records best performing checkpoint based on an observed metric.
-
-    This class closely follows the API of PyTorch optimizers and learning rate
-    schedulers.
+    A helper class to periodically serialize models and other checkpointable
+    objects (optimizers, LR schedulers etc., which implement ``state_dict``
+    method) during training, and optionally record best performing checkpoint
+    based on an observed metric.
 
     .. note::
 
@@ -31,9 +29,9 @@ class CheckpointManager(object):
     Parameters
     ----------
     serialization_dir: str
-        Path to an empty or non-existent directory to save checkpoints.
+        Path to a directory to save checkpoints.
     keep_recent: int, optional (default = 100)
-        Number of recent 'k' checkpoints to keep on disk. Older checkpoints
+        Number of recent ``k`` checkpoints to keep on disk. Older checkpoints
         will be removed. Set to a very large value for keeping all checkpoints.
     checkpointables: Any
         Keyword arguments with any checkpointable objects, for example: model,
@@ -72,7 +70,19 @@ class CheckpointManager(object):
         self._recent_iterations: List[int] = []
 
     def step(self, iteration: int, metric: Optional[float] = None):
-        r"""Serialize checkpoint and update best checkpoint based on metric."""
+        r"""
+        Serialize checkpoint and update best checkpoint based on metric. Keys
+        in serialized checkpoint match those in :attr:`checkpointables`.
+
+        Parameters
+        ----------
+        iteration: int
+            Current training iteration. Will be saved with other checkpointables.
+        metric: float, optional (default = None)
+            Observed metric (higher is better) for keeping track of best
+            checkpoint. If this is ``None``, best chckpoint will not be
+            recorded/updated.
+        """
 
         checkpointable_state_dict: Dict[str, Any] = self._state_dict()
 
@@ -115,7 +125,7 @@ class CheckpointManager(object):
         return __state_dict
 
     def remove_earliest_checkpoint(self):
-        r"""Remove ealiest serialized checkpoint from disk."""
+        r"""Remove earliest serialized checkpoint from disk."""
 
         earliest_iteration = self._recent_iterations.pop(0)
         (self.serialization_dir / f"checkpoint_{earliest_iteration}.pth").unlink()

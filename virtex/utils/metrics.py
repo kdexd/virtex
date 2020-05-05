@@ -1,48 +1,115 @@
+r"""
+This module is a collection of metrics commonly used during pretraining and
+downstream evaluation. Two main classes here are:
+
+- :class:`TopkAccuracy` used for ImageNet linear classification evaluation.
+- :class:`CocoCaptionsEvaluator` used for caption evaluation (CIDEr and SPICE).
+
+Parts of this module (:meth:`tokenize`, :meth:`cider` and :meth:`spice`) are
+adopted from `coco-captions evaluation code <https://github.com/tylin/coco-caption>`_.
+"""
 from collections import defaultdict
 import json
 import os
 from subprocess import Popen, PIPE, check_call
 import tempfile
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 import numpy as np
 import torch
 
-# Some type annotations for better readability
-ImageID = int
-Caption = str
 
+class TopkAccuracy(object):
+    r"""
+    An accumulator for Top-K classification accuracy. This accumulates per-batch
+    accuracy during training/validation, which can retrieved at the end. Assumes
+    integer labels and predictions.
 
-# Punctuations to be removed from the sentences (PTB style)).
-# fmt: off
-PUNCTS = [
-    "''", "'", "``", "`", "-LRB-", "-RRB-", "-LCB-", "-RCB-", ".", "?", "!",
-    ",", ":", "-", "--", "...", ";",
-]
-# fmt: on
+    .. note::
 
-# Some constants for CIDEr and SPICE metrics.
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-SPICE_JAR = f"{CURRENT_DIR}/assets/SPICE-1.0/spice-1.0.jar"
-CACHE_DIR = f"{CURRENT_DIR}/assets/cache"
+        If used in :class:`~torch.nn.parallel.DistributedDataParallel`, results
+        need to be aggregated across GPU processes outside this class.
+
+    Parameters
+    ----------
+    top_k: int, optional (default = 1)
+        ``k`` for computing Top-K accuracy.
+    """
+
+    def __init__(self, top_k: int = 1):
+        self._top_k = top_k
+        self.reset()
+
+    def reset(self):
+        r"""Reset counters; to be used at the start of new epoch/validation."""
+        self.num_total = 0.0
+        self.num_correct = 0.0
+
+    def __call__(self, predictions: torch.Tensor, ground_truth: torch.Tensor):
+        r"""
+        Update accumulated accuracy using the current batch.
+
+        Parameters
+        ----------
+        ground_truth: torch.Tensor
+            A tensor of shape ``(batch_size, )``, an integer label per example.
+        predictions : torch.Tensor
+            Predicted logits or log-probabilities of shape
+            ``(batch_size, num_classes)``.
+        """
+
+        if self._top_k == 1:
+            top_k = predictions.max(-1)[1].unsqueeze(-1)
+        else:
+            top_k = predictions.topk(min(self._top_k, predictions.shape[-1]), -1)[1]
+
+        correct = top_k.eq(ground_truth.unsqueeze(-1)).float()
+
+        self.num_total += ground_truth.numel()
+        self.num_correct += correct.sum()
+
+    def get_metric(self, reset: bool = False):
+        r"""Get accumulated accuracy so far (and optionally reset counters)."""
+        if self.num_total > 1e-12:
+            accuracy = float(self.num_correct) / float(self.num_total)
+        else:
+            accuracy = 0.0
+        if reset:
+            self.reset()
+        return accuracy
 
 
 class CocoCaptionsEvaluator(object):
-    def __init__(self, gt_annotations: Union[str, List[Any]]):
+    r"""A helper class to evaluate caption predictions in COCO format. This uses
+    :meth:`cider` and :meth:`spice` which exactly follow original COCO Captions
+    evaluation protocol.
 
-        # Read annotations from the path (if path is provided).
-        if isinstance(gt_annotations, str):
-            gt_annotations = json.load(open(gt_annotations))["annotations"]
+    Parameters
+    ----------
+    gt_annotations_path: str
+        Path to ground truth annotations in COCO format (typically this would
+        be COCO Captions ``val2017`` split).
+    """
+
+    def __init__(self, gt_annotations_path: str):
+        gt_annotations = json.load(open(gt_annotations_path))["annotations"]
 
         # Keep a mapping from image id to a list of captions.
-        self.ground_truth: Dict[ImageID, List[Caption]] = defaultdict(list)
+        self.ground_truth: Dict[int, List[str]] = defaultdict(list)
         for ann in gt_annotations:
-            self.ground_truth[ann["image_id"]].append(ann["caption"])  # type: ignore
+            self.ground_truth[ann["image_id"]].append(ann["caption"])
 
         self.ground_truth = tokenize(self.ground_truth)
 
-    def evaluate(self, preds):
+    def evaluate(self, preds: List[Dict[str, Any]]):
+        r"""Compute CIDEr and SPICE scores for predictions.
 
+        Parameters
+        ----------
+        preds: List[Dict[str, Any]]
+            List of per instance predictions in COCO Captions format:
+            ``[ {"image_id": int, "caption": str} ...]``.
+        """
         if isinstance(preds, str):
             preds = json.load(open(preds))
 
@@ -63,9 +130,7 @@ class CocoCaptionsEvaluator(object):
         return {"CIDEr": 100 * cider_score, "SPICE": 100 * spice_score}
 
 
-def tokenize(
-    image_id_to_captions: Dict[ImageID, List[Caption]]
-) -> Dict[ImageID, List[Caption]]:
+def tokenize(image_id_to_captions: Dict[int, List[str]]) -> Dict[int, List[str]]:
     r"""
     Given a mapping of image id to a list of corrsponding captions, tokenize
     captions in place according to Penn Treebank Tokenizer. This method assumes
@@ -101,7 +166,14 @@ def tokenize(
     os.remove(tmp_file.name)
 
     # Map tokenized captions back to their image IDs.
-    image_id_to_tokenized_captions: Dict[ImageID, List[Caption]] = defaultdict(list)
+    # Punctuations to be removed from the sentences (PTB style)).
+    # fmt: off
+    PUNCTS = [
+        "''", "'", "``", "`", "-LRB-", "-RRB-", "-LCB-", "-RCB-", ".", "?",
+        "!", ",", ":", "-", "--", "...", ";",
+    ]
+    # fmt: on
+    image_id_to_tokenized_captions: Dict[int, List[str]] = defaultdict(list)
     for image_id, caption in zip(image_ids, tokenized_captions):
         image_id_to_tokenized_captions[image_id].append(
             " ".join([w for w in caption.rstrip().split(" ") if w not in PUNCTS])
@@ -111,8 +183,8 @@ def tokenize(
 
 
 def cider(
-    predictions: Dict[ImageID, List[Caption]],
-    ground_truth: Dict[ImageID, List[Caption]],
+    predictions: Dict[int, List[str]],
+    ground_truth: Dict[int, List[str]],
     n: int = 4,
     sigma: float = 6.0,
 ) -> float:
@@ -201,8 +273,7 @@ def cider(
 
 
 def spice(
-    predictions: Dict[ImageID, List[Caption]],
-    ground_truth: Dict[ImageID, List[Caption]],
+    predictions: Dict[int, List[str]], ground_truth: Dict[int, List[str]]
 ) -> float:
     r"""Compute SPICE score given ground truth captions and predictions."""
 
@@ -223,6 +294,9 @@ def spice(
 
     # fmt: off
     # Run the command to execute SPICE jar.
+    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+    SPICE_JAR = f"{CURRENT_DIR}/assets/SPICE-1.0/spice-1.0.jar"
+    CACHE_DIR = f"{CURRENT_DIR}/assets/cache"
     os.makedirs(CACHE_DIR, exist_ok=True)
     spice_cmd = [
         "java", "-jar", "-Xmx8G", SPICE_JAR, INPUT_PATH,
@@ -238,57 +312,3 @@ def spice(
         np.array(item["scores"]["All"]["f"]).astype(float) for item in results
     ]
     return np.mean(spice_scores)
-
-
-class TopkAccuracy(object):
-    r"""
-    An accumulator for Top-K classification accuracy. This can accumulate
-    per-batch accuracy during validation and the final accuracy can be
-    retrieved at the end of validation. Assumes integer labels and predictions.
-
-    Note
-    ----
-    If used in :class:`~torch.nn.parallel.DistributedDataParallel`, results
-    need to be aggregated across GPU processes outside this class.
-    """
-
-    def __init__(self, top_k: int = 1):
-        self._top_k = top_k
-        self.reset()
-
-    def reset(self):
-        self.num_total = 0.0
-        self.num_correct = 0.0
-
-    def __call__(self, predictions: torch.Tensor, ground_truth: torch.Tensor):
-        r"""
-        Accumulate accuracy of current batch.
-
-        Parameters
-        ----------
-        ground_truth: torch.Tensor
-            A tensor of shape (batch_size, ), an integer label per example.
-        predictions : torch.Tensor
-            Predicted logits or log-probabilities of shape (batch_size, 1000).
-        """
-
-        if self._top_k == 1:
-            top_k = predictions.max(-1)[1].unsqueeze(-1)
-        else:
-            top_k = predictions.topk(
-                min(self._top_k, predictions.shape[-1]), -1
-            )[1]
-
-        correct = top_k.eq(ground_truth.unsqueeze(-1)).float()
-
-        self.num_total += ground_truth.numel()
-        self.num_correct += correct.sum()
-
-    def get_metric(self, reset: bool = False):
-        if self.num_total > 1e-12:
-            accuracy = float(self.num_correct) / float(self.num_total)
-        else:
-            accuracy = 0.0
-        if reset:
-            self.reset()
-        return accuracy

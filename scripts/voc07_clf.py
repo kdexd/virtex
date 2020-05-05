@@ -21,7 +21,7 @@ from virtex.utils.common import common_parser, common_setup
 
 
 parser = common_parser(
-    description="Train SVMs on a pre-trained feature extractor using VOC 2007."
+    description="Train SVMs for VOC2007 classification on a pretrained model."
 )
 group = parser.add_argument_group("Downstream config arguments.")
 group.add_argument(
@@ -35,7 +35,7 @@ group.add_argument(
 )
 
 # fmt: off
-parser.add_argument_group("Checkpointing and Logging")
+parser.add_argument_group("Checkpointing")
 parser.add_argument(
     "--weight-init", choices=["random", "imagenet", "torchvision", "checkpoint"],
     default="checkpoint", help="""How to initialize weights:
@@ -49,12 +49,6 @@ parser.add_argument(
 parser.add_argument(
     "--checkpoint-path",
     help="Path to load checkpoint and run downstream task evaluation."
-)
-parser.add_argument(
-    "--serialization-dir", default="/tmp/voc07_clf",
-    help="""Path to a directory to save results log as a Tensorboard event
-    file. Recommended to set as parent directory of checkpoint path for
-    `weight_init = checkpoint`."""
 )
 # fmt: on
 
@@ -156,7 +150,6 @@ def main(_A: argparse.Namespace):
     # `imagenet` is already taken care of.
     if _A.weight_init == "checkpoint":
         ITERATION = CheckpointManager(model=model).load(_A.checkpoint_path)
-        _A.serialization_dir = os.path.dirname(_A.checkpoint_path)
     elif _A.weight_init == "torchvision":
         # Keep strict=False because this state dict may have weights for
         # last fc layer.

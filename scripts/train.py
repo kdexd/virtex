@@ -24,10 +24,6 @@ parser = common_parser(
 )
 group = parser.add_argument_group("Checkpointing and Logging")
 group.add_argument(
-    "--serialization-dir", default="checkpoints/experiment",
-    help="Path to a directory to serialize config, checkpoints and logs.",
-)
-group.add_argument(
     "--resume-from", default=None,
     help="Path to a checkpoint to resume training from (if provided)."
 )

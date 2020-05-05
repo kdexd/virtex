@@ -1,7 +1,7 @@
 r"""
-This Beam Search implementation is adopted with minor modifications from AllenNLP:
+This Beam Search implementation is adopted with minor modifications from
+`AllenNLP <https://github.com/allenai/allennlp/blob/master/allennlp/nn/beam_search.py>`_.
 
-https://github.com/allenai/allennlp/blob/master/allennlp/nn/beam_search.py
 Thanks to the developers of AllenNLP!
 """
 from typing import Callable, Dict, List, Tuple
@@ -18,6 +18,8 @@ StepFunctionType = Callable[..., torch.Tensor]
 class AutoRegressiveBeamSearch(object):
     r"""
     Implements the beam search algorithm for decoding the most likely captions.
+    This only works for auto-regressive models (Transformer-like) and not
+    recurrent models (LSTM-like).
 
     Parameters
     ----------

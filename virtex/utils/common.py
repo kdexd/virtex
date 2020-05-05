@@ -13,13 +13,11 @@ import virtex.utils.distributed as dist
 
 def cycle(dataloader, device, start_iteration: int = 0):
     r"""
-    A generator which yields batch from dataloader perpetually.
-    This is done so because we train for a fixed number of iterations, and do
-    not have the notion of 'epochs'.
+    A generator to yield batches of data from dataloader infinitely.
 
     Internally, it sets the ``epoch`` for dataloader sampler to shuffle the
     examples. One may optionally provide the starting iteration to make sure
-    the shuffling seed is difference and continues naturally.
+    the shuffling seed is different and continues naturally.
     """
     iteration = start_iteration
 
@@ -39,28 +37,30 @@ def cycle(dataloader, device, start_iteration: int = 0):
 
 def common_setup(_C: Config, _A: argparse.Namespace, job_type: str = "pretrain"):
     r"""
-    Setup common stuff at the start of every job, all listed here to avoid
-    code duplication. Basic steps include::
+    Setup common stuff at the start of every pretraining or downstream
+    evaluation job, all listed here to avoid code duplication. Basic steps:
 
-        1. Fix random seeds and other PyTorch flags.
-        2. Set up a serialization directory and loggers.
-        3. Log important stuff such as config, process info (useful during
-           distributed training).
-        4. Save a copy of config to serialization directory.
+    1. Fix random seeds and other PyTorch flags.
+    2. Set up a serialization directory and loggers.
+    3. Log important stuff such as config, process info (useful during
+        distributed training).
+    4. Save a copy of config to serialization directory.
 
     .. note::
 
         It is assumed that multiple processes for distributed training have
-        already been launched from outside and functions from
-        :mod:`virtex.util.distributed` will return process info.
+        already been launched from outside. Functions from
+        :mod:`virtex.util.distributed` module ae used to get process info.
 
     Parameters
     ----------
     _C: virtex.config.Config
+        Config object with all the parameters.
     _A: argparse.Namespace
+        Command line arguments.
     job_type: str, optional (default = "pretrain")
-        Type of job for which setup is to be done. One of ``{"pretrain",
-        "downstream"}``. Used for saving config with an appropriate name.
+        Type of job for which setup is to be done; one of ``{"pretrain",
+        "downstream"}``.
     """
 
     # Get process rank and world size (assuming distributed is initialized).
@@ -104,9 +104,8 @@ def common_setup(_C: Config, _A: argparse.Namespace, job_type: str = "pretrain")
 
 def common_parser(description: str = "") -> argparse.ArgumentParser:
     r"""
-    Add some common arguments useful for any training/validation scripts. These
-    are mainly related to config file path, config override args, and other
-    args related to CPU/GPU resources and distributed training.
+    Create an argument parser some common arguments useful for any pretraining
+    or downstream evaluation scripts.
 
     Parameters
     ----------
@@ -121,13 +120,16 @@ def common_parser(description: str = "") -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description)
 
     # fmt: off
-    group = parser.add_argument_group("ViRTex pretraining config arguments.")
-    group.add_argument(
-        "--config", metavar="FILE", help="Path to a config file."
+    parser.add_argument(
+        "--config", metavar="FILE", help="Path to a pretraining config file."
     )
-    group.add_argument(
+    parser.add_argument(
         "--config-override", nargs="*", default=[],
-        help="A list of key-value pairs to modify config params.",
+        help="A list of key-value pairs to modify pretraining config params.",
+    )
+    parser.add_argument(
+        "--serialization-dir", default="/tmp/virtex",
+        help="Path to a directory to serialize checkpoints and save job logs."
     )
 
     group = parser.add_argument_group("Compute resource management arguments.")
