@@ -1,5 +1,22 @@
+r"""
+`Lookahead Optimizer: k steps forward, 1 step back <https://arxiv.org/abs/1907.08610>`_.
+
+This implementation is adopted with minimal modifications from the
+`authors' implementation <https://github.com/michaelrzhang/lookahead>`_.
+
+If you take it from here, please cite them:
+
+.. code-block:: text
+
+    @inproceedings{zhang2019lookahead,
+        title={Lookahead Optimizer: k steps forward, 1 step back},
+        author={Zhang, Michael R and Lucas, James and Hinton, Geoffrey and Ba, Jimmy},
+        journal={NeurIPS},
+        year={2019}
+    }
+"""
 from collections import defaultdict
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 import torch
 from torch.optim.optimizer import Optimizer
@@ -7,19 +24,7 @@ from torch.optim.optimizer import Optimizer
 
 class Lookahead(Optimizer):
     r"""
-    Implements Lookahead Optimizer from https://arxiv.org/abs/1907.08610.
-    This implementation is adopted from the authors, so thanks to them!
-
-    Code: https://github.com/michaelrzhang/lookahead
-
-    If you take it from here, please cite them as well::
-
-        @article{zhang2019lookahead,
-            title={Lookahead Optimizer: k steps forward, 1 step back},
-            author={Zhang, Michael R and Lucas, James and Hinton, Geoffrey and Ba, Jimmy},
-            journal={arXiv preprint arXiv:1907.08610},
-            year={2019}
-        }
+    Implements Lookahead optimizer.
 
     Parameters
     ----------
@@ -62,19 +67,23 @@ class Lookahead(Optimizer):
         return self.optimizer.param_groups
 
     def zero_grad(self):
+        r"""Clear all grad buffers at the start of new forward pass."""
         self.optimizer.zero_grad()
 
     def state_dict(self):
         return self.optimizer.state_dict()
 
-    def load_state_dict(self, state_dict):
+    def load_state_dict(self, state_dict: Dict[str, Any]):
         self.optimizer.load_state_dict(state_dict)
 
-    def step(self, closure=None):
-        """Performs a single Lookahead optimization step.
-        Arguments:
-            closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
+    def step(self, closure: Callable = None):
+        r"""
+        Perform a single Lookahead optimization step.
+
+        Parameters
+        ----------
+        closure: Callable, optional (default = None)
+            A callable that re-evaluates the model and returns the loss.
         """
         loss = self.optimizer.step(closure)
         self._k_counter += 1
@@ -93,7 +102,7 @@ class Lookahead(Optimizer):
 
     def load_slow_weights(self):
         r"""
-        Load slow weights from lookahead optimizer. Useful for performing
+        Load slow weights from Lookahead optimizer. Useful for performing
         evaluation on the slow weights (which typically generalize better).
 
         This method backs up fast weights to load them after evaluation. No
@@ -108,6 +117,10 @@ class Lookahead(Optimizer):
                 p.data.copy_(param_state["slow_params"])
 
     def restore_fast_weights(self):
+        r"""
+        Restore fast weights for optimization. Call this after evaluation if
+        :meth:`load_slow_weights` was called.
+        """
         for group in self.optimizer.param_groups:
             for p in group["params"]:
                 param_state = self.state[p]

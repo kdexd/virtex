@@ -142,7 +142,7 @@ class Config(object):
         # Max gradient norm for clipping to avoid exploding gradients.
         _C.OPTIM.CLIP_GRAD_NORM = 10
 
-        # Wrap our optimizer with LookAhead (https://arxiv.org/abs/1907.08610).
+        # Wrap our optimizer with Lookahead (https://arxiv.org/abs/1907.08610).
         _C.OPTIM.USE_LOOKAHEAD = False
         _C.OPTIM.LOOKAHEAD_ALPHA = 0.5
         _C.OPTIM.LOOKAHEAD_STEPS = 5

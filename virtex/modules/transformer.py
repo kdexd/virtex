@@ -3,10 +3,12 @@ from torch import nn
 
 class PreNormTransformerDecoderLayer(nn.TransformerDecoderLayer):
     r"""
-    A variant of :class:`torch.nn.TransformerDecoderLayer` where layernorm is
-    performed before self-attention and feedforward layers. This ``pre-norm``
-    variant is used in GPT-2 and similar works, and is similar to pre-act
-    variant of ResNet.
+    A variant of :class:`torch.nn.TransformerDecoderLayer` where layer
+    normalization is included inside the residual branch, and performed before
+    self-attention and feedforward layers.
+
+    Refer documentation of :class:`torch.nn.TransformerDecoderLayer` for more
+    details on the API.
     """
 
     def forward(self, tgt, memory, tgt_mask=None, memory_mask=None,

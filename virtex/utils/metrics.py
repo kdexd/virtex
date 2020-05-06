@@ -101,7 +101,7 @@ class CocoCaptionsEvaluator(object):
 
         self.ground_truth = tokenize(self.ground_truth)
 
-    def evaluate(self, preds: List[Dict[str, Any]]):
+    def evaluate(self, preds: List[Dict[str, Any]]) -> Dict[str, float]:
         r"""Compute CIDEr and SPICE scores for predictions.
 
         Parameters
@@ -109,6 +109,11 @@ class CocoCaptionsEvaluator(object):
         preds: List[Dict[str, Any]]
             List of per instance predictions in COCO Captions format:
             ``[ {"image_id": int, "caption": str} ...]``.
+
+        Returns
+        -------
+        Dict[str, float]
+            Computed metrics; a dict with keys ``{"CIDEr", "SPICE"}``.
         """
         if isinstance(preds, str):
             preds = json.load(open(preds))

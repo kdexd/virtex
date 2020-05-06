@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Any, Dict, Union
 
 import torch
 from torch import nn
@@ -7,9 +7,9 @@ import torchvision
 
 class VisualBackbone(nn.Module):
     r"""
-    A simple base class for all visual backbones. We mainly add it for
-    uniformity in type annotations. All child classes can simply inherit from
-    :class:`~torch.nn.Module` otherwise.
+    Base class for all visual backbones. All child classes can simply inherit
+    from :class:`~torch.nn.Module`, however this is kept here for uniform
+    type annotations.
     """
 
     def __init__(self, visual_feature_size: int):
@@ -18,11 +18,25 @@ class VisualBackbone(nn.Module):
 
     @property
     def visual_feature_size(self) -> int:
+        r"""
+        Size of the channel dimension of output from forward pass. This
+        property is used to create layers (heads) on top of this backbone.
+        """
         return self._visual_feature_size
 
 
 class BlindVisualBackbone(VisualBackbone):
-    r"""A visual backbone which cannot see the image."""
+    r"""
+    A visual backbone which cannot see the image. It always outputs a tensor
+    filled with constant value.
+
+    Parameters
+    ----------
+    visual_feature_size: int, optional (default = 2048)
+        Size of the last dimension (channels) of output from forward pass.
+    bias_value: float, optional (default = 1.0)
+        Constant value to fill in the output tensor.
+    """
 
     def __init__(self, visual_feature_size: int = 2048, bias_value: float = 1.0):
         super().__init__(visual_feature_size)
@@ -34,24 +48,56 @@ class BlindVisualBackbone(VisualBackbone):
             requires_grad=False,
         )
 
-    def forward(self, image: torch.Tensor):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
+        r"""
+        Compute visual features for a batch of input images. Since this model
+        is *blind*, output will always be constant.
+
+        Parameters
+        ----------
+        image: torch.Tensor
+            Batch of input images. A tensor of shape
+            ``(batch_size, 3, height, width)``.
+
+        Returns
+        -------
+        torch.Tensor
+            Output visual features, filled with :attr:`bias_value`. A tensor of
+            shape ``(batch_size, visual_feature_size)``.
+        """
         batch_size = image.size(0)
-        return self._bias.unsqueeze(0).repeat(batch_size, 1, 1)
+        return self._bias.repeat(batch_size, 1)
 
 
 class TorchvisionVisualBackbone(VisualBackbone):
+    r"""
+    A visual backbone from `Torchvision model zoo
+    <https://pytorch.org/docs/stable/torchvision/models.html>`_. Any model can
+    be specified using corresponding method name from the model zoo.
+
+    Parameters
+    ----------
+    name: str, optional (default = "resnet50")
+        Name of the model from Torchvision model zoo.
+    visual_feature_size: int, optional (default = 2048)
+        Size of the last dimension (channels) of output from forward pass.
+    pretrained: bool, optional (default = False)
+        Whether to load ImageNet pretrained weights from Torchvision.
+    frozen: float, optional (default = False)
+        Whether to keep all weights frozen during training.
+    """
+
     def __init__(
         self,
-        name: str,
+        name: str = "resnet50",
         visual_feature_size: int = 2048,
         pretrained: bool = False,
         frozen: bool = False,
-        **kwargs,
     ):
         super().__init__(visual_feature_size)
 
         self.cnn = getattr(torchvision.models, name)(
-            pretrained, zero_init_residual=True, **kwargs
+            pretrained, zero_init_residual=True
         )
         # Do nothing after the final residual stage.
         self.cnn.fc = nn.Identity()
@@ -68,6 +114,31 @@ class TorchvisionVisualBackbone(VisualBackbone):
     def forward(
         self, image: torch.Tensor, return_intermediate_outputs: bool = False
     ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
+        r"""
+        Compute visual features for a batch of input images.
+
+        Parameters
+        ----------
+        image: torch.Tensor
+            Batch of input images. A tensor of shape
+            ``(batch_size, 3, height, width)``.
+        return_intermediate_outputs: bool, optional (default = False)
+            Whether to return feaures extracted from all intermediate stages or
+            just the last one. This can only be set ``True`` when using a
+            ResNet-like model.
+
+        Returns
+        -------
+        Union[torch.Tensor, Dict[str, torch.Tensor]]
+            - If ``return_intermediate_outputs = False``, this will be a tensor
+              of shape ``(batch_size, visual_feature_size, *)``, for example
+              it will be ``(batch_size, 2048, 7, 7)`` for ResNet-50 (``layer4``).
+
+            - If ``return_intermediate_outputs = True``, this will be a dict
+              with keys ``{"layer1", "layer2", "layer3", "layer4", "avgpool"}``
+              containing features from all intermediate layers and global
+              average pooling layer.
+        """
 
         # Iterate through the modules in sequence and collect feature
         # vectors for last layers in each stage.
@@ -87,10 +158,20 @@ class TorchvisionVisualBackbone(VisualBackbone):
             # shape: (batch_size, feature_size, ...)
             return intermediate_outputs["layer4"]
 
-    def detectron2_backbone_state_dict(self):
+    def detectron2_backbone_state_dict(self) -> Dict[str, Any]:
         r"""
-        Return state dict for loading as a backbone in detectron2. Useful for
-        object detection downstream tasks.
+        Return state dict of visual backbone which can be loaded with
+        `Detectron2 <https://github.com/facebookresearch/detectron2>`_.
+        This is useful for downstream tasks based on Detectron2 (such as
+        object detection and instance segmentation). This method renames
+        certain parameters from Torchvision-style to Detectron2-style.
+
+        Returns
+        -------
+        Dict[str, Any]
+            A dict with three keys: ``{"model", "author", "matching_heuristics"}``.
+            These are necessary keys for loading this state dict properly with
+            Detectron2.
         """
         # Detectron2 backbones have slightly different module names, this mapping
         # lists substrings of module names required to be renamed for loading a
