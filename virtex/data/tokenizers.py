@@ -30,7 +30,7 @@ class SentencePieceBPETokenizer(object):
 
     def __getstate__(self):
         r"""
-        This magic method, along with ``__set_state__`` makes an object of this
+        This magic method, along with ``__setstate__`` makes an object of this
         class picklable (and usable while data loading with multiple workers).
         """
         state_dict = self.__dict__.copy()

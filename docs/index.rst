@@ -12,6 +12,8 @@ API Reference
 
     virtex/config
     virtex/factories
+    virtex/data
+    virtex/models
     virtex/modules
     virtex/optim
     virtex/utils

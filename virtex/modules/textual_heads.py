@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 from torch import nn
 
@@ -8,6 +6,11 @@ from virtex.modules.transformer import PreNormTransformerDecoderLayer
 
 
 class TextualHead(nn.Module):
+    r"""
+    Base class for all textual heads. All child classes can simply inherit
+    from :class:`~torch.nn.Module`, however this is kept here for uniform
+    type annotations.
+    """
     def __init__(
         self,
         vocab_size: int,
@@ -19,15 +22,12 @@ class TextualHead(nn.Module):
 
     @property
     def textual_feature_size(self):
+        r"""
+        Size of the last dimension of output from forward pass; typically same
+        as :attr:`hidden_size` for most modules. This property is used to add
+        more modules on top of this.
+        """
         return self.hidden_size
-
-    def forward(
-        self,
-        caption_tokens: torch.Tensor,
-        caption_lengths: torch.Tensor,
-        visual_features: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        raise NotImplementedError
 
 
 class TransformerTextualHead(TextualHead):
