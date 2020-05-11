@@ -1,29 +1,27 @@
-DATASETS:
-  TRAIN: ("coco_2017_train",)
-  TEST: ("coco_2017_val",)
-
 INPUT:
-  FORMAT: RGB
+  # Input format will always be RGB, consistent with torchvision.
+  FORMAT: "RGB"
   MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
   MIN_SIZE_TEST: 800
 
 MODEL:
-  META_ARCHITECTURE: GeneralizedRCNN
+  META_ARCHITECTURE: "GeneralizedRCNN"
+
+  # Train all layers end-to-end by default.
   BACKBONE:
-    NAME: build_resnet_fpn_backbone
+    NAME: "build_resnet_fpn_backbone"
     FREEZE_AT: 0
 
-  # COCO finetuning on our backbone is on tuned BN, all layers.
+  # Fine-tune with SyncBN.
+  # STRIDE_IN_1X1 is False for torchvision-like models.
   RESNETS:
     DEPTH: 50
-    NORM: SyncBN
-    STRIDE_IN_1X1: False  # For torchvision backbones.
+    NORM: "SyncBN"
+    STRIDE_IN_1X1: False
     OUT_FEATURES: ["res2", "res3", "res4", "res5"]
 
-  # FPN also has SyncBN, as opposed to no norm (usually).
   FPN:
     IN_FEATURES: ["res2", "res3", "res4", "res5"]
-    NORM: SyncBN
 
   ANCHOR_GENERATOR:
     # One size for each in feature map
@@ -40,7 +38,7 @@ MODEL:
     POST_NMS_TOPK_TEST: 1000
 
   ROI_HEADS:
-    NAME: StandardROIHeads
+    NAME: "StandardROIHeads"
     IN_FEATURES: ["p2", "p3", "p4", "p5"]
 
   ROI_BOX_HEAD:
@@ -53,32 +51,17 @@ MODEL:
     NUM_CONV: 4
     POOLER_RESOLUTION: 14
 
-  # Pre-trained weights are loaded in script, refer `scripts/detectron2_tasks.py`
-  WEIGHTS: ""
-  MASK_ON: True
-
-  # Color mean from torchvision multiplied by 255.
+  # ImageNet color mean for torchvision-like models (RGB order).
   PIXEL_MEAN: [123.675, 116.280, 103.530]
   PIXEL_STD: [58.395, 57.120, 57.375]
 
 SOLVER:
-  # For 8 GPUs, scale linearly for different number of GPUs.
+  # This is for 8 GPUs, apply linear scaling for 4 GPUs.
   IMS_PER_BATCH: 16
   BASE_LR: 0.02
 
-  GAMMA: 0.1
-  # 2X schedule from Detectron1.
-  STEPS: (120000, 160000)
-  MAX_ITER: 180000
-
-  LR_SCHEDULER_NAME: WarmupMultiStepLR
-
-  # Warmup according to 2X schedule in Detectron1.
-  WARMUP_FACTOR: 0.3333
-  WARMUP_ITERS: 500
-  WARMUP_METHOD: linear
-
-  MOMENTUM: 0.9
-  WEIGHT_DECAY: 0.0001
+TEST:
+  PRECISE_BN:
+    ENABLED: True
 
 VERSION: 2

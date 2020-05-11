@@ -1,0 +1,43 @@
+INPUT:
+  # Input format will always be RGB, consistent with torchvision.
+  FORMAT: "RGB"
+  MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
+  MIN_SIZE_TEST: 800
+
+MODEL:
+  META_ARCHITECTURE: "GeneralizedRCNN"
+
+  # Train all layers end-to-end by default.
+  BACKBONE:
+    NAME: build_resnet_backbone
+    FREEZE_AT: 0
+
+  # Fine-tune with SyncBN.
+  # STRIDE_IN_1X1 is False for torchvision-like models.
+  RESNETS:
+    DEPTH: 50
+    NORM: SyncBN
+    STRIDE_IN_1X1: False
+
+  RPN:
+    PRE_NMS_TOPK_TEST: 6000
+    POST_NMS_TOPK_TEST: 1000
+
+  # ROI head with extra BN layer after res5 stage.
+  ROI_HEADS:
+    NAME: "Res5ROIHeadsExtraNorm"
+
+  # ImageNet color mean for torchvision-like models (RGB order).
+  PIXEL_MEAN: [123.675, 116.280, 103.530]
+  PIXEL_STD: [58.395, 57.120, 57.375]
+
+SOLVER:
+  # This is for 8 GPUs, apply linear scaling for 4 GPUs.
+  IMS_PER_BATCH: 16
+  BASE_LR: 0.02
+
+TEST:
+  PRECISE_BN:
+    ENABLED: True
+
+VERSION: 2

@@ -1,0 +1,28 @@
+# -----------------------------------------------------------------------------
+# Train a Faster R-CNN with R50-C4 backbone on VOC07+12 detection with any of
+# these weight init: random, imagenet (torchvision), virtex or MoCo.
+# -----------------------------------------------------------------------------
+_BASE_: "_base_faster_rcnn_R_50_C4_BN.yaml"
+
+DATASETS:
+  TRAIN: ("voc_2007_trainval", "voc_2012_trainval")
+  TEST: ("voc_2007_test",)
+
+INPUT:
+  MIN_SIZE_TRAIN: (480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800)
+  MIN_SIZE_TEST: 800
+
+MODEL:
+  MASK_ON: False
+  ROI_HEADS:
+    NUM_CLASSES: 20
+
+  # This will be ignored, weights will be loaded manually in the script.
+  WEIGHTS: ""
+
+SOLVER:
+  STEPS: (18000, 22000)
+  MAX_ITER: 24000
+  WARMUP_ITERS: 100
+
+VERSION: 2

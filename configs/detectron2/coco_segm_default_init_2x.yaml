@@ -1,0 +1,24 @@
+# -----------------------------------------------------------------------------
+# Train a Mask R-CNN R50-FPN backbone on LVIS instance segmentation with any of
+# these weight init: random, imagenet (torchvision), virtex or MoCo.
+# -----------------------------------------------------------------------------
+_BASE_: "_base_mask_rcnn_R_50_FPN.yaml"
+
+DATASETS:
+  TRAIN: ("coco_2017_train",)
+  TEST: ("coco_2017_val",)
+
+MODEL:
+  MASK_ON: True
+  # FPN also has SyncBN, as opposed to no norm (usually).
+  FPN:
+    NORM: "SyncBN"
+  
+  # This will be ignored, weights will be loaded manually in the script.
+  WEIGHTS: ""
+  
+SOLVER:
+  STEPS: (120000, 160000)
+  MAX_ITER: 180000
+  
+VERSION: 2
