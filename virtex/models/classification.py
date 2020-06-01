@@ -6,6 +6,7 @@ from torch.nn import functional as F
 
 from virtex.data.structures import Batch
 from virtex.data.tokenizers import SentencePieceBPETokenizer
+from virtex.modules.textual_heads import TextualHead
 from virtex.modules.visual_backbones import VisualBackbone
 
 
@@ -13,17 +14,13 @@ class ClassificationModel(nn.Module):
     def __init__(
         self,
         visual: VisualBackbone,
-        vocab_size: int,
+        textual: TextualHead,
         ignore_indices: List[int],
     ):
         super().__init__()
         self.visual = visual
-        self.vocab_size = vocab_size
+        self.textual = textual
         self.ignore_indices = ignore_indices
-
-        # Linear layer to perform token classification using global average
-        # pooled visual features.
-        self.output = nn.Linear(self.visual.visual_feature_size, self.vocab_size)
 
     def forward(self, batch: Batch):
 
@@ -42,7 +39,7 @@ class ClassificationModel(nn.Module):
 
         # Get logits and further log-probabilities.
         # shape: (batch_size, vocab_size)
-        logits = self.output(visual_features)
+        logits = self.textual(visual_features)
         logprobs = F.log_softmax(logits, dim=1)
 
         # Average log-probs per unique token in associated caption to compute

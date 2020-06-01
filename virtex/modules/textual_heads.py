@@ -30,6 +30,31 @@ class TextualHead(nn.Module):
         return self.hidden_size
 
 
+class LinearTextualHead(TextualHead):
+    r"""
+    Textual head containing a single linear layer projecting from textual
+    feature size to output vocabulary size.
+    """
+
+    def __init__(
+        self,
+        vocab_size: int,
+        hidden_size: int,
+    ):
+        super().__init__(vocab_size, hidden_size)
+        self.output = nn.Linear(self.textual_feature_size, vocab_size)
+
+    def forward(
+        self,
+        caption_tokens: torch.Tensor,
+        caption_lengths: torch.Tensor,
+        visual_features: torch.Tensor,
+    ) -> torch.Tensor:
+        # shape: (batch_size, max_caption_length, vocab_size)
+        output_logits = self.output(visual_features)
+        return output_logits
+
+
 class TransformerTextualHead(TextualHead):
     def __init__(
         self,
@@ -73,6 +98,11 @@ class TransformerTextualHead(TextualHead):
         # it still "encodes" the caption for us.
         self.encoder = nn.TransformerDecoder(_layer, self.num_layers)
         self.apply(self._init_weights)
+
+        # Create an output linear layer and tie the input and output word
+        # embeddings to reduce parameters.
+        self.output = nn.Linear(self.textual_feature_size, vocab_size)
+        self.output.weight = self.embedding.words.weight
 
     @staticmethod
     def _init_weights(module):
@@ -122,9 +152,12 @@ class TransformerTextualHead(TextualHead):
             tgt_key_padding_mask=caption_mask,
         )
         # Undo the transpose and bring batch to dim 0.
-        # shape: (batch_size, sequence_length, hidden_size)
+        # shape: (batch_size, max_caption_length, hidden_size)
         textual_features = textual_features.transpose(0, 1)
-        return textual_features
+
+        # shape: (batch_size, max_caption_length, vocab_size)
+        output_logits = self.output(textual_features)
+        return output_logits
 
     def _generate_future_mask(
         self, size: int, dtype: torch.dtype, device: torch.device

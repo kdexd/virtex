@@ -33,19 +33,14 @@ class CaptioningModel(nn.Module):
         self.visual_projection = nn.Linear(
             self.visual.visual_feature_size, self.textual.textual_feature_size
         )
-        self.output = nn.Linear(
-            self.textual.textual_feature_size, self.textual.vocab_size
-        )
         self.loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
-
-        # Tie input and output word embeddings to reduce parameters.
-        self.output.weight = self.textual.embedding.words.weight
 
         # Clone the textual module for backward direction if doing captioning
         # in both directions (separately).
         if self.caption_backward:
             self.backward_textual = copy.deepcopy(self.textual)
             self.backward_textual.embedding = self.textual.embedding
+            self.backward_textual.output = self.textual.output
 
         # These boundary indices are needed for beam search.
         self.sos_index = sos_index
@@ -72,13 +67,10 @@ class CaptioningModel(nn.Module):
         caption_tokens = batch["caption_tokens"]
         caption_lengths = batch["caption_lengths"]
 
-        # shape: (batch_size, max_caption_length, textual_feature_size)
-        textual_features = self.textual(
+        # shape: (batch_size, max_caption_length, vocab_size)
+        output_logits = self.textual(
             caption_tokens, caption_lengths, projected_visual_features
         )
-        # shape: (batch_size, max_caption_length, vocab_size)
-        output_logits = self.output(textual_features)
-
         loss = self.loss(
             output_logits[:, :-1].contiguous().view(-1, self.textual.vocab_size),
             caption_tokens[:, 1:].contiguous().view(-1),
@@ -92,12 +84,11 @@ class CaptioningModel(nn.Module):
         if self.caption_backward:
             backward_caption_tokens = batch["noitpac_tokens"]
 
-            backward_textual_features = self.backward_textual(
+            backward_output_logits = self.backward_textual(
                 backward_caption_tokens,
                 caption_lengths,
                 projected_visual_features,
             )
-            backward_output_logits = self.output(backward_textual_features)
             backward_loss = self.loss(
                 backward_output_logits[:, :-1]
                 .contiguous()
@@ -178,13 +169,12 @@ class CaptioningModel(nn.Module):
             # Add a time-step. shape: (batch_size, 1)
             partial_captions = partial_captions.unsqueeze(1)
 
-        # shape: (batch_size * beam_size, partial_caption_length, textual_feature_size)
-        textual_features = self.textual(
+        # shape: (batch_size * beam_size, partial_caption_length, vocab_size)
+        output_logits = self.textual(
             partial_captions, caption_lengths, projected_visual_features
         )
         # Keep features for last time-step only, we only care about those.
-        # shape: (batch_size * beam_size, vocab_size)
-        output_logits = self.output(textual_features[:, -1, :])
+        output_logits = output_logits[:, -1, :]
 
         # Return logprobs as required by `AutoRegressiveBeamSearch`.
         # shape: (batch_size * beam_size, vocab_size)

@@ -20,7 +20,7 @@ specific factories for more details.
 """
 from functools import partial
 import re
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 import albumentations as alb
 from torch import nn, optim
@@ -340,14 +340,14 @@ class TextualHeadFactory(Factory):
     PRODUCTS: Dict[str, Callable] = {
         "transformer_prenorm": partial(textual_heads.TransformerTextualHead, norm_type="pre"),
         "transformer_postnorm": partial(textual_heads.TransformerTextualHead, norm_type="post"),
-        "none": None,  # type: ignore
+        "none": textual_heads.LinearTextualHead,
     }
     # fmt: on
 
     @classmethod
     def from_config(
         cls, config: Config, tokenizer: Optional[SentencePieceBPETokenizer] = None
-    ) -> Union[None, nn.Module]:
+    ) -> nn.Module:
         r"""
         Create a textual head directly from config.
 
@@ -361,9 +361,6 @@ class TextualHeadFactory(Factory):
         """
 
         _C = config
-        if _C.MODEL.TEXTUAL.NAME == "none":
-            return None
-
         tokenizer = tokenizer or TokenizerFactory.from_config(_C)
 
         # Get architectural hyper-params as per name by matching regex.
@@ -378,13 +375,17 @@ class TextualHeadFactory(Factory):
         kwargs = {
             "vocab_size": tokenizer.get_vocab_size(),
             "hidden_size": hidden_size,
-            "num_layers": num_layers,
-            "attention_heads": attention_heads,
-            "feedforward_size": feedforward_size,
-            "dropout": _C.MODEL.TEXTUAL.DROPOUT,
-            "padding_idx": tokenizer.token_to_id("[UNK]"),
-            "max_caption_length": _C.DATA.MAX_CAPTION_LENGTH,
         }
+
+        if "transformer" in _C.MODEL.TEXTUAL.NAME:
+            kwargs.update(
+                num_layers=num_layers,
+                attention_heads=attention_heads,
+                feedforward_size=feedforward_size,
+                dropout=_C.MODEL.TEXTUAL.DROPOUT,
+                padding_idx=tokenizer.token_to_id("[UNK]"),
+                max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
+            )
         return cls.create(name, **kwargs)
 
 
@@ -422,16 +423,19 @@ class PretrainingModelFactory(Factory):
         _C = config
         tokenizer = tokenizer or TokenizerFactory.from_config(_C)
 
+        if _C.MODEL.NAME == "multilabel_classification":
+            # Pass a dummy tokenizer object to TextualHeadFactory for
+            # `multilabel_classification`, which can return vocab size as `81`
+            # (80 COCO categories + background).
+            class DummyTokenizer(object):
+                def get_vocab_size(self) -> int:
+                    return 81
+
+            tokenizer = DummyTokenizer()  # type: ignore
+
         # Build visual and textual streams based on config.
         visual = VisualBackboneFactory.from_config(_C)
         textual = TextualHeadFactory.from_config(_C, tokenizer)
-
-        # Check textual stream being none for fixed set of pretext tasks.
-        if textual is None:
-            assert _C.MODEL.NAME in {
-                "token_classification",
-                "multilabel_classification",
-            }, f"Textual stream can't be none for {_C.MODEL.NAME}"
 
         # Add model specific kwargs. Refer call signatures of specific models
         # for matching kwargs here.
@@ -445,7 +449,6 @@ class PretrainingModelFactory(Factory):
 
         elif _C.MODEL.NAME == "token_classification":
             kwargs.update(
-                vocab_size=tokenizer.get_vocab_size(),
                 ignore_indices=[
                     tokenizer.token_to_id("[UNK]"),
                     tokenizer.token_to_id("[SOS]"),
@@ -455,14 +458,10 @@ class PretrainingModelFactory(Factory):
             )
         elif _C.MODEL.NAME == "multilabel_classification":
             kwargs.update(
-                vocab_size=81,  # 80 COCO categories + background (padding, 0)
                 ignore_indices=[0],  # background index
             )
 
-        if textual is not None:
-            return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
-        else:
-            return cls.create(_C.MODEL.NAME, visual, **kwargs)
+        return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
 
 
 class OptimizerFactory(Factory):
