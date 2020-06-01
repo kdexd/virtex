@@ -1,0 +1,6 @@
+_BASE_: "../_base_bicaptioning_R_50_L1_H1024.yaml"
+
+MODEL:
+  NAME: "token_classification"
+  TEXTUAL:
+    NAME: "none"

@@ -9,9 +9,8 @@ numpy==1.16.4
 opencv-python==4.1.2.30
 scikit-learn==0.21.3
 sentencepiece==0.1.85
-torch==1.4.0
-torchvision==0.5
+torch==1.5.0
+torchvision==0.6
 tqdm==4.36.0
-yacs==0.1.6
 git+git://github.com/facebookresearch/fvcore.git#egg=fvcore
 git+git://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI

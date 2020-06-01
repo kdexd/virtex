@@ -1,0 +1,57 @@
+# -----------------------------------------------------------------------------
+# Base config: VirTex pretraining for our "base" bicaptioning model:
+# ResNet-50 + (L = 1, H = 1024) transformer trained for 500K iterations.
+# -----------------------------------------------------------------------------
+RANDOM_SEED: 0
+FP16_OPT: 2
+
+DATA:
+  ROOT: "datasets/coco"
+  TOKENIZER_VOCAB: "datasets/vocab/coco_10k.vocab"
+  TOKENIZER_MODEL: "datasets/vocab/coco_10k.model"
+
+  IMAGE_CROP_SIZE: 224
+  MAX_CAPTION_LENGTH: 30
+
+  IMAGE_TRANSFORM_TRAIN:
+    - "random_resized_crop"
+    - "horizontal_flip"
+    - "color_jitter"
+    - "normalize"
+
+  IMAGE_TRANSFORM_VAL:
+    - "smallest_resize"
+    - "center_crop"
+    - "normalize"
+
+  USE_PERCENTAGE: 100.0
+  USE_SINGLE_CAPTION: False
+
+MODEL:
+  NAME: "bicaptioning"
+  VISUAL:
+    NAME: "torchvision::resnet50"
+    PRETRAINED: false
+    FROZEN: false
+  TEXTUAL:
+    NAME: "transformer_postnorm::L1_H1024_A16_F4096"
+    DROPOUT: 0.1
+
+OPTIM:
+  OPTIMIZER_NAME: "sgd"
+  SGD_MOMENTUM: 0.9
+  WEIGHT_DECAY: 0.0001
+  NO_DECAY: ".*textual.*(norm.*|bias)"
+  CLIP_GRAD_NORM: 10
+
+  USE_LOOKAHEAD: True
+  LOOKAHEAD_ALPHA: 0.5
+  LOOKAHEAD_STEPS: 5
+
+  BATCH_SIZE: 256
+  CNN_LR: 0.2
+  LR: 0.001
+  NUM_ITERATIONS: 500000
+
+  WARMUP_STEPS: 10000
+  LR_DECAY_NAME: cosine

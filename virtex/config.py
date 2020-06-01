@@ -1,6 +1,6 @@
 from typing import Any, List, Optional
 
-from yacs.config import CfgNode as CN
+from fvcore.common.config import CfgNode as CN
 
 
 class Config(object):
