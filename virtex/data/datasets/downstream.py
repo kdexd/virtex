@@ -1,5 +1,6 @@
 from collections import defaultdict
 import glob
+import json
 import os
 from typing import Callable, Dict, List, Tuple
 
@@ -75,6 +76,51 @@ class ImageNetDataset(ImageNet):
         # Apply transformation to  image and convert to CHW format.
         image = self.image_transform(image=np.array(image))["image"]
         image = np.transpose(image, (2, 0, 1))
+        return LinearClassificationInstance(image=image, label=label)
+
+    def collate_fn(
+        self, instances: List[LinearClassificationInstance]
+    ) -> LinearClassificationBatch:
+        return LinearClassificationBatch(instances)
+
+
+class INaturalist2018Dataset(Dataset):
+    def __init__(
+        self,
+        data_root: str,
+        split: str = "train",
+        image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
+    ):
+        self.split = split
+        self.image_transform = image_transform
+
+        annotations = json.load(
+            open(os.path.join(data_root, "annotations", f"{split}2018.json"))
+        )
+        # Make a list of image IDs to file paths.
+        self.image_id_to_file_path = {
+            ann["id"]: os.path.join(data_root, ann["file_name"])
+            for ann in annotations["images"]
+        }
+        # For a list of instances: (image_id, category_id) tuples.
+        self.instances = [
+            (ann["image_id"], ann["category_id"])
+            for ann in annotations["annotations"]
+        ]
+
+    def __len__(self):
+        return len(self.instances)
+
+    def __getitem__(self, idx: int):
+        image_id, label = self.instances[idx]
+        image_path = self.image_id_to_file_path[image_id]
+
+        # Open image from path and apply transformation, convert to CHW format.
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = self.image_transform(image=image)["image"]
+        image = np.transpose(image, (2, 0, 1))
+
         return LinearClassificationInstance(image=image, label=label)
 
     def collate_fn(

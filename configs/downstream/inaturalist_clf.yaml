@@ -2,32 +2,32 @@ RANDOM_SEED: 0
 FP16_OPT: 2
 
 DATA:
-  ROOT: "datasets/imagenet"
+  ROOT: "datasets/inaturalist"
   IMAGE_TRANSFORM_TRAIN:
     - "random_resized_crop"
     - "horizontal_flip"
     - "normalize"
   IMAGE_TRANSFORM_VAL:
-    - "smallest_resize"
+    - "global_resize"
     - "center_crop"
     - "normalize"
 
 MODEL:
   VISUAL:
-    FROZEN: true
-
+    FROZEN: false
+    
 OPTIM:
   BATCH_SIZE: 256
   SGD_MOMENTUM: 0.9
-  WEIGHT_DECAY: 0.0
+  WEIGHT_DECAY: 0.0001
   NO_DECAY: "none"
   USE_LOOKAHEAD: False
 
-  LR: 0.3
+  LR: 0.025
   WARMUP_STEPS: 0
-  LR_DECAY_NAME: "multistep"
+  LR_DECAY_NAME: multistep
   LR_GAMMA: 0.1
   LR_STEPS:
-    - 300300  # 60 epochs
-    - 400400  # 80 epochs
-  NUM_ITERATIONS: 500500  # 100 epochs
+    - 119700  # 70 epochs
+    - 153900  # 90 epochs
+  NUM_ITERATIONS: 171000  # 100 epochs

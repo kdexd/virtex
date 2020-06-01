@@ -5,7 +5,6 @@ from typing import Any, Dict, List
 from loguru import logger
 import torch
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 
 # fmt: off
 from virtex.config import Config
@@ -35,18 +34,11 @@ def main(_A: argparse.Namespace):
         # Get the current device (this will be zero here by default).
         device = torch.cuda.current_device()
 
-    # Create a config object (this will be immutable) and perform common setup
-    # such as logging and setting up serialization directory.
     _C = Config(_A.config, _A.config_override)
-    common_setup(_C, _A)
 
-    # -------------------------------------------------------------------------
-    #   INSTANTIATE DATALOADER, MODEL
-    # -------------------------------------------------------------------------
     tokenizer = TokenizerFactory.from_config(_C)
-    val_dataset = CocoCaptionsEvalDataset(_C.DATA.ROOT)
     val_dataloader = DataLoader(
-        val_dataset,
+        CocoCaptionsEvalDataset(_C.DATA.ROOT),
         batch_size=_C.OPTIM.BATCH_SIZE,
         num_workers=_A.cpu_workers,
         pin_memory=True,
@@ -54,26 +46,19 @@ def main(_A: argparse.Namespace):
     # Initialize model from a checkpoint.
     model = PretrainingModelFactory.from_config(_C).to(device)
     ITERATION = CheckpointManager(model=model).load(_A.checkpoint_path)
-
-    # Tensorboard writer for logging CIDEr and SPICE scores.
-    tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
-
-    # ---------------------------------------------------------------------
-    #   VALIDATION
-    # ---------------------------------------------------------------------
-
-    torch.set_grad_enabled(False)
     model.eval()
 
     # Make a list of predictions to evaluate.
     predictions: List[Dict[str, Any]] = []
 
-    for val_iteration, val_batch in tqdm(enumerate(val_dataloader, start=1)):
+    for val_iteration, val_batch in enumerate(val_dataloader, start=1):
         for key in val_batch:
             val_batch[key] = val_batch[key].to(device)
 
         # Make a dictionary of predictions in COCO format.
-        output_dict = model(val_batch)
+        with torch.no_grad():
+            output_dict = model(val_batch)
+
         for image_id, caption in zip(
             val_batch["image_id"], output_dict["predictions"]
         ):
@@ -84,20 +69,11 @@ def main(_A: argparse.Namespace):
                 }
             )
 
-    # ---------------------------------------------------------------------
-    #   EVALUATE AND LOG METRICS
-    # ---------------------------------------------------------------------
     # Assume ground truth (COCO val2017 annotations) exist.
     gt = os.path.join(_C.DATA.ROOT, "annotations", "captions_val2017.json")
 
     metrics = CocoCaptionsEvaluator(gt).evaluate(predictions)
     logger.info(f"Iter: {ITERATION} | Metrics: {metrics}")
-    tensorboard_writer.add_scalars(
-        "metrics/cider", {"forward": metrics["CIDEr"]}, ITERATION
-    )
-    tensorboard_writer.add_scalars(
-        "metrics/spice", {"forward": metrics["SPICE"]}, ITERATION
-    )
 
 
 if __name__ == "__main__":

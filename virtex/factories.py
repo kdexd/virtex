@@ -233,6 +233,7 @@ class DownstreamDatasetFactory(Factory):
     PRODUCTS: Dict[str, Callable] = {
         "datasets/VOC2007": vdata.VOC07ClassificationDataset,
         "datasets/imagenet": vdata.ImageNetDataset,
+        "datasets/inaturalist": vdata.INaturalist2018Dataset,
     }
 
     @classmethod

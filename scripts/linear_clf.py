@@ -15,16 +15,17 @@ from virtex.factories import (
     OptimizerFactory,
     LRSchedulerFactory,
 )
-from virtex.models.downstream import FeatureExtractor, LinearClassifier
 from virtex.utils.checkpointing import CheckpointManager
 from virtex.utils.common import common_parser, common_setup, cycle
 import virtex.utils.distributed as dist
+from virtex.utils.metrics import TopkAccuracy
 from virtex.utils.timer import Timer
 
 
 # fmt: off
 parser = common_parser(
-    description="Train a linear classifier on a pre-trained frozen feature extractor."
+    description="""Do image classification with linear models and frozen
+    feature extractor, or fine-tune the feature extractor end-to-end."""
 )
 group = parser.add_argument_group("Downstream config arguments.")
 group.add_argument(
@@ -37,14 +38,14 @@ group.add_argument(
 
 parser.add_argument_group("Checkpointing and Logging")
 parser.add_argument(
-    "--weight-init", choices=["random", "imagenet", "torchvision", "checkpoint"],
-    default="checkpoint", help="""How to initialize weights:
+    "--weight-init", choices=["random", "imagenet", "torchvision", "virtex"],
+    default="virtex", help="""How to initialize weights:
         1. 'random' initializes all weights randomly
         2. 'imagenet' initializes backbone weights from torchvision model zoo
-        3. {'torchvision', 'checkpoint'} load state dict from --checkpoint-path
+        3. {'torchvision', 'virtex'} load state dict from --checkpoint-path
             - with 'torchvision', state dict would be from PyTorch's training
               script.
-            - with 'checkpoint' it should be for our full pretrained model."""
+            - with 'virtex' it should be for our full pretrained model."""
 )
 parser.add_argument(
     "--log-every", type=int, default=50,
@@ -59,7 +60,9 @@ parser.add_argument(
 )
 parser.add_argument(
     "--checkpoint-every", type=int, default=5000,
-    help="Serialize model to a checkpoint after every these many iterations.",
+    help="""Serialize model to a checkpoint after every these many iterations.
+    For ImageNet, (5005 iterations = 1 epoch); for iNaturalist (1710 iterations
+    = 1 epoch).""",
 )
 # fmt: on
 
@@ -83,6 +86,13 @@ def main(_A: argparse.Namespace):
     _C = Config(_A.config, _A.config_override)
     _C.dump(os.path.join(_A.serialization_dir, "pretrain_config.yaml"))
 
+    # Get dataset name for tensorboard logging.
+    DATASET = _DOWNC.DATA.ROOT.split("/")[-1]
+
+    # Set number of output classes according to dataset:
+    NUM_CLASSES_MAPPING = {"imagenet": 1000, "inaturalist": 8142}
+    NUM_CLASSES = NUM_CLASSES_MAPPING[DATASET]
+
     # -------------------------------------------------------------------------
     #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER, SCHEDULER
     # -------------------------------------------------------------------------
@@ -97,7 +107,7 @@ def main(_A: argparse.Namespace):
             rank=dist.get_rank(),
             shuffle=True,
         ),
-        drop_last=True,
+        drop_last=False,
         pin_memory=True,
         collate_fn=train_dataset.collate_fn,
     )
@@ -116,15 +126,12 @@ def main(_A: argparse.Namespace):
         drop_last=False,
         collate_fn=val_dataset.collate_fn,
     )
-    # Create an iterator from dataloader to sample batches perpetually.
-    train_dataloader_iter = cycle(train_dataloader, device)
-
-    # Initialize from a checkpoint, but only keep the visual module.
+    # Initialize model using pretraining config.
     pretrained_model = PretrainingModelFactory.from_config(_C)
 
     # Load weights according to the init method, do nothing for `random`, and
     # `imagenet` is already taken care of.
-    if _A.weight_init == "checkpoint":
+    if _A.weight_init == "virtex":
         CheckpointManager(model=pretrained_model).load(_A.checkpoint_path)
     elif _A.weight_init == "torchvision":
         # Keep strict=False because this state dict may have weights for
@@ -134,15 +141,46 @@ def main(_A: argparse.Namespace):
             strict=False,
         )
 
-    feature_extractor = FeatureExtractor(pretrained_model, layer_name="avgpool")
-    feature_extractor = feature_extractor.to(device).eval()
+    # Pull out the CNN (torchvision-like) from our pretrained model and add
+    # back the FC layer - this is exists in torchvision models, and is set to
+    # `nn.Identity()` during pretraining.
+    model = pretrained_model.visual.cnn  # type: ignore
+    model.fc = nn.Linear(_DOWNC.MODEL.VISUAL.FEATURE_SIZE, NUM_CLASSES).to(device)
+    model = model.to(device)
 
-    # Instantiate a linear classifier for ImageNet on top of feature extractor.
-    model = LinearClassifier(feature_size=2048, num_classes=1000,).to(device)
-    del pretrained_model
+    # Re-initialize the FC layer.
+    torch.nn.init.normal_(model.fc.weight.data, mean=0.0, std=0.01)
+    torch.nn.init.constant_(model.fc.bias.data, 0.0)
+
+    # Freeze all layers except FC as per config param.
+    if _DOWNC.MODEL.VISUAL.FROZEN:
+        for name, param in model.named_parameters():
+            if "fc" not in name:
+                param.requires_grad = False
+
+    # Cross entropy loss and accuracy meter.
+    criterion = nn.CrossEntropyLoss()
+    top1 = TopkAccuracy(top_k=1)
 
     optimizer = OptimizerFactory.from_config(_DOWNC, model.named_parameters())
-    lr_scheduler = LRSchedulerFactory.from_config(_DOWNC, optimizer)
+    scheduler = LRSchedulerFactory.from_config(_DOWNC, optimizer)
+    del pretrained_model
+
+    # -------------------------------------------------------------------------
+    #  BEFORE TRAINING STARTS
+    # -------------------------------------------------------------------------
+
+    # Create an iterator from dataloader to sample batches perpetually.
+    train_dataloader_iter = cycle(train_dataloader, device)
+
+    # Wrap model and optimizer using NVIDIA Apex for mixed precision training.
+    # NOTE: Always do this before wrapping model with DistributedDataParallel.
+    if _DOWNC.FP16_OPT > 0:
+        from apex import amp
+
+        model, optimizer = amp.initialize(
+            model, optimizer, opt_level=f"O{_DOWNC.FP16_OPT}"
+        )
 
     if dist.get_world_size() > 1:
         dist.synchronize()
@@ -150,12 +188,12 @@ def main(_A: argparse.Namespace):
             model, device_ids=[device], find_unused_parameters=True
         )
 
-    # -------------------------------------------------------------------------
-    #  BEFORE TRAINING STARTS
-    # -------------------------------------------------------------------------
     if dist.is_master_process():
         checkpoint_manager = CheckpointManager(
-            _A.serialization_dir, model=model, optimizer=optimizer
+            _A.serialization_dir,
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
         )
         tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
 
@@ -170,24 +208,27 @@ def main(_A: argparse.Namespace):
         optimizer.zero_grad()
         batch = next(train_dataloader_iter)
 
-        with torch.no_grad():
-            features = feature_extractor(batch["image"])
+        logits = model(batch["image"])
+        loss = criterion(logits, batch["label"])
 
-        output_dict = model(features, batch["label"])
-        loss = output_dict["loss"]
+        # Perform dynamic scaling of loss to adjust for mixed precision.
+        if _DOWNC.FP16_OPT > 0:
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            loss.backward()
 
-        loss.backward()
         optimizer.step()
-        lr_scheduler.step(iteration)
+        scheduler.step(iteration)
         timer.toc()
 
         if iteration % _A.log_every == 0 and dist.is_master_process():
             logger.info(
                 f"{timer.stats} | Loss: {loss:.3f} | GPU: {dist.gpu_mem_usage()} MB"
             )
-            tensorboard_writer.add_scalar("imagenet/train_loss", loss, iteration)
+            tensorboard_writer.add_scalar(f"{DATASET}/train_loss", loss, iteration)
             tensorboard_writer.add_scalar(
-                "imagenet/learning_rate",
+                f"{DATASET}/learning_rate",
                 optimizer.param_groups[0]["lr"],
                 iteration,
             )
@@ -201,25 +242,22 @@ def main(_A: argparse.Namespace):
 
             total_val_loss = torch.tensor(0.0).to(device)
 
-            for val_iteration, val_batch in enumerate(val_dataloader, start=1):
-                for key in val_batch:
-                    val_batch[key] = val_batch[key].to(device)
+            for val_iteration, batch in enumerate(val_dataloader, start=1):
+                for key in batch:
+                    batch[key] = batch[key].to(device)
 
-                features = feature_extractor(val_batch["image"])
-                output_dict = model(features, val_batch["label"])
-                total_val_loss += output_dict["loss"]
+                logits = model(batch["image"])
+                loss = criterion(logits, batch["label"])
+                top1(logits, batch["label"])
+                total_val_loss += loss
 
             # Divide each loss component by number of val batches per GPU.
             total_val_loss = total_val_loss / val_iteration
             dist.average_across_processes(total_val_loss)
 
             # Get accumulated Top-1 accuracy for logging across GPUs.
-            if dist.get_world_size() > 1:
-                acc = model.module.get_metric(reset=True)
-                acc = {k: torch.tensor(v).to(device) for k, v in acc.items()}
-                dist.average_across_processes(acc)
-            else:
-                acc = model.get_metric(reset=True)
+            acc = top1.get_metric(reset=True)
+            dist.average_across_processes(acc)
 
             torch.set_grad_enabled(True)
             model.train()
@@ -229,13 +267,15 @@ def main(_A: argparse.Namespace):
                 checkpoint_manager.step(iteration)
 
         if iteration % _A.checkpoint_every == 0 and dist.is_master_process():
-            logger.info(f"Iter: {iteration} | Accuracies: {acc})")
+            logger.info(f"Iter: {iteration} | Top-1 accuracy: {acc})")
             tensorboard_writer.add_scalar(
-                "imagenet/val_loss", total_val_loss, iteration
+                f"{DATASET}/val_loss", total_val_loss, iteration
             )
             # This name scoping will result in Tensorboard displaying all metrics
             # (VOC07, caption, etc.) together.
-            tensorboard_writer.add_scalars(f"metrics/imagenet", acc, iteration)
+            tensorboard_writer.add_scalars(
+                f"metrics/{DATASET}", {"top1": acc}, iteration
+            )
 
         # All processes will wait till master process is done logging.
         dist.synchronize()
