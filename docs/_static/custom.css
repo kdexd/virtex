@@ -78,7 +78,9 @@ pre {
 }
 
 .admonition, .note {
-    background-color: #c8e6c9 !important;
+    background-color: #fed8b1 !important;
+    border: 1pt solid #ff7700;
+    border-radius: 5px;
 }
 
 /* Make "Parameters" subsection wider - display heading and content vertically. */

@@ -81,11 +81,51 @@ Backbone Ablations
 Data Efficiency Experiments
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-todo.
+These are VirTex models trained on a subset of COCO Captions dataset. For example,
+train a base VirTex model on randomly selected ``50%`` of COCO Captions:
+
+.. code-block::
+
+    python scripts/pretrain_virtex.py \
+        --config configs/_base_bicaptioning_R_50_L1_H1024.yaml \
+        --config-override DATA.USE_PERCENTAGE 50.0 \
+        --num-gpus-per-machine 8 \
+        --cpu-workers 4 \
+        --serialization-dir /tmp/VIRTEX_R_50_L1_H1024_PERCENT_50
+        # Default: --checkpoint-every 2000 --log-every 20
+
+COCO Captions provides five captions per image. To train with one fixed caption
+per image, add ``DATA.USE_SINGLE_CAPTION True`` in ``--config-override``.
+
+The randomly selected subset is governed by random seed (``RANDOM_SEED`` in
+config). When training on less than ``50%`` dataset size, we recommend using
+multiple random seeds (results will have a variance of ``±1%``).
 
 -------------------------------------------------------------------------------
 
 Training ImageNet-supervised baselines
 --------------------------------------
 
-todo.
+We support training ImageNet-supervised baselines for comparison with VirTex
+models in **Data Efficiency Experiments** above. Training script is adapted
+from `PyTorch examples <https://github.com/pytorch/examples>`_.
+
+We do not train ImageNet-supervised baseline with ``100%`` ImageNet dataset;
+for this we use the pretrained model from `torchvision model zoo
+<https://pytorch.org/docs/stable/torchvision/models.html>`_. For example, train
+a ResNet-50 model with ``10%`` of ImageNet dataset:
+
+.. code-block::
+
+    # This script works differently than the rest (due to external source).
+    CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python scripts/pretrain_insup.py \
+        --data-percentage 10.0 \
+        --num-gpus-per-machine 8 \
+        --cpu-workers 4 \
+        --serialization-dir /tmp/IN_SUP_PERCENT_10 \
+        datasets/imagenet
+        # Default: --epochs 90 -b 256 --lr 0.1 --momentum 0.9 --wd 1e-4
+
+Like VirTex, the randomly selected subset is governed by random seed (``--seed``)
+When training on less than ``10%`` dataset size, we recommend training with
+multiple random seeds (results will have a variance of ``±1%``).
