@@ -10,7 +10,7 @@ class Config(object):
     contains sensible default values, which can be modified by (first) a YAML
     file and (second) a list of attributes and values.
 
-    An instantiated object is _immutable_: modifying any attribute is illegal.
+    An instantiated object is immutable: modifying any attribute is illegal.
     You must override required parameter values either through ``config_file``
     or ``override_list`` arguments. For adding more parameters at runtime
     (based on existing parameters), modify :meth:`add_derived_params`.

@@ -1,6 +1,10 @@
 virtex.utils
 ============
 
+.. raw:: html
+
+    <hr>
+
 .. toctree::
 
     utils.common

@@ -10,11 +10,11 @@ from virtex.data.tokenizers import SentencePieceBPETokenizer
 
 class CaptionOnlyTransform(alb.BasicTransform):
     r"""
-    Transforms in :mod:`albumentations` are mainly suited for images (and bbox,
-    keypoints etc.) We extend :class:`albumentations.core.transforms_interface.BasicTransform`
-    to transform captions. Captions may be ``str``, or tokens (``List[int]``)
-    as per implementation of :meth:`apply_to_caption`. These transforms will
-    have consistent API as other transforms from albumentations.
+    Transforms in **albumentations** are mainly suited for images (and bbox,
+    keypoints etc.) We extend the basic functionality to also transform captions.
+    Captions may be ``str``, or tokens (``List[int]``) as per implementation
+    of :meth:`apply_to_caption`. These transforms will have consistent API as
+    other transforms from albumentations.
     """
 
     @property
@@ -31,8 +31,8 @@ class CaptionOnlyTransform(alb.BasicTransform):
 
 class ImageCaptionTransform(alb.BasicTransform):
     r"""
-    Similar to :class:`CaptionOnlyTranform`, this extends super class to work
-    on ``(image, caption)`` pair together.
+    Similar to :class:`~virtex.data.transforms.CaptionOnlyTransform`, this
+    extends super class to work on ``(image, caption)`` pair together.
     """
 
     @property
@@ -45,7 +45,7 @@ class ImageCaptionTransform(alb.BasicTransform):
 
 class NormalizeCaption(CaptionOnlyTransform):
     r"""
-    Perform common normalization with caption -- lowercase, trim leading and
+    Perform common normalization with caption: lowercase, trim leading and
     trailing whitespaces, NFKD normalization and strip accents.
 
     Examples

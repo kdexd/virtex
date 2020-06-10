@@ -1,6 +1,10 @@
 virtex.optim
 ============
 
+.. raw:: html
+
+    <hr>
+
 .. toctree::
 
     optim.lookahead

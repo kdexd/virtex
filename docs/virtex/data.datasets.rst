@@ -1,6 +1,10 @@
 virtex.data.datasets
 ====================
 
+.. raw:: html
+
+    <hr>
+
 Pretraining Datasets
 --------------------
 

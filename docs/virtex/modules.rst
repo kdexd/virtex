@@ -1,6 +1,9 @@
 virtex.modules
 ==============
 
+.. raw:: html
+
+    <hr>
 
 .. toctree::
 

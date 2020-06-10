@@ -1,6 +1,10 @@
 virtex.factories
 ================
 
+.. raw:: html
+
+    <hr>
+
 .. First only include the top-level module, and base class docstrings.
 
 .. automodule:: virtex.factories

@@ -1,11 +1,25 @@
 VirTex: Learning Visual Representations from Textual Annotations
 ================================================================
 
+.. raw:: html
+
+    <hr>
+
 Get the source at `@kdexd/virtex <https://github.com/kdexd/virtex>`_.
 
 
+User Guide
+----------
+
+.. toctree::
+    :maxdepth: 2
+
+    virtex/usage/setup_dependencies
+    virtex/usage/training
+
+
 API Reference
-=============
+-------------
 
 .. toctree::
     :maxdepth: 2
@@ -19,9 +33,9 @@ API Reference
     virtex/utils
 
 
-.. Indices and tables
-.. ==================
+Indices and Tables
+------------------
 
-.. * :ref:`genindex`
-.. * :ref:`modindex`
-.. * :ref:`search`
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`

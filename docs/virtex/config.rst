@@ -1,6 +1,10 @@
 virtex.config
 =============
 
+.. raw:: html
+
+    <hr>
+
 .. automodule:: virtex.config
 
 

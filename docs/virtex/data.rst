@@ -1,6 +1,10 @@
 virtex.data
 ===========
 
+.. raw:: html
+
+    <hr>
+
 
 .. toctree::
 
