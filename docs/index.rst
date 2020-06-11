@@ -80,6 +80,21 @@ API Reference
     virtex/model_zoo
 
 
+Citation
+--------
+
+If you find this code useful, please consider citing:
+
+.. code-block:: text
+
+    @article{desai2020virtex,
+        title={VirTex: Learning Visual Representations from Textual Annotations},
+        author={Karan Desai and Justin Johnson},
+        journal={ TODO },
+        year={2020}
+    }
+
+
 Indices and Tables
 ------------------
 
