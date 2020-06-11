@@ -11,6 +11,32 @@ from virtex.modules.visual_backbones import VisualBackbone
 
 
 class ClassificationModel(nn.Module):
+    r"""
+    A model to perform classification (generally, with multiple targets). It is
+    composed of a :class:`~virtex.modules.visual_backbones.VisualBackbone` and a
+    :class:`~virtex.modules.textual_heads.TextualHead` on top of it.
+
+    .. note::
+
+        As with currently available textual heads, only one textual head is
+        supported here: :class:`~virtex.modules.textual_heads.LinearTextualHead`.
+
+    During training, it minimizes the KL-divergence loss with a K-hot vector,
+    with values ``1/K``, where K are the number of unique labels to classify.
+
+    Parameters
+    ----------
+    visual: virtex.modules.visual_backbones.VisualBackbone
+        A :class:`~virtex.modules.visual_backbones.VisualBackbone` which
+        computes visual features from an input image.
+    textual: virtex.modules.textual_heads.TextualHead
+        A :class:`~virtex.modules.textual_heads.TextualHead` which
+        makes final predictions conditioned on visual features.
+    ignore_indices: List[int]
+        Ignore a set of token indices while computing KL-divergence loss. These
+        are usually the special tokens such as ``[SOS]``, ``[EOS]`` etc.
+    """
+
     def __init__(
         self,
         visual: VisualBackbone,
@@ -23,6 +49,34 @@ class ClassificationModel(nn.Module):
         self.ignore_indices = ignore_indices
 
     def forward(self, batch: Batch):
+        r"""
+        Given a batch of images and set of labels (named "caption_tokens" just
+        for the sake of simplicity), perform classification with multiple
+        targets by minimizing a KL-divergence loss.
+
+        Parameters
+        ----------
+        batch: virtex.data.structures.ImageCaptionBatch
+            A batch of images and label set (as key named "caption_tokens").
+
+        Returns
+        -------
+        Dict[str, Any]
+
+            A dict with the following structure, containing loss for optimization,
+            loss components to log directly to tensorboard, and optionally
+            predictions.
+
+            .. code-block::
+
+                {
+                    "loss": torch.Tensor,
+                    "loss_components": {
+                        "classification": torch.Tensor,
+                    },
+                    "predictions": torch.Tensor
+                }
+        """
 
         # shape: (batch_size, visual_feature_size, ...)
         visual_features = self.visual(batch["image"])
@@ -79,6 +133,13 @@ class ClassificationModel(nn.Module):
 
 
 class TokenClassificationModel(ClassificationModel):
+    r"""
+    Convenient extension of :class:`~virtex.models.classification.ClassificationModel`
+    for better readability (this only modifies the tensorboard logging logic).
+
+    Ground truth targets here are a set of unique caption tokens (ignoring the
+    special tokens like ``[SOS]``, ``[EOS]`` etc.).
+    """
 
     def log_predictions(
         self, batch: Batch, tokenizer: SentencePieceBPETokenizer
@@ -104,6 +165,13 @@ class TokenClassificationModel(ClassificationModel):
 
 
 class MultiLabelClassificationModel(ClassificationModel):
+    r"""
+    Convenient extension of :class:`~virtex.models.classification.ClassificationModel`
+    for better readability (this only modifies the tensorboard logging logic).
+
+    Ground truth targets here are a set of unique instances in images (ignoring
+    the special background token, category id = 0 in COCO).
+    """
 
     def log_predictions(
         self, batch: Batch, tokenizer: SentencePieceBPETokenizer = None,

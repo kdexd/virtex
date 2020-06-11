@@ -113,7 +113,7 @@ class ImageTransformsFactory(Factory):
     Factory to create image transformations for common preprocessing and data
     augmentations. These are a mix of default transformations from
     `albumentations <https://albumentations.readthedocs.io/en/latest/>`_ and
-    some extended ones defined in :mod:`~virtex.data.transforms`.
+    some extended ones defined in :mod:`virtex.data.transforms`.
 
     This factory does not implement :meth:`from_config` method. It is only used
     by :class:`PretrainingDatasetFactory` and :class:`DownstreamDatasetFactory`.

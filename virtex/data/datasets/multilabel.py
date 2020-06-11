@@ -13,6 +13,23 @@ from virtex.data import transforms as T
 
 
 class MultiLabelClassificationDataset(Dataset):
+    r"""
+    A dataset which provides image-labelset pairs from COCO instance annotation
+    files. This is used for multilabel classification pretraining task.
+
+    Parameters
+    ----------
+    data_root: str, optional (default = "datasets/coco")
+        Path to the dataset root directory. This must contain images and
+        annotations (``train2017``, ``val2017`` and ``annotations`` directories).
+    split: str, optional (default = "train")
+        Which split (from COCO 2017 version) to read. One of ``{"train", "val"}``.
+    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
+        A list of transformations, from either `albumentations
+        <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
+        to be applied on the image.
+    """
+
     def __init__(
         self,
         data_root: str,

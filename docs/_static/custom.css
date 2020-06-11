@@ -38,6 +38,12 @@ div.body h2, div.body h3, div.body h4 {
     color: black;
 }
 
+@media screen and (max-width: 875px) {
+    div.sphinxsidebar {
+        background-color: white;
+    }
+}
+
 /* Darker bold words */
 strong {
     color: #252525;
@@ -58,7 +64,9 @@ div.sphinxsidebar a:hover, .viewcode-link:hover, a.reference:hover {
 }
 
 /* Add a light background to class signatures. */
-dl.class > dt:first-of-type, dl.function > dt:first-of-type, dl.method > dt:first-of-type, dl.classmethod > dt:first-of-type, dl.attribute > dt:first-of-type {
+dl.class > dt:first-of-type, dl.function > dt:first-of-type,
+dl.method > dt:first-of-type, dl.classmethod > dt:first-of-type,
+dl.attribute > dt:first-of-type, dl.data > dt:first-of-type {
     font-size: 14pt;
     background-color: #d8f6e9;
     padding: 10px 20px 10px 10px;

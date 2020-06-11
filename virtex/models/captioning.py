@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from virtex.data.structures import Batch
+from virtex.data.structures import ImageCaptionBatch
 from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.modules.textual_heads import TextualHead
 from virtex.modules.visual_backbones import VisualBackbone
@@ -14,6 +14,39 @@ from virtex.utils.beam_search import AutoRegressiveBeamSearch
 
 
 class CaptioningModel(nn.Module):
+    r"""
+    A model to perform image captioning (in both forward and backward directions
+    independently, only in forward direction). It is composed of a
+    :class:`~virtex.modules.visual_backbones.VisualBackbone` and a
+    :class:`~virtex.modules.textual_heads.TextualHead` on top of it.
+
+    During training, it maximizes the likelihood of ground truth caption
+    conditioned on image features. During inference, it predicts a caption for
+    an input image through beam search decoding.
+
+    Parameters
+    ----------
+    visual: virtex.modules.visual_backbones.VisualBackbone
+        A :class:`~virtex.modules.visual_backbones.VisualBackbone` which
+        computes visual features from an input image.
+    textual: virtex.modules.textual_heads.TextualHead
+        A :class:`~virtex.modules.textual_heads.TextualHead` which
+        makes final predictions conditioned on visual features.
+    beam_size : int, optional (default = 5)
+        The width of the beam used for beam search.
+    max_decoding_steps: int, optional (default = 30)
+        The maximum number of decoding steps for beam search.
+    sos_index: int, optional (default = 1)
+        The index of the end token (``[SOS]``) in vocabulary.
+    eos_index: int, optional (default = 2)
+        The index of the end token (``[EOS]``) in vocabulary.
+    caption_backward: bool, optional (default = False)
+        Whether to *also* perform captioning in backward direction. Default is
+        ``False`` -- only forward captioning is performed. When ``True``, a
+        clone of textual head is created, which does not share weights with
+        "forward" model except input and output embeddings.
+    """
+
     def __init__(
         self,
         visual: VisualBackbone,
@@ -49,7 +82,37 @@ class CaptioningModel(nn.Module):
             self.eos_index, beam_size=5, max_steps=max_decoding_steps
         )
 
-    def forward(self, batch: Batch):
+    def forward(self, batch: ImageCaptionBatch) -> Dict[str, Any]:
+        r"""
+        Given a batch of images and captions, compute log likelihood loss per
+        caption token during training. During inference, given a batch of
+        images, decode the most likely caption in forward direction through
+        beam search decoding.
+
+        Parameters
+        ----------
+        batch: virtex.data.structures.ImageCaptionBatch
+            A batch of images and (optionally) ground truth caption tokens.
+
+        Returns
+        -------
+        Dict[str, Any]
+
+            A dict with the following structure, containing loss for optimization,
+            loss components to log directly to tensorboard, and optionally
+            predictions.
+
+            .. code-block::
+
+                {
+                    "loss": torch.Tensor,
+                    "loss_components": {
+                        "captioning_forward": torch.Tensor,
+                        "captioning_backward": torch.Tensor, (optional)
+                    },
+                    "predictions": torch.Tensor
+                }
+        """
 
         # shape: (batch_size, visual_feature_size, ...)
         visual_features = self.visual(batch["image"])
@@ -188,7 +251,7 @@ class CaptioningModel(nn.Module):
         return next_logprobs
 
     def log_predictions(
-        self, batch: Batch, tokenizer: SentencePieceBPETokenizer
+        self, batch: ImageCaptionBatch, tokenizer: SentencePieceBPETokenizer
     ) -> str:
 
         self.eval()
@@ -207,6 +270,11 @@ class CaptioningModel(nn.Module):
 
 
 class ForwardCaptioningModel(CaptioningModel):
+    r"""
+    Convenient extension of :class:`~virtex.models.captioning.CaptioningModel`
+    for better readability: this passes ``caption_backward=False`` to super class.
+    """
+
     def __init__(
         self,
         visual: VisualBackbone,
@@ -228,6 +296,11 @@ class ForwardCaptioningModel(CaptioningModel):
 
 
 class BidirectionalCaptioningModel(CaptioningModel):
+    r"""
+    Convenient extension of :class:`~virtex.models.captioning.CaptioningModel`
+    for better readability: this passes ``caption_backward=True`` to super class.
+    """
+
     def __init__(
         self,
         visual: VisualBackbone,

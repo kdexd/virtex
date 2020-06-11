@@ -50,7 +50,7 @@ def common_setup(_C: Config, _A: argparse.Namespace, job_type: str = "pretrain")
 
         It is assumed that multiple processes for distributed training have
         already been launched from outside. Functions from
-        :mod:`virtex.util.distributed` module ae used to get process info.
+        :mod:`virtex.utils.distributed` module ae used to get process info.
 
     Parameters
     ----------

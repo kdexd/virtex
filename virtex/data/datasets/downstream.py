@@ -20,7 +20,7 @@ from virtex.data.readers import LmdbReader
 
 class ImageNetDataset(ImageNet):
     r"""
-    Simple wrapper over torchvision's super class with a feature to support
+    Simple wrapper over torchvision's ImageNet dataset with a feature to support
     restricting dataset size for semi-supervised learning setup (data-efficiency
     ablations).
 
@@ -28,6 +28,15 @@ class ImageNetDataset(ImageNet):
 
     Parameters
     ----------
+    data_root: str, optional (default = "datasets/imagenet")
+        Path to the dataset root directory. This must contain directories
+        ``train``, ``val`` with per-category sub-directories.
+    split: str, optional (default = "train")
+        Which split to read from. One of ``{"train", "val"}``.
+    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
+        A list of transformations, from either `albumentations
+        <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
+        to be applied on the image.
     percentage: int, optional (default = 100)
         Percentage of dataset to keep. This dataset retains first K% of images
         per class to retain same class label distribution. This is 100% by
@@ -36,7 +45,7 @@ class ImageNetDataset(ImageNet):
 
     def __init__(
         self,
-        data_root: str,
+        data_root: str = "datasets/imagenet",
         split: str = "train",
         image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
         percentage: float = 100,
@@ -85,9 +94,25 @@ class ImageNetDataset(ImageNet):
 
 
 class INaturalist2018Dataset(Dataset):
+    r"""
+    A dataset which provides image-label pairs from the iNaturalist 2018 dataset.
+
+    Parameters
+    ----------
+    data_root: str, optional (default = "datasets/inaturalist")
+        Path to the dataset root directory. This must contain images and
+        annotations (``train2018``, ``val2018`` and ``annotations`` directories).
+    split: str, optional (default = "train")
+        Which split to read from. One of ``{"train", "val"}``.
+    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
+        A list of transformations, from either `albumentations
+        <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
+        to be applied on the image.
+    """
+
     def __init__(
         self,
-        data_root: str,
+        data_root: str = "datasets/inaturalist",
         split: str = "train",
         image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
     ):
@@ -130,10 +155,26 @@ class INaturalist2018Dataset(Dataset):
 
 
 class VOC07ClassificationDataset(Dataset):
+    r"""
+    A dataset which provides image-label pairs from the PASCAL VOC 2007 dataset.
+
+    Parameters
+    ----------
+    data_root: str, optional (default = "datasets/VOC2007")
+        Path to the dataset root directory. This must contain directories
+        ``Annotations``, ``ImageSets`` and ``JPEGImages``.
+    split: str, optional (default = "trainval")
+        Which split to read from. One of ``{"trainval", "test"}``.
+    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
+        A list of transformations, from either `albumentations
+        <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
+        to be applied on the image.
+    """
+
     def __init__(
         self,
-        data_root: str,
-        split: str = "train",
+        data_root: str = "datasets/VOC2007",
+        split: str = "trainval",
         image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
     ):
         self.split = split
@@ -197,9 +238,24 @@ class VOC07ClassificationDataset(Dataset):
 
 
 class CocoCaptionsEvalDataset(Dataset):
+    r"""
+    A dataset which provides only images (for inference) from the COCO 2017
+    dataset.
+
+    Parameters
+    ----------
+    data_root: str, optional (default = "datasets/coco")
+        Path to the dataset root directory. This must contain the serialized
+        LMDB file (for COCO ``val2017`` split).
+    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
+        A list of transformations, from either `albumentations
+        <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
+        to be applied on the image.
+    """
+
     def __init__(
         self,
-        data_root: str,
+        data_root: str = "datasets/coco",
         image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
     ):
         lmdb_path = os.path.join(data_root, f"serialized_val.lmdb")

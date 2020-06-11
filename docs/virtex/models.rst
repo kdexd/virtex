@@ -10,6 +10,8 @@ Pretraining Models
 
 .. automodule:: virtex.models.classification
 
+-------------------------------------------------------------------------------
+
 .. automodule:: virtex.models.captioning
 
 -------------------------------------------------------------------------------

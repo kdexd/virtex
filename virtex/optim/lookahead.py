@@ -1,7 +1,7 @@
 r"""
 `Lookahead Optimizer: k steps forward, 1 step back <https://arxiv.org/abs/1907.08610>`_.
 
-This implementation is adopted with minimal modifications from the
+This implementation is adapted with minimal modifications from the
 `authors' implementation <https://github.com/michaelrzhang/lookahead>`_.
 
 If you take it from here, please cite them:

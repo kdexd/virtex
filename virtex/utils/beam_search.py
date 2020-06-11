@@ -1,5 +1,5 @@
 r"""
-This Beam Search implementation is adopted with minor modifications from
+This Beam Search implementation is adapted with minor modifications from
 `AllenNLP <https://github.com/allenai/allennlp/blob/master/allennlp/nn/beam_search.py>`_.
 
 Thanks to the developers of AllenNLP!
@@ -23,13 +23,13 @@ class AutoRegressiveBeamSearch(object):
 
     Parameters
     ----------
-    end_index : int
+    end_index: int
         The index of the end token (``[EOS]``) in vocabulary.
-    max_steps : int, optional (default = 50)
+    max_steps: int, optional (default = 50)
         The maximum number of decoding steps.
-    beam_size : int, optional (default = 5)
+    beam_size: int, optional (default = 5)
         The width of the beam used.
-    per_node_beam_size : int, optional (default = 2)
+    per_node_beam_size: int, optional (default = 2)
         The maximum number of candidates to consider per node, at each step in
         the search. Setting this parameter to a number smaller than `beam_size`
         may give better results, as it can introduce more diversity into the

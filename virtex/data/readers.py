@@ -1,3 +1,8 @@
+r"""
+A *Reader* is a PyTorch :class:`~torch.utils.data.Dataset` which simply reads
+data from disk and returns it almost as is. Readers defined here are used by
+datasets in :mod:`virtex.data.datasets`.
+"""
 from collections import defaultdict
 import glob
 import json
@@ -18,6 +23,19 @@ Captions = List[str]
 
 
 class SimpleCocoCaptionsReader(Dataset):
+    r"""
+    A reader interface to read COCO Captions dataset and directly from official
+    annotation files and return it unprocessed. We only use this for serializing
+    the dataset to LMDB files, and use :class:`~virtex.data.readers.LmdbReader`
+    in rest of the datasets.
+
+    Parameters
+    ----------
+    root: str, optional (default = "datasets/coco")
+        Path to the COCO dataset root directory.
+    split: str, optional (default = "train")
+        Which split (from COCO 2017 version) to read. One of ``{"train", "val"}``.
+    """
     def __init__(self, root: str = "datasets/coco", split: str = "train"):
 
         image_dir = os.path.join(root, f"{split}2017")
@@ -54,8 +72,9 @@ class SimpleCocoCaptionsReader(Dataset):
 
 class LmdbReader(Dataset):
     r"""
-    A reader interface to read datapoints from an LMDB file. Optionally, one
-    may specify a partial percentage of datapoints to use.
+    A reader interface to read datapoints from a serialized LMDB file containing
+    ``(image_id, image, caption)`` tuples. Optionally, one may specify a
+    partial percentage of datapoints to use.
 
     .. note::
 
@@ -67,10 +86,10 @@ class LmdbReader(Dataset):
 
     .. note::
 
-        Similar to :class:`~torch.utils.data.DistributedSampler`, this reader
-        can shuffle the dataset deterministically at the start of epoch. Use
-        :meth:`set_shuffle_seed` manually from outside to change the seed
-        at every epoch.
+        Similar to :class:`~torch.utils.data.distributed.DistributedSampler`,
+        this reader can shuffle the dataset deterministically at the start of
+        epoch. Use :meth:`set_shuffle_seed` manually from outside to change the
+        seed at every epoch.
 
     Parameters
     ----------
@@ -120,6 +139,7 @@ class LmdbReader(Dataset):
         self.shuffle_seed = 0
 
     def set_shuffle_seed(self, seed: int):
+        r"""Set random seed for shuffling data."""
         self.shuffle_seed = seed
 
     def get_keys(self) -> List[bytes]:

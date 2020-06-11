@@ -1,6 +1,6 @@
 r"""
 Training script for torchvision based ResNet-50 on ImageNet dataset. This is
-adopted from official PyTorch examples with minimal modifications:
+adapted from official PyTorch examples with minimal modifications:
 
 https://github.com/pytorch/examples/tree/master/imagenet/main.py
 

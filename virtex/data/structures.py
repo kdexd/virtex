@@ -1,3 +1,16 @@
+r"""
+This module contains a bunch of dict-like data structures used by datasets in
+:mod:`virtex.data.datasets` for returning instances and batches of training
+(or inference) data.
+
+These classes are thin wrappers over native python dicts for two main purposes:
+
+1. Better readability, type-hint annotations and stronger static type checking.
+2. Each of these classes implement ``__slots__``: a trick to significantly
+   reduce memory overhead in creating hundreds of new dict objects (every
+   iteration) if the name of dict keys remain fixed (and unchanged).
+
+"""
 import copy
 from typing import Iterable, List, Optional, Union
 
@@ -5,7 +18,26 @@ import torch
 
 
 class Instance(dict):
+    r"""
+    Base class for representing a single instance: a dict of key value pairs.
+    Keys are assumed to be ``str``, and values are assumed to be :class:`torch.Tensor`.
+
+    This class can be instantiated with ``**kwargs`` just like ``dict()``.
+    """
+
     def to(self, *args, **kwargs) -> "Instance":
+        r"""
+        Defines the logic to move the whole instance across different
+        :class:`torch.dtype`s and :class:`torch.device`s. Default implementation
+        shifts all tensor-like objects to device.
+
+        .. note::
+
+            This method is used internally by `NVIDIA Apex <https://github.com/nvidia/apex>`_
+            for casting the instance to FP16 (half) precision -- this method
+            casts floats to half; while keeping integers, booleans and other
+            data types unchanged.
+        """
         new_instance = self.clone()
         device, dtype, non_blocking = torch._C._nn._parse_to(*args, **kwargs)
 
@@ -32,6 +64,7 @@ class Instance(dict):
         return new_instance
 
     def pin_memory(self):
+        r"""Pin GPU memory; only used internally by PyTorch dataloaders."""
         for key in self.keys():
             self[key].pin_memory()
 
@@ -40,6 +73,13 @@ class Instance(dict):
 
 
 class Batch(dict):
+    r"""
+    Base class for representing a single batch. It is created with a list of
+    instances; and used by ``collate_fn`` of :mod:`virtex.data.datasets`. This
+    is exactly same as :class:`~virtex.data.structures.Instance` in terms of
+    behavior and functionality.
+    """
+
     def to(self, *args, **kwargs) -> "Batch":
         new_batch = self.clone()
         device, dtype, non_blocking = torch._C._nn._parse_to(*args, **kwargs)
@@ -69,6 +109,23 @@ class Batch(dict):
 
 
 class ImageCaptionInstance(Instance):
+    r"""
+    An instance representing an image-caption pair. It contains caption tokens
+    in both, forward and backward direction.
+
+    Member names: ``{"image_id", "image", "caption_tokens", "noitpac_tokens",
+    "caption_lengths"}``
+
+    Parameters
+    ----------
+    image_id: int
+        A unique integer ID for current image (or instance). This is commonly
+        the COCO image ID.
+    image: Iterable[float]
+        Image tensor (or numpy array) in CHW format.
+    caption_tokens: List[int]
+        Tokenized caption sequences.
+    """
 
     __slots__ = [
         "image_id",
@@ -91,6 +148,18 @@ class ImageCaptionInstance(Instance):
 
 
 class ImageCaptionBatch(Batch):
+    r"""
+    Batch of :class:`~virtex.data.structures.ImageCaptionInstance`. Contains
+    same keys as instances.
+
+    Parameters
+    ----------
+    instances: List[ImageCaptionInstance]
+        List of :class:`~virtex.data.structures.ImageCaptionInstance` to be
+        collated into a batch.
+    padding_value: int, optional (default = 0)
+        Padding value to fill while batching captions of different lengths.
+    """
 
     __slots__ = [
         "image_id",
@@ -139,6 +208,18 @@ class ImageCaptionBatch(Batch):
 
 
 class LinearClassificationInstance(Instance):
+    r"""
+    An instance representing an image-label pair.
+
+    Member names: ``{"image_id", "label"}``
+
+    Parameters
+    ----------
+    image: Iterable[float]
+        Image tensor (or numpy array) in CHW format.
+    label: Union[int, torch.Tensor]
+        An integer (or one-hot vector) label corresponding to the image.
+    """
 
     __slots__ = ["image", "label"]
 
@@ -150,6 +231,16 @@ class LinearClassificationInstance(Instance):
 
 
 class LinearClassificationBatch(Batch):
+    r"""
+    Batch of :class:`~virtex.data.structures.LinearClassificationInstance`.
+    Contains same keys as instances.
+
+    Parameters
+    ----------
+    instances: List[ImageCaptionInstance]
+        List of :class:`~virtex.data.structures.LinearClassificationInstance`
+        to be collated into a batch.
+    """
 
     __slots__ = ["image", "label"]
 

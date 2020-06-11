@@ -6,7 +6,7 @@ downstream evaluation. Two main classes here are:
 - :class:`CocoCaptionsEvaluator` used for caption evaluation (CIDEr and SPICE).
 
 Parts of this module (:meth:`tokenize`, :meth:`cider` and :meth:`spice`) are
-adopted from `coco-captions evaluation code <https://github.com/tylin/coco-caption>`_.
+adapted from `coco-captions evaluation code <https://github.com/tylin/coco-caption>`_.
 """
 from collections import defaultdict
 import json
