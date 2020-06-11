@@ -1,41 +1,47 @@
 VirTex: Learning Visual Representations from Textual Annotations
 ================================================================
 
-Install Dependencies
---------------------
+<h4>
+Karan Desai and Justin Johnson
+</br>
+<span style="font-size: 14pt; color: #555555">
+University of Michigan
+</span>
+</h4>
+<hr>
 
-For these steps to install through Anaconda / Miniconda.
+**Preprint:** [arxiv.org/abs/2006.todo][1]
 
-1. Install Anaconda or Miniconda distribution based on Python3+ from their [downloads site](https://conda.io/docs/user-guide/install/download.html).
+**Model Zoo, Usage Instructions and API docs:** [kdexd.github.io/virtex](https://kdexd.github.io/virtex)
+
+![virtex-model](docs/_static/system_figure.jpg)
 
 
-2. Clone the repository first.
+If you find this code useful, please consider citing:
 
-```
-git clone https://www.github.com/kdexd/virtex
-```
-
-3. Create a conda environment and install all the dependencies.
-
-```
-cd virtex
-conda create -n virtex python=3.7
-conda activate virtex
-pip install -r requirements.txt
-```
-
-<!-- Mention apt dependency: ZeroMQ (libzmq3-dev) -->
-
-4. Install NVIDIA Apex for Half-precision training. (Requires GCC 5+)
-
-```
-pip install -v --no-cache-dir --global-option="--cpp_ext" \
-    --global-option="--cuda_ext" git+https://github.com/nvidia/apex.git
+```text
+@article{desai2020virtex,
+  title={VirTex: Learning Visual Representations from Textual Annotations},
+  author={Karan Desai and Justin Johnson},
+  journal={ TODO },
+  year={2020}
+}
 ```
 
 
-5. Install this codebase as a package in development version.
+Usage Instructions
+------------------
 
-```
-python setup.py develop
-```
+1. [How to setup this codebase?][2]  
+2. [VirTex Model Zoo][3]  
+3. [How to train your VirTex model?][4]  
+4. [How to evaluate on downstream tasks?][5]  
+
+These can also be accessed from [kdexd.github.io/virtex](https://kdexd.github.io/virtex).
+
+
+[1]: https://arxiv.org/abs/2006.todo
+[2]: https://kdexd.github.io/virtex/virtex/usage/setup_dependencies.html
+[3]: https://kdexd.github.io/virtex/virtex/usage/model_zoo.html
+[4]: https://kdexd.github.io/virtex/virtex/usage/pretrain.html
+[5]: https://kdexd.github.io/virtex/virtex/usage/downstream.html

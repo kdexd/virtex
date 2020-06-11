@@ -9,6 +9,7 @@ Get our full best performing VirTex model (with pretrained weights as):
 
 Any config available in ``configs/`` directory under project root can be
 specified here, although this command need not be executed from project root.
+For more details on available models, refer :doc:`usage/model_zoo`.
 
 Part of this code is adapted from Detectron2's model zoo; which was originally
 implemented by the developers of this codebase, with reviews and further

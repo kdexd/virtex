@@ -44,7 +44,9 @@ User Guide
     :maxdepth: 2
 
     virtex/usage/setup_dependencies
-    virtex/usage/training
+    virtex/usage/model_zoo
+    virtex/usage/pretrain
+    virtex/usage/downstream
 
 
 API Reference
@@ -60,6 +62,7 @@ API Reference
     virtex/modules
     virtex/optim
     virtex/utils
+    virtex/model_zoo
 
 
 Indices and Tables
