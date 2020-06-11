@@ -37,6 +37,21 @@
 .. image:: _static/system_figure.jpg
 
 
+Get the pretrained ResNet-50 visual backbone from our best performing VirTex
+model in one line *without any installation*!
+
+.. code-block:: python
+
+    import torch
+
+    # That's it, this one line only requires PyTorch.
+    model = torch.hub.load("kdexd/virtex", "resnet50", pretrained=True)
+
+
+More details in :doc:`virtex/usage/model_zoo`. Next, dive deeper into our
+code with User Guide and API References!
+
+
 User Guide
 ----------
 

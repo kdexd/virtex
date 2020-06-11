@@ -7,7 +7,9 @@ model, download link for pretrained weights and for reference -- VOC07 mAP and
 ImageNet top-1 accuracy.
 
 The simplest way to download and use a *full* pretrained model (including both,
-the visual backbone and the textual head) is through :doc:`../model_zoo` API. 
+the visual backbone and the textual head) is through :doc:`../model_zoo` API as
+follows. This code snippet works from anywhere, and does not require to be
+executed from project root.
 
 .. code-block:: python
 
@@ -15,13 +17,12 @@ the visual backbone and the textual head) is through :doc:`../model_zoo` API.
     import virtex.model_zoo as mz
     model = mz.get("width_ablations/bicaptioning_R_50_L1_H2048.yaml", pretrained=True)
 
-    # Optionally extract the torchvision-like visual backbone (with ``fc`` layer
-    # replaced with ``nn.Identity`` module).
+    # Optionally extract the torchvision-like visual backbone (with ``avgpool``
+    # and ``fc`` layers replaced with ``nn.Identity`` module).
     cnn = model.visual.cnn
 
-The above code snippet works from anywhere, one does not require to run this
-snippet from the project root directory. Alternatively, weights can be manually
-downloaded from links below, and from the project root:
+Alternatively, weights can be manually downloaded from links below, and this
+can be executed from the project root:
 
 .. code-block:: python
 
@@ -35,10 +36,25 @@ downloaded from links below, and from the project root:
 
     CheckpointManager(model=model).load("/path/to/downloaded/weights.pth")
 
-    # Optionally extract the torchvision-like visual backbone (with ``fc`` layer
-    # replaced with ``nn.Identity`` module).
+    # Optionally extract the torchvision-like visual backbone (with ``avgpool``
+    # and ``fc`` layers replaced with ``nn.Identity`` module).
     cnn = model.visual.cnn
 
+
+The pretrained ResNet-50 visual backbone of our best performing model
+(``width_ablations/bicaptioning_R_50_L1_H2048.yaml``) can be loaded in a single
+line, *without following any installation steps* (only requires PyTorch v1.5):
+
+.. code-block:: python
+
+    import torch
+
+    model = torch.hub.load("kdexd/virtex", "resnet50", pretrained=True)
+
+    # This is a torchvision-like resnet50 model, with ``avgpool`` and ``fc``
+    # layers replaced with ``nn.Identity`` module.
+    image_batch = torch.randn(1, 3, 224, 224)  # batch tensor of one image.
+    features_batch = model(image_batch)  # shape: (1, 2048, 7, 7)
 
 -------------------------------------------------------------------------------
 
