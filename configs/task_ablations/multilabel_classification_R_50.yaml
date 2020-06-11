@@ -1,5 +1,8 @@
 _BASE_: "../_base_bicaptioning_R_50_L1_H1024.yaml"
 
+DATA:
+  VOCAB_SIZE: 81
+
 MODEL:
   NAME: "multilabel_classification"
   TEXTUAL:

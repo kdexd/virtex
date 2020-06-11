@@ -9,6 +9,11 @@ DATA:
   ROOT: "datasets/coco"
   TOKENIZER_VOCAB: "datasets/vocab/coco_10k.vocab"
   TOKENIZER_MODEL: "datasets/vocab/coco_10k.model"
+  VOCAB_SIZE: 10000
+  UNK_INDEX: 0
+  SOS_INDEX: 1
+  EOS_INDEX: 2
+  MASK_INDEX: 3
 
   IMAGE_CROP_SIZE: 224
   MAX_CAPTION_LENGTH: 30

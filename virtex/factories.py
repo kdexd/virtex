@@ -346,9 +346,7 @@ class TextualHeadFactory(Factory):
     # fmt: on
 
     @classmethod
-    def from_config(
-        cls, config: Config, tokenizer: Optional[SentencePieceBPETokenizer] = None
-    ) -> nn.Module:
+    def from_config(cls, config: Config) -> nn.Module:
         r"""
         Create a textual head directly from config.
 
@@ -356,13 +354,9 @@ class TextualHeadFactory(Factory):
         ----------
         config: virtex.config.Config
             Config object with all the parameters.
-        tokenizer: virtex.data.tokenizers.SentencePieceBPETokenizer, optional (default = None)
-            A tokenizer which has the mapping between word tokens and their
-            integer IDs.
         """
 
         _C = config
-        tokenizer = tokenizer or TokenizerFactory.from_config(_C)
 
         # Get architectural hyper-params as per name by matching regex.
         name, architecture = _C.MODEL.TEXTUAL.NAME.split("::")
@@ -374,7 +368,7 @@ class TextualHeadFactory(Factory):
         feedforward_size = int(architecture.group(4))
 
         kwargs = {
-            "vocab_size": tokenizer.get_vocab_size(),
+            "vocab_size": _C.DATA.VOCAB_SIZE,
             "hidden_size": hidden_size,
         }
 
@@ -384,7 +378,7 @@ class TextualHeadFactory(Factory):
                 attention_heads=attention_heads,
                 feedforward_size=feedforward_size,
                 dropout=_C.MODEL.TEXTUAL.DROPOUT,
-                padding_idx=tokenizer.token_to_id("[UNK]"),
+                padding_idx=_C.DATA.UNK_INDEX,
                 max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
             )
         return cls.create(name, **kwargs)
@@ -406,9 +400,7 @@ class PretrainingModelFactory(Factory):
     }
 
     @classmethod
-    def from_config(
-        cls, config: Config, tokenizer: Optional[SentencePieceBPETokenizer] = None
-    ) -> nn.Module:
+    def from_config(cls, config: Config) -> nn.Module:
         r"""
         Create a model directly from config.
 
@@ -416,27 +408,13 @@ class PretrainingModelFactory(Factory):
         ----------
         config: virtex.config.Config
             Config object with all the parameters.
-        tokenizer: virtex.data.tokenizers.SentencePieceBPETokenizer, optional (default = None)
-            A tokenizer which has the mapping between word tokens and their
-            integer IDs.
         """
 
         _C = config
-        tokenizer = tokenizer or TokenizerFactory.from_config(_C)
-
-        if _C.MODEL.NAME == "multilabel_classification":
-            # Pass a dummy tokenizer object to TextualHeadFactory for
-            # `multilabel_classification`, which can return vocab size as `81`
-            # (80 COCO categories + background).
-            class DummyTokenizer(object):
-                def get_vocab_size(self) -> int:
-                    return 81
-
-            tokenizer = DummyTokenizer()  # type: ignore
 
         # Build visual and textual streams based on config.
         visual = VisualBackboneFactory.from_config(_C)
-        textual = TextualHeadFactory.from_config(_C, tokenizer)
+        textual = TextualHeadFactory.from_config(_C)
 
         # Add model specific kwargs. Refer call signatures of specific models
         # for matching kwargs here.
@@ -444,17 +422,17 @@ class PretrainingModelFactory(Factory):
         if "captioning" in _C.MODEL.NAME:
             kwargs.update(
                 max_decoding_steps=_C.DATA.MAX_CAPTION_LENGTH,
-                sos_index=tokenizer.token_to_id("[SOS]"),
-                eos_index=tokenizer.token_to_id("[EOS]"),
+                sos_index=_C.DATA.SOS_INDEX,
+                eos_index=_C.DATA.EOS_INDEX,
             )
 
         elif _C.MODEL.NAME == "token_classification":
             kwargs.update(
                 ignore_indices=[
-                    tokenizer.token_to_id("[UNK]"),
-                    tokenizer.token_to_id("[SOS]"),
-                    tokenizer.token_to_id("[EOS]"),
-                    tokenizer.token_to_id("[MASK]"),
+                    _C.DATA.UNK_INDEX,
+                    _C.DATA.SOS_INDEX,
+                    _C.DATA.EOS_INDEX,
+                    _C.DATA.MASK_INDEX
                 ],
             )
         elif _C.MODEL.NAME == "multilabel_classification":

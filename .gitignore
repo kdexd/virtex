@@ -47,8 +47,8 @@ ENV/
 scripts/test_*
 
 # Data (symlinks) directory, model checkpoints, tensorboard logs etc.
-data/
 datasets/
 checkpoints/
 virtex/utils/assets/
 !virtex/data/
+virtex/model_zoo/configs
