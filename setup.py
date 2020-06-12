@@ -46,6 +46,6 @@ setup(
     description="VirTex: Learning Visual Representations with Textual Annotations",
     package_data={"virtex.model_zoo": get_model_zoo_configs()},
     python_requires=">=3.6",
-    license="Apache 2.0",
+    license="MIT",
     zip_safe=True,
 )

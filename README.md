@@ -10,7 +10,7 @@ University of Michigan
 </h4>
 <hr>
 
-**Preprint:** [arxiv.org/abs/2006.todo][1]
+**Preprint:** [arxiv.org/abs/2006.06666][1]
 
 **Model Zoo, Usage Instructions and API docs:** [kdexd.github.io/virtex](https://kdexd.github.io/virtex)
 
@@ -52,15 +52,15 @@ If you find this code useful, please consider citing:
 
 ```text
 @article{desai2020virtex,
-  title={VirTex: Learning Visual Representations from Textual Annotations},
-  author={Karan Desai and Justin Johnson},
-  journal={ TODO },
-  year={2020}
+    title={VirTex: Learning Visual Representations from Textual Annotations},
+    author={Karan Desai and Justin Johnson},
+    journal={arXiv preprint arXiv:2006.06666},
+    year={2020}
 }
 ```
 
 
-[1]: https://arxiv.org/abs/2006.todo
+[1]: https://arxiv.org/abs/2006.06666
 [2]: https://kdexd.github.io/virtex/virtex/usage/setup_dependencies.html
 [3]: https://kdexd.github.io/virtex/virtex/usage/model_zoo.html
 [4]: https://kdexd.github.io/virtex/virtex/usage/pretrain.html
