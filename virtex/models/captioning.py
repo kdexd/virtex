@@ -132,7 +132,7 @@ class CaptioningModel(nn.Module):
 
         # shape: (batch_size, max_caption_length, vocab_size)
         output_logits = self.textual(
-            caption_tokens, caption_lengths, projected_visual_features
+            projected_visual_features, caption_tokens, caption_lengths
         )
         loss = self.loss(
             output_logits[:, :-1].contiguous().view(-1, self.textual.vocab_size),
@@ -148,9 +148,9 @@ class CaptioningModel(nn.Module):
             backward_caption_tokens = batch["noitpac_tokens"]
 
             backward_output_logits = self.backward_textual(
+                projected_visual_features,
                 backward_caption_tokens,
                 caption_lengths,
-                projected_visual_features,
             )
             backward_loss = self.loss(
                 backward_output_logits[:, :-1]
@@ -234,7 +234,7 @@ class CaptioningModel(nn.Module):
 
         # shape: (batch_size * beam_size, partial_caption_length, vocab_size)
         output_logits = self.textual(
-            partial_captions, caption_lengths, projected_visual_features
+            projected_visual_features, partial_captions, caption_lengths
         )
         # Keep features for last time-step only, we only care about those.
         output_logits = output_logits[:, -1, :]

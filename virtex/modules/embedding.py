@@ -18,11 +18,11 @@ class WordAndPositionalEmbedding(nn.Module):
         Size of token vocabulary.
     hidden_size: int
         Size of token embedding vectors.
+    dropout: float, optional (default = 0.1)
+        Dropout probability for final dropout applied after layer normalization.
     max_caption_length: int, optional (default = 30)
         Maximum length of input captions; this is used to create a fixed
         positional embedding lookup table.
-    dropout: float, optional (default = 0.1)
-        Dropout probability for final dropout applied after layer normalization.
     padding_idx: int, optional (default = 0)
         Token index of ``[PAD]`` token, word embedding for these tokens will
         be a vector of zeroes (and not trainable).
@@ -31,8 +31,8 @@ class WordAndPositionalEmbedding(nn.Module):
         self,
         vocab_size: int,
         hidden_size: int,
-        max_caption_length: int = 30,
         dropout: float = 0.0,
+        max_caption_length: int = 30,
         padding_idx: int = 0,
     ):
         super().__init__()

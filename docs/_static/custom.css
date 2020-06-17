@@ -49,16 +49,20 @@ strong {
     color: #252525;
 }
 
-/* TOC tree anchor tag & view source link styling like kdexd.github.io */
+/* TOC tree tag, view source link & permalink anchor styling. */
 div.sphinxsidebar a, .viewcode-link, a.reference {
     color: darkgreen;
     text-decoration: none;
     border-bottom: 1px dashed green;
     text-underline-position: under;
 }
+a.headerlink {
+    color: black;
+}
 
-/* TOC tree anchor tag & view source link styling like kdexd.github.io */
-div.sphinxsidebar a:hover, .viewcode-link:hover, a.reference:hover {
+/* TOC tree tag, view source link & permalink anchor styling. */
+div.sphinxsidebar a:hover, .viewcode-link:hover, a.reference:hover,
+a.headerlink:hover {
     font-weight: 700;
     border-bottom: 1px solid green;
 }

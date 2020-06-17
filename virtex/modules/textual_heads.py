@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from typing import Optional
 
 from virtex.modules.embedding import WordAndPositionalEmbedding
 from virtex.modules.transformer import PreNormTransformerDecoderLayer
@@ -11,11 +12,8 @@ class TextualHead(nn.Module):
     from :class:`~torch.nn.Module`, however this is kept here for uniform
     type annotations.
     """
-    def __init__(
-        self,
-        vocab_size: int,
-        hidden_size: int,
-    ):
+
+    def __init__(self, vocab_size: int, hidden_size: int):
         super().__init__()
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
@@ -32,30 +30,97 @@ class TextualHead(nn.Module):
 
 class LinearTextualHead(TextualHead):
     r"""
-    Textual head containing a single linear layer projecting from textual
+    A textual head containing a single linear layer projecting from textual
     feature size to output vocabulary size.
+
+    Parameters
+    ----------
+    vocab_size: int
+        Size of token vocabulary.
+    hidden_size: int
+        Size of token embedding vectors.
     """
 
-    def __init__(
-        self,
-        vocab_size: int,
-        hidden_size: int,
-    ):
+    def __init__(self, vocab_size: int, hidden_size: int):
         super().__init__(vocab_size, hidden_size)
         self.output = nn.Linear(self.textual_feature_size, vocab_size)
 
     def forward(
         self,
-        caption_tokens: torch.Tensor,
-        caption_lengths: torch.Tensor,
         visual_features: torch.Tensor,
+        caption_tokens: Optional[torch.Tensor] = None,
+        caption_lengths: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        r"""
+        Project visual features directly to predict a distribution over
+        vocabulary tokens through a single linear layer. This textual head
+        ignores arguments ``caption_tokens`` and ``caption_lengths``, they
+        are here for API consistency.
+
+        Parameters
+        ----------
+        visual_features: torch.Tensor
+            A tensor of shape ``(batch_size, textual_feature_size)`` containing
+            projected visual features.
+
+        Returns
+        -------
+        torch.Tensor
+            A tensor of shape ``(batch_size, vocab_size)`` containing output
+            vocabulary logits.
+        """
         # shape: (batch_size, max_caption_length, vocab_size)
         output_logits = self.output(visual_features)
         return output_logits
 
 
 class TransformerTextualHead(TextualHead):
+    r"""
+    A textual head composed of (1) word and positional embedding, (2) a transformer
+    decoder (unidirectional), and (3) and output projection (linear layer). The
+    weights of word embedding are tied with output projection layer, while the
+    latter still has its own learnable bias.
+
+    .. note::
+
+        For the "bicaptioning" pretraining task, our *textual head* (as defined
+        in the paper) must have two transformer decoders: one each to decode
+        caption in either direction. This class however will always have one
+        transformer per object.
+
+        Refer :class:`~virtex.models.captioning.BidirectionalCaptioningModel`
+        source to understand how an object of this class is cloned, along with
+        tying embedding and output weights, for bicaptioning.
+
+        Hence, while there are *two objects* of this class, it is pragmatically
+        a *single* textual head as a whole, according to the terminology used
+        in paper.
+
+    Parameters
+    ----------
+    vocab_size: int
+        Size of token vocabulary.
+    hidden_size: int
+        Hidden size of the transformer (embeddings, attention features).
+    num_layers: int
+        Number of layers in the transformer.
+    attention_heads: int
+        Number of attention heads in the transformer.
+    feedforward_size: int
+        Size of feedforward layers in the transformer.
+    dropout: float, optional (default = 0.1)
+        Dropout probability for transformer (applied after layer normalization).
+    norm_type: str, optional (default = "post")
+        Type of transformer layer: pre-normalization (like GPT-2) or
+        post-normalization (like BERT). One of ``{"pre", "post"}``.
+    max_caption_length: int, optional (default = 30)
+        Maximum length of input captions; this is used to create a fixed
+        positional embedding lookup table.
+    padding_idx: int, optional (default = 0)
+        Token index of ``[PAD]`` token, word embedding for these tokens will
+        be a vector of zeroes (and not trainable).
+    """
+
     def __init__(
         self,
         vocab_size: int,
@@ -64,9 +129,9 @@ class TransformerTextualHead(TextualHead):
         attention_heads: int,
         feedforward_size: int,
         dropout: float = 0.1,
-        norm_type: str = "pre",
-        padding_idx: int = 0,
+        norm_type: str = "post",
         max_caption_length: int = 30,
+        padding_idx: int = 0,
     ):
         super().__init__(vocab_size, hidden_size)
         self.num_layers = num_layers
@@ -78,8 +143,9 @@ class TransformerTextualHead(TextualHead):
         self.embedding = WordAndPositionalEmbedding(
             self.vocab_size,
             self.textual_feature_size,
-            max_caption_length=max_caption_length,
             dropout=dropout,
+            max_caption_length=max_caption_length,
+            padding_idx=padding_idx,
         )
         # Make encoder layer depending on whether it's a Pre-Norm or Post-Norm.
         LayerClass = (
@@ -120,10 +186,35 @@ class TransformerTextualHead(TextualHead):
 
     def forward(
         self,
+        visual_features: torch.Tensor,
         caption_tokens: torch.Tensor,
         caption_lengths: torch.Tensor,
-        visual_features: torch.Tensor,
     ) -> torch.Tensor:
+        r"""
+        Given (projected) visual features from visual backbone and caption
+        tokens, predict the output logits for next time-step.
+
+        Parameters
+        ----------
+        visual_features: torch.Tensor
+            A tensor of shape ``(batch_size, max_caption_length, textual_feature_size)``
+            containing projected visual features.
+        caption_tokens: torch.Tensor
+            A tensor of shape ``(batch_size, max_caption_length)`` of caption
+            tokens padded to the right by ``padding_idx``.
+        caption_lengths: torch.Tensor
+            A tensor of shape ``(batch_size, )`` containing lengths of caption
+            tokens in the batch.
+
+        Returns
+        -------
+        torch.Tensor
+            A tensor of shape ``(batch_size, max_caption_length, vocab_size)``
+            containing output vocabulary logits for each time-step.
+        """
+
+        # Note that `max_caption_length` here may be less than the
+        # `max_caption_length` passed in `__init__`, but it does not matter.
         batch_size, max_caption_length = caption_tokens.size()
 
         # Create a mask based on caption lengths, shape: (batch_size, )

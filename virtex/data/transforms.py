@@ -181,6 +181,10 @@ class ColorJitter(alb.ImageOnlyTransform):
     hue: float, optional (default = 0)
         How much to jitter hue. ``hue_factor`` is chosen uniformly from
         ``[-hue, hue]``.
+    always_apply: bool, optional (default = False)
+        Indicates whether this transformation should be always applied.
+    p: float, optional (default = 0.5)
+        Probability of applying the transform.
     """
 
     def __init__(
@@ -189,9 +193,10 @@ class ColorJitter(alb.ImageOnlyTransform):
         contrast: float = 0.0,
         saturation: float = 0.0,
         hue: float = 0.0,
+        always_apply: bool = False,
         p: float = 0.5,
     ):
-        super().__init__(p=p)
+        super().__init__(always_apply=always_apply, p=p)
         self.brightness = brightness
         self.contrast = contrast
         self.saturation = saturation

@@ -378,8 +378,8 @@ class TextualHeadFactory(Factory):
                 attention_heads=attention_heads,
                 feedforward_size=feedforward_size,
                 dropout=_C.MODEL.TEXTUAL.DROPOUT,
-                padding_idx=_C.DATA.UNK_INDEX,
                 max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
+                padding_idx=_C.DATA.UNK_INDEX,
             )
         return cls.create(name, **kwargs)
 
