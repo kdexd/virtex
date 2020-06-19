@@ -36,15 +36,19 @@ group.add_argument(
 
 # fmt: off
 parser.add_argument_group("Checkpointing")
+group.add_argument(
+    "--layer", choices=["layer1", "layer2", "layer3", "layer4", "avgpool"],
+    default="layer4", help="Evaluate features extracted from this layer."
+)
 parser.add_argument(
-    "--weight-init", choices=["random", "imagenet", "torchvision", "checkpoint"],
-    default="checkpoint", help="""How to initialize weights:
+    "--weight-init", choices=["random", "imagenet", "torchvision", "virtex"],
+    default="virtex", help="""How to initialize weights:
         1. 'random' initializes all weights randomly
         2. 'imagenet' initializes backbone weights from torchvision model zoo
-        3. {'torchvision', 'checkpoint'} load state dict from --checkpoint-path
+        3. {'torchvision', 'virtex'} load state dict from --checkpoint-path
             - with 'torchvision', state dict would be from PyTorch's training
               script.
-            - with 'checkpoint' it should be for our full pretrained model."""
+            - with 'virtex' it should be for our full pretrained model."""
 )
 parser.add_argument(
     "--checkpoint-path",
@@ -148,7 +152,7 @@ def main(_A: argparse.Namespace):
 
     # Load weights according to the init method, do nothing for `random`, and
     # `imagenet` is already taken care of.
-    if _A.weight_init == "checkpoint":
+    if _A.weight_init == "virtex":
         ITERATION = CheckpointManager(model=model).load(_A.checkpoint_path)
     elif _A.weight_init == "torchvision":
         # Keep strict=False because this state dict may have weights for
@@ -158,7 +162,7 @@ def main(_A: argparse.Namespace):
             strict=False,
         )
 
-    model = FeatureExtractor(model, layer_name="layer4", flatten_and_normalize=True)
+    model = FeatureExtractor(model, layer_name=_A.layer, flatten_and_normalize=True)
     model = model.to(device).eval()
 
     # -------------------------------------------------------------------------
@@ -224,10 +228,10 @@ def main(_A: argparse.Namespace):
     test_map = torch.tensor(pool_output).mean()
     logger.info(f"mAP: {test_map}")
 
-    # Tensorboard logging only when _A.weight_init == "checkpoint"
-    if _A.weight_init == "checkpoint":
+    # Tensorboard logging only when _A.weight_init == "virtex"
+    if _A.weight_init == "virtex":
         tensorboard_writer.add_scalars(
-            "metrics/voc07_clf", {"mAP": test_map}, ITERATION,
+            "metrics/voc07_clf", {"mAP": test_map}, ITERATION
         )
 
 
