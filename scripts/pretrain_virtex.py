@@ -201,9 +201,6 @@ def main(_A: argparse.Namespace):
                     val_batch[key] = val_batch[key].to(device)
                 output_dict = model(val_batch)
 
-                # This will have a key named "loss_components": these are
-                # scalar tensors (mean loss per batch) only for logging.
-                output_dict = model(*args)
                 val_loss_counter.update(output_dict["loss_components"])
 
             # Divide each loss component by number of val batches per GPU.

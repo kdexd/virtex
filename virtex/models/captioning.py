@@ -127,61 +127,66 @@ class CaptioningModel(nn.Module):
         # shape: (batch_size, ..., textual_feature_size)
         projected_visual_features = self.visual_projection(visual_features)
 
-        caption_tokens = batch["caption_tokens"]
-        caption_lengths = batch["caption_lengths"]
+        if "caption_tokens" in batch:
+            caption_tokens = batch["caption_tokens"]
+            caption_lengths = batch["caption_lengths"]
 
-        # shape: (batch_size, max_caption_length, vocab_size)
-        output_logits = self.textual(
-            projected_visual_features, caption_tokens, caption_lengths
-        )
-        loss = self.loss(
-            output_logits[:, :-1].contiguous().view(-1, self.textual.vocab_size),
-            caption_tokens[:, 1:].contiguous().view(-1),
-        )
-        output_dict: Dict[str, Any] = {
-            "loss": loss,
-            # Single scalar per batch for logging in training script.
-            "loss_components": {"captioning_forward": loss.clone().detach()},
-        }
-        # Do captioning in backward direction if specified.
-        if self.caption_backward:
-            backward_caption_tokens = batch["noitpac_tokens"]
-
-            backward_output_logits = self.backward_textual(
-                projected_visual_features,
-                backward_caption_tokens,
-                caption_lengths,
+            # shape: (batch_size, max_caption_length, vocab_size)
+            output_logits = self.textual(
+                projected_visual_features, caption_tokens, caption_lengths
             )
-            backward_loss = self.loss(
-                backward_output_logits[:, :-1]
-                .contiguous()
-                .view(-1, self.textual.vocab_size),
-                backward_caption_tokens[:, 1:].contiguous().view(-1),
+            loss = self.loss(
+                output_logits[:, :-1].contiguous().view(-1, self.textual.vocab_size),
+                caption_tokens[:, 1:].contiguous().view(-1),
             )
-            output_dict["loss"] += backward_loss
+            output_dict: Dict[str, Any] = {
+                "loss": loss,
+                # Single scalar per batch for logging in training script.
+                "loss_components": {"captioning_forward": loss.clone().detach()},
+            }
+            # Do captioning in backward direction if specified.
+            if self.caption_backward:
+                backward_caption_tokens = batch["noitpac_tokens"]
 
-            # Single scalar per batch for logging in training script.
-            output_dict["loss_components"].update(
-                captioning_backward=backward_loss.clone().detach()
-            )
+                backward_output_logits = self.backward_textual(
+                    projected_visual_features,
+                    backward_caption_tokens,
+                    caption_lengths,
+                )
+                backward_loss = self.loss(
+                    backward_output_logits[:, :-1]
+                    .contiguous()
+                    .view(-1, self.textual.vocab_size),
+                    backward_caption_tokens[:, 1:].contiguous().view(-1),
+                )
+                output_dict["loss"] += backward_loss
 
-            # During evaluation, get beam search predictions for forward model.
-            # Predictions from forward transformer will be shifted right by one
-            # time-step.
+                # Single scalar per batch for logging in training script.
+                output_dict["loss_components"].update(
+                    captioning_backward=backward_loss.clone().detach()
+                )
+
             if not self.training:
-                start_predictions = projected_visual_features.new_full(
-                    (batch_size,), self.sos_index
-                ).long()
-                # Add image features as a default argument to match callable
-                # signature accepted by beam search class (partial captions only).
-                beam_search_step = functools.partial(
-                    self.beam_search_step, projected_visual_features
-                )
-                all_top_k_predictions, _ = self.beam_search.search(
-                    start_predictions, beam_search_step
-                )
-                best_beam = all_top_k_predictions[:, 0, :]
-                output_dict["predictions"] = best_beam
+                # During validation (while pretraining), get best prediction
+                # at every time-step.
+                output_dict["predictions"] = torch.argmax(output_logits, dim=-1)
+        else:
+            # During inference, get beam search predictions for forward
+            # model. Predictions from forward transformer will be shifted
+            # right by one time-step.
+            start_predictions = projected_visual_features.new_full(
+                (batch_size,), self.sos_index
+            ).long()
+            # Add image features as a default argument to match callable
+            # signature accepted by beam search class (partial captions only).
+            beam_search_step = functools.partial(
+                self.beam_search_step, projected_visual_features
+            )
+            all_top_k_predictions, _ = self.beam_search.search(
+                start_predictions, beam_search_step
+            )
+            best_beam = all_top_k_predictions[:, 0, :]
+            output_dict = {"predictions": best_beam}
 
         return output_dict
 
@@ -246,7 +251,7 @@ class CaptioningModel(nn.Module):
         # Set logprobs of last predicted tokens as high negative value to avoid
         # repetition in caption.
         for index in range(batch_size * beam_size):
-            next_logprobs[index, partial_captions[index, -1]] = -1000000
+            next_logprobs[index, partial_captions[index, -1]] = -10000
 
         return next_logprobs
 
@@ -262,8 +267,8 @@ class CaptioningModel(nn.Module):
         predictions_str = ""
         for tokens, preds in zip(batch["caption_tokens"], predictions):
             predictions_str += f"""
-                Caption tokens : {tokenizer.decode(tokens.tolist())}
-                Predictions (f): {tokenizer.decode(preds.tolist())}
+                Caption tokens : {" ".join(tokens.tolist())}
+                Predictions (f): {" ".join(preds.tolist())}
 
                 """
         return predictions_str
