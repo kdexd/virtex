@@ -30,7 +30,7 @@ from virtex.utils.checkpointing import CheckpointManager
 class _ModelZooUrls(object):
     r"""Mapping from config names to URL suffixes of pretrained weights."""
 
-    URL_PREFIX = "https://umich.box.com/shared/static/"
+    URL_PREFIX = "https://umich.box.com/shared/static"
 
     CONFIG_PATH_TO_URL_SUFFIX = {
 
