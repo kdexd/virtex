@@ -140,7 +140,8 @@ class ImageTransformsFactory(Factory):
         ),
         "horizontal_flip": partial(T.HorizontalFlip, p=0.5),
 
-        # Color normalization: whenever selected, always applied.
+        # Color normalization: whenever selected, always applied. This accepts images
+        # in [0, 255], requires mean and std in [0, 1] and normalizes to `N(0, 1)`.
         "normalize": partial(
             alb.Normalize, mean=T.IMAGENET_COLOR_MEAN, std=T.IMAGENET_COLOR_STD, p=1.0
         ),

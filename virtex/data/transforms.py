@@ -132,13 +132,21 @@ class TruncateCaptionTokens(CaptionOnlyTransform):
 class HorizontalFlip(ImageCaptionTransform):
     r"""
     Flip the image horizontally randomly (equally likely) and replace the
-    word "left" with "right" in the caption. This transform can also work on
-    images only (without the captions).
+    word "left" with "right" in the caption.
+
+    .. note::
+
+        This transform can also work on images only (without the captions).
+        Its behavior will be same as albumentations
+        :class:`~albumentations.augmentations.transforms.HorizontalFlip`.
 
     Examples
     --------
-    >>> flip = ImageCaptionHorizontalFlip(p=0.5)
-    >>> out = flip(image=image, caption=caption)  # keys: {"image", "caption"}
+    >>> flip = HorizontalFlip(p=0.5)
+    >>> out1 = flip(image=image, caption=caption)  # keys: {"image", "caption"}
+    >>> # Also works with images (without caption).
+    >>> out2 = flip(image=image)  # keys: {"image"}
+
     """
 
     def apply(self, img, **params):

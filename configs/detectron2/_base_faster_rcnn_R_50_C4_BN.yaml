@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+# Train a Faster R-CNN with ResNet-50 and C4 backbone. This config follows
+# Detectron2 format; and is unrelated with our VirTex configs. Params here
+# replicate evaluation protocol as per MoCo (https://arxiv.org/abs/1911.05722).
+# ----------------------------------------------------------------------------
+
 INPUT:
   # Input format will always be RGB, consistent with torchvision.
   FORMAT: "RGB"

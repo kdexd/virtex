@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+# Train a Mask R-CNN with ResNet-50 and FPN backbone. This config follows
+# Detectron2 format; and is unrelated with our VirTex configs. Params here
+# replicate evaluation protocol as per MoCo (https://arxiv.org/abs/1911.05722).
+# ----------------------------------------------------------------------------
+
 INPUT:
   # Input format will always be RGB, consistent with torchvision.
   FORMAT: "RGB"
@@ -52,6 +58,8 @@ MODEL:
     POOLER_RESOLUTION: 14
 
   # ImageNet color mean for torchvision-like models (RGB order).
+  # These are in [0-255] range as expected by Detectron2. Rest of our codebase
+  # uses [0-1] range; but both are equivalent and consistent.
   PIXEL_MEAN: [123.675, 116.280, 103.530]
   PIXEL_STD: [58.395, 57.120, 57.375]
 

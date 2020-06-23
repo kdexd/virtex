@@ -36,6 +36,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import models
 
+import virtex.data.transforms as T
 from virtex.data.datasets.downstream_datasets import ImageNetDataset
 import virtex.utils.distributed as vdist
 from virtex.utils.metrics import TopkAccuracy
@@ -167,29 +168,24 @@ def main_worker(gpu, ngpus_per_node, _A):
     )
     logger.info(f"Size of dataset: {len(train_dataset)}")
     val_dataset = ImageNetDataset(root=_A.data, split="val")
-    # Val dataset is used sparsely, don't keep it around in memory by caching.
 
-    normalize = alb.Normalize(
-        mean=(0.485, 0.456, 0.406),
-        std=(0.229, 0.224, 0.225),
-        max_pixel_value=1.0,
-        always_apply=True,
-    )
-    # Override image transform (class definition has transform according to
-    # downstream linear classification protocol).
     # fmt: off
+    # Data augmentation as per ImageNet training from official PyTorch examples.
     train_dataset.image_transform = alb.Compose([
-        alb.RandomResizedCrop(224, 224, always_apply=True),
-        alb.HorizontalFlip(p=0.5),
-        alb.ToFloat(max_value=255.0, always_apply=True),
-        normalize,
+        T.RandomResizedSquareCrop(224, always_apply=True),
+        T.HorizontalFlip(p=0.5),
+        alb.Normalize(
+            mean=T.IMAGENET_COLOR_MEAN, std=T.IMAGENET_COLOR_STD, always_apply=True
+        )
     ])
     val_dataset.image_transform = alb.Compose([
-        alb.Resize(256, 256, always_apply=True),
-        alb.CenterCrop(224, 224, always_apply=True),
-        alb.ToFloat(max_value=255.0, always_apply=True),
-        normalize,
+        T.SquareResize(256, always_apply=True),
+        T.CenterSquareCrop(224, always_apply=True),
+        alb.Normalize(
+            mean=T.IMAGENET_COLOR_MEAN, std=T.IMAGENET_COLOR_STD, always_apply=True
+        )
     ])
+
     train_sampler = DistributedSampler(train_dataset, shuffle=True)
     val_sampler = DistributedSampler(val_dataset)
     train_loader = DataLoader(
