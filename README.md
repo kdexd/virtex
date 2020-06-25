@@ -65,3 +65,45 @@ If you find this code useful, please consider citing:
 [3]: https://kdexd.github.io/virtex/virtex/usage/model_zoo.html
 [4]: https://kdexd.github.io/virtex/virtex/usage/pretrain.html
 [5]: https://kdexd.github.io/virtex/virtex/usage/downstream.html
+
+Build a Docker Container(Dockerfile)
+------------------------
+```text
+FROM python:3.6-stretch
+MAINTAINER Kozlov <kkbimproject@gmail.com>
+
+# устанавливаем параметры сборки
+RUN apt-get update && \
+	apt-get install -y gcc make apt-transport-https ca-certificates build-essential
+
+# проверяем окружение python
+RUN python3 --version
+RUN pip3 --version
+
+# задаем рабочую директорию для контейнера
+WORKDIR  /usr/src/<virtex-d>
+
+# устанавливаем зависимости python
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# копируем все файлы из корня проекта в рабочую директорию
+COPY src/ /src/
+RUN ls -la /src/*
+
+# запускаем приложение Python
+CMD ["python3", "/src/setup.py"]
+```
+структура файлов должна выглядеть следующим образом
+```text
+virtex-d
+      |-- src
+          |-- main.py
+          |-- other_module.py
+      |-- requirements.txt
+      |-- Dockerfile
+```
+Запускаем команду docker build . если хотите собрать
+в текущий проект или можно задать имя docker build NAME .
+
+Проверям доке командой docker images и после запускаем docker run
