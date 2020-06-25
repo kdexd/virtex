@@ -147,7 +147,7 @@ class TransformerTextualHead(TextualHead):
             max_caption_length=max_caption_length,
             padding_idx=padding_idx,
         )
-        # Make encoder layer depending on whether it's a Pre-Norm or Post-Norm.
+        # Make decoder layer depending on whether it's a Pre-Norm or Post-Norm.
         LayerClass = (
             nn.TransformerDecoderLayer
             if norm_type == "post"
@@ -160,9 +160,7 @@ class TransformerTextualHead(TextualHead):
             dropout=dropout,
             activation="gelu",
         )
-        # We call this member as "encoder" for consistent naming, and because
-        # it still "encodes" the caption for us.
-        self.encoder = nn.TransformerDecoder(_layer, self.num_layers)
+        self.transformer = nn.TransformerDecoder(_layer, self.num_layers)
         self.apply(self._init_weights)
 
         # Create an output linear layer and tie the input and output word
@@ -231,12 +229,12 @@ class TransformerTextualHead(TextualHead):
             max_caption_length, caption_embeddings.dtype, caption_embeddings.device
         )
         # We transpose the first two dimensions of tokens embeddings and visual
-        # features, as required by encoder.
+        # features, as required by decoder.
         caption_embeddings = caption_embeddings.transpose(0, 1)
         visual_features = visual_features.transpose(0, 1)
 
         # shape: (max_caption_length, batch_size, hidden_size)
-        textual_features = self.encoder(
+        textual_features = self.transformer(
             caption_embeddings,
             visual_features,
             tgt_mask=unidirectional_mask,
