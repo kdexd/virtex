@@ -193,6 +193,27 @@ split (reporting CIDEr and SPICE metics):
     python scripts/eval_captioning.py \
         --config /tmp/bicaptioning_R_50_L1_H2048/pretrain_config.yaml \
         --checkpoint-path /tmp/bicaptioning_R_50_L1_H2048/checkpoint_500000.pth \
+        --calc-metrics \
         --num-gpus-per-machine 1 \
-        --cpu-workers 4 \
-        --serialization-dir /tmp/bicaptioning_R_50_L1_H2048
+        --cpu-workers 4
+
+-------------------------------------------------------------------------------
+
+Running Image Captioning Inference on Arbitrary Images
+------------------------------------------------------
+
+The above script can be used for generating captions for any images in a directory.
+Replace certain commands as follows:
+
+.. code-block:: shell
+
+    python scripts/eval_captioning.py \
+        --config /tmp/bicaptioning_R_50_L1_H2048/pretrain_config.yaml \
+        --checkpoint-path /tmp/bicaptioning_R_50_L1_H2048/checkpoint_500000.pth \
+        --data-root /path/to/images_dir \
+        --output /path/to/save/predictions.json \
+        --num-gpus-per-machine 1 \
+        --cpu-workers 4
+
+This script will save predictions in JSON format. Since our goal is to not
+improve image captioning, these models may not generate the best captions.

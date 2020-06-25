@@ -15,7 +15,6 @@ from virtex.data.structures import (
     LinearClassificationBatch,
 )
 from virtex.data import transforms as T
-from virtex.data.readers import LmdbReader
 
 
 class ImageNetDataset(ImageNet):
@@ -237,16 +236,15 @@ class VOC07ClassificationDataset(Dataset):
         return LinearClassificationBatch(instances)
 
 
-class CocoCaptionsEvalDataset(Dataset):
+class ImageDirectoryDataset(Dataset):
     r"""
-    A dataset which provides only images (for inference) from the COCO 2017
-    dataset.
+    A dataset which reads images from any directory. This class is useful to
+    run image captioning inference on our models with any arbitrary images.
 
     Parameters
     ----------
-    data_root: str, optional (default = "datasets/coco")
-        Path to the dataset root directory. This must contain the serialized
-        LMDB file (for COCO ``val2017`` split).
+    data_root: str
+        Path to a directory containing images.
     image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
         A list of transformations, from either `albumentations
         <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
@@ -254,24 +252,27 @@ class CocoCaptionsEvalDataset(Dataset):
     """
 
     def __init__(
-        self,
-        data_root: str = "datasets/coco",
-        image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
+        self, data_root: str, image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM
     ):
-        lmdb_path = os.path.join(data_root, f"serialized_val.lmdb")
-        self.reader = LmdbReader(lmdb_path)
+        self.image_paths = glob.glob(os.path.join(data_root, "*"))
         self.image_transform = image_transform
 
     def __len__(self):
-        return len(self.reader)
+        return len(self.image_paths)
 
     def __getitem__(self, idx: int):
+        image_path = self.image_paths[idx]
+        # Remove extension from image name to use as image_id.
+        image_id = os.path.splitext(os.path.basename(image_path))[0]
 
-        image_id, image, _ = self.reader[idx]
+        # Open image from path and apply transformation, convert to CHW format.
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = self.image_transform(image=image)["image"]
         image = np.transpose(image, (2, 0, 1))
 
-        return {
-            "image_id": torch.tensor(image_id).long(),
-            "image": torch.tensor(image),
-        }
+        # Convert image_id to integer if possible.
+        if image_id.isdigit():
+            image_id = int(image_id)
+
+        return {"image_id": image_id, "image": torch.tensor(image)}

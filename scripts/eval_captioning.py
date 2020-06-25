@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 from typing import Any, Dict, List
 
@@ -6,21 +7,36 @@ from loguru import logger
 import torch
 from torch.utils.data import DataLoader
 
-# fmt: off
 from virtex.config import Config
-from virtex.data import CocoCaptionsEvalDataset
+from virtex.data import ImageDirectoryDataset
 from virtex.factories import TokenizerFactory, PretrainingModelFactory
 from virtex.utils.checkpointing import CheckpointManager
 from virtex.utils.common import common_parser, common_setup
 from virtex.utils.metrics import CocoCaptionsEvaluator
 
 
+# fmt: off
 parser = common_parser(
-    description="Evaluate a pre-trained model based on captioning metrics."
+    description="""Run image captioning inference on a pretrained model, and/or
+    evaluate pretrained model on COCO Captions val2017 split."""
+)
+parser.add_argument(
+    "--data-root", default=None,
+    help="""Path to a directory containing image files to generate captions for.
+    Default: COCO val2017 image directory as expected relative to project root."""
 )
 parser.add_argument(
     "--checkpoint-path", required=True,
     help="Path to load checkpoint and run captioning evaluation."
+)
+parser.add_argument(
+    "--output", default=None,
+    help="Path to save predictions as a JSON file."
+)
+parser.add_argument(
+    "--calc-metrics", action="store_true",
+    help="""Calculate CIDEr and SPICE metrics using ground truth COCO Captions.
+    This flag should not be set when running inference on arbitrary images."""
 )
 # fmt: on
 
@@ -37,8 +53,12 @@ def main(_A: argparse.Namespace):
     _C = Config(_A.config, _A.config_override)
 
     tokenizer = TokenizerFactory.from_config(_C)
+
+    if _A.data_root is None:
+        _A.data_root = os.path.join(_C.DATA.ROOT, "val2017")
+
     val_dataloader = DataLoader(
-        CocoCaptionsEvalDataset(_C.DATA.ROOT),
+        ImageDirectoryDataset(_A.data_root),
         batch_size=_C.OPTIM.BATCH_SIZE,
         num_workers=_A.cpu_workers,
         pin_memory=True,
@@ -64,16 +84,25 @@ def main(_A: argparse.Namespace):
         ):
             predictions.append(
                 {
-                    "image_id": image_id.item(),
-                    "caption": tokenizer.decode(caption.tolist),
+                    "image_id": image_id,
+                    "caption": tokenizer.decode(caption.tolist()),
                 }
             )
 
-    # Assume ground truth (COCO val2017 annotations) exist.
-    gt = os.path.join(_C.DATA.ROOT, "annotations", "captions_val2017.json")
+    # Save predictions as a JSON file if specified.
+    if _A.output is not None:
+        os.makedirs(os.path.dirname(_A.output), exist_ok=True)
+        json.dump(predictions, open(_A.output, "w"))
+        logger.info(f"Saved predictions to {_A.output}")
 
-    metrics = CocoCaptionsEvaluator(gt).evaluate(predictions)
-    logger.info(f"Iter: {ITERATION} | Metrics: {metrics}")
+    # Calculate CIDEr and SPICE metrics using ground truth COCO Captions. This
+    # should be skipped when running inference on arbitrary images.
+    if _A.calc_metrics:
+        # Assume ground truth (COCO val2017 annotations) exist.
+        gt = os.path.join(_C.DATA.ROOT, "annotations", "captions_val2017.json")
+
+        metrics = CocoCaptionsEvaluator(gt).evaluate(predictions)
+        logger.info(f"Iter: {ITERATION} | Metrics: {metrics}")
 
 
 if __name__ == "__main__":

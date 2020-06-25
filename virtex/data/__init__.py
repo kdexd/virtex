@@ -4,13 +4,13 @@ from .datasets.downstream import (
     ImageNetDataset,
     INaturalist2018Dataset,
     VOC07ClassificationDataset,
-    CocoCaptionsEvalDataset,
+    ImageDirectoryDataset,
 )
 
 __all__ = [
     "CaptioningDataset",
     "MultiLabelClassificationDataset",
-    "CocoCaptionsEvalDataset",
+    "ImageDirectoryDataset",
     "ImageNetDataset",
     "INaturalist2018Dataset",
     "VOC07ClassificationDataset",

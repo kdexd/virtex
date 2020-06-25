@@ -42,7 +42,7 @@ module do not play nice.
 Reproducing all VirTex ablations
 --------------------------------
 
-To reproduce all ablations from the `paper <kdexd.github.io/papers/virtex.pdf>`_,
+To reproduce all ablations from the `paper <https://arxiv.org/abs/2006.06666>`_,
 replace the ``--config`` argument in above command with the following (all
 assumed to be relative to project root):
 
