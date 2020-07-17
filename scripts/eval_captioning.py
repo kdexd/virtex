@@ -72,13 +72,12 @@ def main(_A: argparse.Namespace):
     predictions: List[Dict[str, Any]] = []
 
     for val_iteration, val_batch in enumerate(val_dataloader, start=1):
-        for key in val_batch:
-            val_batch[key] = val_batch[key].to(device)
 
-        # Make a dictionary of predictions in COCO format.
+        val_batch["image"] = val_batch["image"].to(device)
         with torch.no_grad():
             output_dict = model(val_batch)
 
+        # Make a dictionary of predictions in COCO format.
         for image_id, caption in zip(
             val_batch["image_id"], output_dict["predictions"]
         ):
