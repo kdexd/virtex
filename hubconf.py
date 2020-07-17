@@ -25,10 +25,11 @@ def resnet50(pretrained: bool = False, **kwargs):
     model.avgpool = torch.nn.Identity()
     model.fc = torch.nn.Identity()
 
-    model.load_state_dict(
-        torch.hub.load_state_dict_from_url(
-            "https://umich.box.com/shared/static/fotpti1uk6bpoobeazysfc6fdbndvy90.pth",
-            progress=False,
-        )["model"]
-    )
+    if pretrained:
+        model.load_state_dict(
+            torch.hub.load_state_dict_from_url(
+                "https://umich.box.com/shared/static/fotpti1uk6bpoobeazysfc6fdbndvy90.pth",
+                progress=False,
+            )["model"]
+        )
     return model
