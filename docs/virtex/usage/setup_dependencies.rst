@@ -142,13 +142,13 @@ Preprocess Data
         python scripts/preprocess/preprocess_coco.py \
             --data-root datasets/coco \
             --split train \
-            --output datasets/serialized/coco_train2017.lmdb
+            --output datasets/coco/serialized_train.lmdb
 
     .. code-block:: shell
 
         python scripts/preprocess/preprocess_coco.py \
             --data-root datasets/coco \
             --split val \
-            --output datasets/serialized/coco_val2017.lmdb
+            --output datasets/coco/serialized_val.lmdb
 
 That's it! You are all set to use this codebase.
