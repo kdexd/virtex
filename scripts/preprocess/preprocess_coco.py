@@ -2,10 +2,12 @@ import argparse
 import os
 import pickle
 import platform
+from typing import Any, List
 
 import albumentations as alb
 import lmdb
 from tqdm import tqdm
+from torch.utils.data import DataLoader
 
 from virtex.data.readers import SimpleCocoCaptionsReader
 
@@ -21,6 +23,14 @@ parser.add_argument(
     help="Which split to process, either `train` or `val`.",
 )
 parser.add_argument(
+    "-b", "--batch-size", type=int, default=16,
+    help="Batch size to process and serialize data. Set as per CPU memory.",
+)
+parser.add_argument(
+    "-j", "--cpu-workers", type=int, default=4,
+    help="Number of CPU workers for data loading.",
+)
+parser.add_argument(
     "-e", "--short-edge-size", type=int, default=None,
     help="""Resize shorter edge to this size (keeping aspect ratio constant)
     before serializing. Useful for saving disk memory, and faster read.
@@ -32,13 +42,24 @@ parser.add_argument(
 )
 
 
+def collate_fn(instances: List[Any]):
+    r"""Collate function for data loader to return list of instances as-is."""
+    return instances
+
+
 if __name__ == "__main__":
 
     _A = parser.parse_args()
     os.makedirs(os.path.dirname(_A.output), exist_ok=True)
 
-    dset = SimpleCocoCaptionsReader(_A.data_root, _A.split)
-
+    dloader = DataLoader(
+        SimpleCocoCaptionsReader(_A.data_root, _A.split),
+        batch_size=_A.batch_size,
+        num_workers=_A.cpu_workers,
+        shuffle=False,
+        drop_last=False,
+        collate_fn=collate_fn
+    )
     # Open an LMDB database.
     # Set a sufficiently large map size for LMDB (based on platform).
     map_size = 1099511627776 * 2 if platform.system() == "Linux" else 1280000
@@ -52,20 +73,21 @@ if __name__ == "__main__":
 
     # Serialize each instance (as a dictionary). Use `pickle.dumps`. Key will
     # be an integer (cast as string) starting from `0`.
-    for idx in tqdm(range(len(dset))):
-
-        # Convert dict to an (image_id, image, captions) tuple for compactness.
-        instance = dset[idx]
-
-        # Resize image from instance and convert instance to tuple.
-        image = instance["image"]
-        if _A.short_edge_size is not None:
-            image = resize(image=image)["image"]
-
-        instance = (instance["image_id"], image, instance["captions"])
+    for index, batch in enumerate(tqdm(dloader)):
 
         txn = db.begin(write=True)
-        txn.put(f"{idx}".encode("ascii"), pickle.dumps(instance, protocol=-1))
+
+        for instance in batch:
+            image = instance["image"]
+            width, height, channels = image.shape
+
+            # Resize image from instance and convert instance to tuple.
+            if _A.short_edge_size is not None and min(width, height) > _A.short_edge_size:
+                image = resize(image=image)["image"]
+
+            instance = (instance["image_id"], instance["image"], instance["captions"])
+            txn.put(f"{idx}".encode("ascii"), pickle.dumps(instance, protocol=-1))
+
         txn.commit()
 
     db.sync()
