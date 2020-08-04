@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     # Serialize each instance (as a dictionary). Use `pickle.dumps`. Key will
     # be an integer (cast as string) starting from `0`.
-    for index, batch in enumerate(tqdm(dloader)):
+    for idx, batch in enumerate(tqdm(dloader)):
 
         txn = db.begin(write=True)
 
