@@ -41,6 +41,8 @@ For these steps to install through Anaconda (or Miniconda).
 
         python setup.py develop
 
+5. Install NVIDIA Apex for mixed precision training, following instructions in
+   their `README <https://github.com/nvidia/apex>`_.
 
 Now you can ``import virtex`` from anywhere as long as you have this conda
 environment activated.
