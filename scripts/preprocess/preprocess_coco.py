@@ -73,6 +73,8 @@ if __name__ == "__main__":
 
     # Serialize each instance (as a dictionary). Use `pickle.dumps`. Key will
     # be an integer (cast as string) starting from `0`.
+    INSTANCE_COUNTER: int = 0
+
     for idx, batch in enumerate(tqdm(dloader)):
 
         txn = db.begin(write=True)
@@ -86,7 +88,11 @@ if __name__ == "__main__":
                 image = resize(image=image)["image"]
 
             instance = (instance["image_id"], instance["image"], instance["captions"])
-            txn.put(f"{idx}".encode("ascii"), pickle.dumps(instance, protocol=-1))
+            txn.put(
+                f"{INSTANCE_COUNTER}".encode("ascii"),
+                pickle.dumps(instance, protocol=-1)
+            )
+            INSTANCE_COUNTER += 1
 
         txn.commit()
 
