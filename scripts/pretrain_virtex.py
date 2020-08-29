@@ -61,10 +61,23 @@ def main(_A: argparse.Namespace):
     train_dataset = PretrainingDatasetFactory.from_config(_C, split="train")
     val_dataset = PretrainingDatasetFactory.from_config(_C, split="val")
 
+    # Make `DistributedSampler`s to shard datasets across GPU processes.
+    # Skip this if training on CPUs.
+    train_sampler = (
+        DistributedSampler(train_dataset, shuffle=True)  # type: ignore
+        if _A.num_gpus_per_machine > 0
+        else None
+    )
+    val_sampler = (
+        DistributedSampler(val_dataset, shuffle=False)  # type: ignore
+        if _A.num_gpus_per_machine > 0
+        else None
+    )
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
-        sampler=DistributedSampler(train_dataset, shuffle=True),
+        sampler=train_sampler,
+        shuffle=train_sampler is None,
         num_workers=_A.cpu_workers,
         pin_memory=True,
         drop_last=True,
@@ -73,7 +86,8 @@ def main(_A: argparse.Namespace):
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=_C.OPTIM.BATCH_SIZE // dist.get_world_size(),
-        sampler=DistributedSampler(val_dataset, shuffle=False),
+        sampler=val_sampler,
+        shuffle=False,
         num_workers=_A.cpu_workers,
         pin_memory=True,
         drop_last=False,

@@ -22,11 +22,12 @@ def cycle(dataloader, device, start_iteration: int = 0):
     iteration = start_iteration
 
     while True:
-        # Set the `epoch` of sampler as current iteration. This is just for
-        # determinisitic shuffling after every epoch, so it is just a seed and
-        # need not necessarily be the "epoch".
-        logger.info(f"Beginning new epoch, setting shuffle seed {iteration}")
-        dataloader.sampler.set_epoch(iteration)
+        if isinstance(dataloader.sampler, torch.utils.data.DistributedSampler):
+            # Set the `epoch` of DistributedSampler as current iteration. This
+            # is a way of determinisitic shuffling after every epoch, so it is
+            # just a seed and need not necessarily be the "epoch".
+            logger.info(f"Beginning new epoch, setting shuffle seed {iteration}")
+            dataloader.sampler.set_epoch(iteration)
 
         for batch in dataloader:
             for key in batch:
