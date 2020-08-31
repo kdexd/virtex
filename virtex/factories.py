@@ -358,23 +358,24 @@ class TextualHeadFactory(Factory):
         """
 
         _C = config
-
-        # Get architectural hyper-params as per name by matching regex.
-        name, architecture = _C.MODEL.TEXTUAL.NAME.split("::")
-        architecture = re.match(r"L(\d+)_H(\d+)_A(\d+)_F(\d+)", architecture)
-
-        num_layers = int(architecture.group(1))
-        hidden_size = int(architecture.group(2))
-        attention_heads = int(architecture.group(3))
-        feedforward_size = int(architecture.group(4))
-
+        name = _C.MODEL.TEXTUAL.NAME
         kwargs = {
+            "visual_feature_size": _C.MODEL.VISUAL.FEATURE_SIZE,
             "vocab_size": _C.DATA.VOCAB_SIZE,
-            "hidden_size": hidden_size,
         }
 
         if "transformer" in _C.MODEL.TEXTUAL.NAME:
+            # Get architectural hyper-params as per name by matching regex.
+            name, architecture = name.split("::")
+            architecture = re.match(r"L(\d+)_H(\d+)_A(\d+)_F(\d+)", architecture)
+
+            num_layers = int(architecture.group(1))
+            hidden_size = int(architecture.group(2))
+            attention_heads = int(architecture.group(3))
+            feedforward_size = int(architecture.group(4))
+
             kwargs.update(
+                hidden_size=hidden_size,
                 num_layers=num_layers,
                 attention_heads=attention_heads,
                 feedforward_size=feedforward_size,

@@ -82,15 +82,6 @@ class ClassificationModel(nn.Module):
         visual_features = self.visual(batch["image"])
         batch_size = visual_features.size(0)
 
-        # Perform global average pooling of visual features.
-        # shape: (batch_size, ..., visual_feature_size)
-        visual_features = visual_features.view(
-            batch_size, self.visual.visual_feature_size, -1
-        ).permute(0, 2, 1)
-
-        # shape: (batch_size, visual_feature_size)
-        visual_features = visual_features.mean(dim=1)
-
         # Get logits and further log-probabilities.
         # shape: (batch_size, vocab_size)
         logits = self.textual(visual_features)

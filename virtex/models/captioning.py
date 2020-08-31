@@ -63,15 +63,13 @@ class CaptioningModel(nn.Module):
         self.padding_idx = self.textual.padding_idx
         self.caption_backward = caption_backward
 
-        self.visual_projection = nn.Linear(
-            self.visual.visual_feature_size, self.textual.textual_feature_size
-        )
-        self.loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
-
         # Clone the textual module for backward direction if doing captioning
         # in both directions (separately).
         if self.caption_backward:
             self.backward_textual = copy.deepcopy(self.textual)
+
+            # Share weights for visual projection, and input/output embeddings.
+            self.backward_textual.visual_projection = self.textual.visual_projection
             self.backward_textual.embedding = self.textual.embedding
             self.backward_textual.output = self.textual.output
 
@@ -81,6 +79,7 @@ class CaptioningModel(nn.Module):
         self.beam_search = AutoRegressiveBeamSearch(
             self.eos_index, beam_size=5, max_steps=max_decoding_steps
         )
+        self.loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
 
     def forward(self, batch: ImageCaptionBatch) -> Dict[str, Any]:
         r"""
@@ -114,18 +113,9 @@ class CaptioningModel(nn.Module):
                 }
         """
 
-        # shape: (batch_size, visual_feature_size, ...)
+        # shape: (batch_size, channels, height, width)
         visual_features = self.visual(batch["image"])
         batch_size = visual_features.size(0)
-
-        # shape: (batch_size, ..., visual_feature_size)
-        visual_features = visual_features.view(
-            batch["image"].size(0), self.visual.visual_feature_size, -1
-        ).permute(0, 2, 1)
-
-        # Now visual and textual features are of same size.
-        # shape: (batch_size, ..., textual_feature_size)
-        projected_visual_features = self.visual_projection(visual_features)
 
         if "caption_tokens" in batch:
             caption_tokens = batch["caption_tokens"]
@@ -133,7 +123,7 @@ class CaptioningModel(nn.Module):
 
             # shape: (batch_size, max_caption_length, vocab_size)
             output_logits = self.textual(
-                projected_visual_features, caption_tokens, caption_lengths
+                visual_features, caption_tokens, caption_lengths
             )
             loss = self.loss(
                 output_logits[:, :-1].contiguous().view(-1, self.textual.vocab_size),
@@ -149,7 +139,7 @@ class CaptioningModel(nn.Module):
                 backward_caption_tokens = batch["noitpac_tokens"]
 
                 backward_output_logits = self.backward_textual(
-                    projected_visual_features,
+                    visual_features,
                     backward_caption_tokens,
                     caption_lengths,
                 )
@@ -174,13 +164,13 @@ class CaptioningModel(nn.Module):
             # During inference, get beam search predictions for forward
             # model. Predictions from forward transformer will be shifted
             # right by one time-step.
-            start_predictions = projected_visual_features.new_full(
+            start_predictions = visual_features.new_full(
                 (batch_size,), self.sos_index
             ).long()
             # Add image features as a default argument to match callable
             # signature accepted by beam search class (partial captions only).
             beam_search_step = functools.partial(
-                self.beam_search_step, projected_visual_features
+                self.beam_search_step, visual_features
             )
             all_top_k_predictions, _ = self.beam_search.search(
                 start_predictions, beam_search_step
@@ -191,7 +181,7 @@ class CaptioningModel(nn.Module):
         return output_dict
 
     def beam_search_step(
-        self, projected_visual_features: torch.Tensor, partial_captions: torch.Tensor
+        self, visual_features: torch.Tensor, partial_captions: torch.Tensor
     ) -> torch.Tensor:
         r"""
         Given visual features and a batch of (assumed) partial captions, predict
@@ -215,18 +205,12 @@ class CaptioningModel(nn.Module):
             distribution over tokens for next time-step.
         """
 
-        batch_size, num_features, textual_feature_size = (
-            projected_visual_features.size()
-        )
         # Expand and repeat image features while doing beam search.
+        batch_size = visual_features.size(0)
         beam_size = int(partial_captions.size(0) / batch_size)
         if beam_size > 1:
-            projected_visual_features = projected_visual_features.unsqueeze(1).repeat(
-                1, beam_size, 1, 1
-            )
-            projected_visual_features = projected_visual_features.view(
-                batch_size * beam_size, num_features, textual_feature_size
-            )
+            # shape: (batch_size * beam_size, channels, height, width)
+            visual_features = visual_features.repeat(beam_size, 1, 1, 1)
 
         # Provide caption lengths as current length (irrespective of predicted
         # EOS/padding tokens). shape: (batch_size, )
@@ -239,7 +223,7 @@ class CaptioningModel(nn.Module):
 
         # shape: (batch_size * beam_size, partial_caption_length, vocab_size)
         output_logits = self.textual(
-            projected_visual_features, partial_captions, caption_lengths
+            visual_features, partial_captions, caption_lengths
         )
         # Keep features for last time-step only, we only care about those.
         output_logits = output_logits[:, -1, :]

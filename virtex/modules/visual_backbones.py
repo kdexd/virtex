@@ -14,15 +14,7 @@ class VisualBackbone(nn.Module):
 
     def __init__(self, visual_feature_size: int):
         super().__init__()
-        self._visual_feature_size = visual_feature_size
-
-    @property
-    def visual_feature_size(self) -> int:
-        r"""
-        Size of the channel dimension of output from forward pass. This
-        property is used to create layers (heads) on top of this backbone.
-        """
-        return self._visual_feature_size
+        self.visual_feature_size = visual_feature_size
 
 
 class BlindVisualBackbone(VisualBackbone):
@@ -80,7 +72,7 @@ class TorchvisionVisualBackbone(VisualBackbone):
     name: str, optional (default = "resnet50")
         Name of the model from Torchvision model zoo.
     visual_feature_size: int, optional (default = 2048)
-        Size of the last dimension (channels) of output from forward pass.
+        Size of the channel dimension of output visual features from forward pass.
     pretrained: bool, optional (default = False)
         Whether to load ImageNet pretrained weights from Torchvision.
     frozen: float, optional (default = False)
@@ -131,7 +123,7 @@ class TorchvisionVisualBackbone(VisualBackbone):
         -------
         Union[torch.Tensor, Dict[str, torch.Tensor]]
             - If ``return_intermediate_outputs = False``, this will be a tensor
-              of shape ``(batch_size, visual_feature_size, *)``, for example
+              of shape ``(batch_size, channels, height, width)``, for example
               it will be ``(batch_size, 2048, 7, 7)`` for ResNet-50 (``layer4``).
 
             - If ``return_intermediate_outputs = True``, this will be a dict
@@ -155,7 +147,7 @@ class TorchvisionVisualBackbone(VisualBackbone):
         if return_intermediate_outputs:
             return intermediate_outputs
         else:
-            # shape: (batch_size, feature_size, ...)
+            # shape: (batch_size, channels, height, width)
             return intermediate_outputs["layer4"]
 
     def detectron2_backbone_state_dict(self) -> Dict[str, Any]:

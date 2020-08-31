@@ -1,3 +1,8 @@
+r"""
+A textual head accepts visual features from the visual backbone, and performs
+task specific modeling (captioning, classification etc.) to predict an output
+distribution over vocabulary tokens for one or multiple time-steps in the batch.
+"""
 import torch
 from torch import nn
 from typing import Optional
@@ -11,39 +16,53 @@ class TextualHead(nn.Module):
     Base class for all textual heads. All child classes can simply inherit
     from :class:`~torch.nn.Module`, however this is kept here for uniform
     type annotations.
+
+    Parameters
+    ----------
+    visual_feature_size: int
+        Size (number of channels) of the input features from the visual backbone.
+    vocab_size: int
+        Number of tokens in the output vocabulary.
+    hidden_size: int
+        Size of the token embedding vectors, or hidden state vector of the
+        language model.
     """
 
-    def __init__(self, vocab_size: int, hidden_size: int):
+    def __init__(self, visual_feature_size: int, vocab_size: int, hidden_size: int):
         super().__init__()
+        self.visual_feature_size = visual_feature_size
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
 
     @property
     def textual_feature_size(self):
         r"""
-        Size of the last dimension of output from forward pass; typically same
-        as :attr:`hidden_size` for most modules. This property is used to add
-        more modules on top of this.
+        Size of the last dimension of output right before the output linear
+        layer (which predicts a distribution over vocabulary tokens). This is
+        typically same as :attr:`hidden_size` for most modules. This property
+        is used to add more modules on top of this.
         """
         return self.hidden_size
 
 
 class LinearTextualHead(TextualHead):
     r"""
-    A textual head containing a single linear layer projecting from textual
-    feature size to output vocabulary size.
+    A textual head containing a single linear layer projecting from the visual
+    feature size to the output vocabulary size.
 
     Parameters
     ----------
+    visual_feature_size: int
+        Size (number of channels) of the input features from the visual backbone.
     vocab_size: int
-        Size of token vocabulary.
-    hidden_size: int
-        Size of token embedding vectors.
+        Number of tokens in the output vocabulary.
     """
 
-    def __init__(self, vocab_size: int, hidden_size: int):
-        super().__init__(vocab_size, hidden_size)
-        self.output = nn.Linear(self.textual_feature_size, vocab_size)
+    def __init__(self, visual_feature_size: int, vocab_size: int, **kwargs):
+        # For API consistency.
+        hidden_size = visual_feature_size
+        super().__init__(visual_feature_size, vocab_size, hidden_size)
+        self.output = nn.Linear(visual_feature_size, vocab_size)
 
     def forward(
         self,
@@ -60,8 +79,8 @@ class LinearTextualHead(TextualHead):
         Parameters
         ----------
         visual_features: torch.Tensor
-            A tensor of shape ``(batch_size, textual_feature_size)`` containing
-            projected visual features.
+            A tensor of shape ``(batch_size, channels, height, width)`` containing
+            features from visual backbone.
 
         Returns
         -------
@@ -69,6 +88,16 @@ class LinearTextualHead(TextualHead):
             A tensor of shape ``(batch_size, vocab_size)`` containing output
             vocabulary logits.
         """
+
+        # Convert to NHWC and project visual features to textual feature size.
+        batch_size, channels, height, width = visual_features.size()
+        visual_features = visual_features.view(batch_size, channels, -1)
+        visual_features = visual_features.permute(0, 2, 1)
+
+        # Perform global average pooling of visual features.
+        # shape: (batch_size, channels)
+        visual_features = visual_features.mean(dim=1)
+
         # shape: (batch_size, max_caption_length, vocab_size)
         output_logits = self.output(visual_features)
         return output_logits
@@ -76,10 +105,12 @@ class LinearTextualHead(TextualHead):
 
 class TransformerTextualHead(TextualHead):
     r"""
-    A textual head composed of (1) word and positional embedding, (2) a transformer
-    decoder (unidirectional), and (3) and output projection (linear layer). The
-    weights of word embedding are tied with output projection layer, while the
-    latter still has its own learnable bias.
+    A textual head composed of four main modules: (1) input projection (linear
+    layer) for visual features to match size with textual features, (2) word
+    and positional embedding for input captions, (3) a unidirectional transformer
+    decoder, and (4) and output projection (linear layer) to predict a
+    distribution over vocabulary tokens. The word embedding weights are tied
+    with output projection; the latter still has its own learnable bias.
 
     .. note::
 
@@ -98,10 +129,13 @@ class TransformerTextualHead(TextualHead):
 
     Parameters
     ----------
+    visual_feature_size: int
+        Size (number of channels) of the input features from the visual backbone.
     vocab_size: int
-        Size of token vocabulary.
+        Number of tokens in the output vocabulary.
     hidden_size: int
-        Hidden size of the transformer (embeddings, attention features).
+        Size of the token embedding vectors, or hidden state vector of the
+        language model.
     num_layers: int
         Number of layers in the transformer.
     attention_heads: int
@@ -123,6 +157,7 @@ class TransformerTextualHead(TextualHead):
 
     def __init__(
         self,
+        visual_feature_size: int,
         vocab_size: int,
         hidden_size: int,
         num_layers: int,
@@ -133,13 +168,16 @@ class TransformerTextualHead(TextualHead):
         max_caption_length: int = 30,
         padding_idx: int = 0,
     ):
-        super().__init__(vocab_size, hidden_size)
+        super().__init__(visual_feature_size, vocab_size, hidden_size)
         self.num_layers = num_layers
         self.attention_heads = attention_heads
         self.feedforward_size = feedforward_size
         self.dropout = dropout
         self.padding_idx = padding_idx
 
+        self.visual_projection = nn.Linear(
+            visual_feature_size, self.textual_feature_size
+        )
         self.embedding = WordAndPositionalEmbedding(
             self.vocab_size,
             self.textual_feature_size,
@@ -195,8 +233,8 @@ class TransformerTextualHead(TextualHead):
         Parameters
         ----------
         visual_features: torch.Tensor
-            A tensor of shape ``(batch_size, max_caption_length, textual_feature_size)``
-            containing projected visual features.
+            A tensor of shape ``(batch_size, channels, height, width)`` containing
+            features from visual backbone.
         caption_tokens: torch.Tensor
             A tensor of shape ``(batch_size, max_caption_length)`` of caption
             tokens padded to the right by ``padding_idx``.
@@ -210,6 +248,15 @@ class TransformerTextualHead(TextualHead):
             A tensor of shape ``(batch_size, max_caption_length, vocab_size)``
             containing output vocabulary logits for each time-step.
         """
+
+        # Convert to NHWC and project visual features to textual feature size.
+        batch_size, channels, height, width = visual_features.size()
+        visual_features = visual_features.view(batch_size, channels, -1)
+        visual_features = visual_features.permute(0, 2, 1)
+
+        # shape: (batch_size, height * width, textual_feature_size)
+        projected_visual_features = self.visual_projection(visual_features)
+        # Now visual and textual features are of same size.
 
         # Note that `max_caption_length` here may be less than the
         # `max_caption_length` passed in `__init__`, but it does not matter.
@@ -231,12 +278,12 @@ class TransformerTextualHead(TextualHead):
         # We transpose the first two dimensions of tokens embeddings and visual
         # features, as required by decoder.
         caption_embeddings = caption_embeddings.transpose(0, 1)
-        visual_features = visual_features.transpose(0, 1)
+        projected_visual_features = projected_visual_features.transpose(0, 1)
 
         # shape: (max_caption_length, batch_size, hidden_size)
         textual_features = self.transformer(
             caption_embeddings,
-            visual_features,
+            projected_visual_features,
             tgt_mask=unidirectional_mask,
             tgt_key_padding_mask=caption_mask,
         )
