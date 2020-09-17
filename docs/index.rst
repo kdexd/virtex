@@ -97,6 +97,23 @@ If you find this code useful, please consider citing:
     }
 
 
+Acknowledgments
+---------------
+
+We thank Harsh Agrawal, Mohamed El Banani, Richard  Higgins, Nilesh Kulkarni
+and Chris Rockwell for helpful discussions and feedback on the paper. We thank
+Ishan Misra for discussions regarding PIRL evaluation protocol; Saining Xie for
+discussions about replicating iNaturalist evaluation as MoCo; Ross Girshick and
+Yuxin Wu for help with Detectron2 model zoo; Georgia Gkioxari for suggesting
+the Instance Segmentation pretraining task ablation; and Stefan Lee for
+suggestions on figure aesthetics. We thank Jia Deng for access to extra GPUs
+during project development; and UMich ARC-TS team for support with GPU cluster
+management. Finally, we thank all the Starbucks outlets in Ann Arbor for many
+hours of free WiFi. This work was partially supported by the Toyota Research
+Institute (TRI). However, note that this article solely reflects the opinions
+and conclusions of its authors and not TRI or any other Toyota entity.
+
+
 Indices and Tables
 ------------------
 
