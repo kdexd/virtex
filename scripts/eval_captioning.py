@@ -83,7 +83,7 @@ def main(_A: argparse.Namespace):
         ):
             predictions.append(
                 {
-                    "image_id": image_id,
+                    "image_id": image_id.item(),
                     "caption": tokenizer.decode(caption.tolist()),
                 }
             )

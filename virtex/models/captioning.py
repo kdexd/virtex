@@ -206,11 +206,14 @@ class CaptioningModel(nn.Module):
         """
 
         # Expand and repeat image features while doing beam search.
-        batch_size = visual_features.size(0)
+        batch_size, channels, height, width = visual_features.size()
         beam_size = int(partial_captions.size(0) / batch_size)
         if beam_size > 1:
             # shape: (batch_size * beam_size, channels, height, width)
-            visual_features = visual_features.repeat(beam_size, 1, 1, 1)
+            visual_features = visual_features.unsqueeze(1).repeat(1, beam_size, 1, 1, 1)
+            visual_features = visual_features.view(
+                batch_size * beam_size, channels, height, width
+            )
 
         # Provide caption lengths as current length (irrespective of predicted
         # EOS/padding tokens). shape: (batch_size, )
