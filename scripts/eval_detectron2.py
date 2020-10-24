@@ -15,6 +15,7 @@ from typing import Any, Dict, Union
 
 import torch
 from torch import nn
+from torch.utils.tensorboard import SummaryWriter
 from apex.parallel import DistributedDataParallel as ApexDDP
 
 import detectron2 as d2
@@ -68,6 +69,10 @@ parser.add_argument(
 parser.add_argument(
     "--resume", action="store_true", help="""Specify this flag when resuming
     training from a checkpoint saved by Detectron2."""
+)
+parser.add_argument(
+    "--eval-only", action="store_true",
+    help="Skip training and evaluate checkpoint provided at --checkpoint-path.",
 )
 parser.add_argument(
     "--gradient-checkpoint", action="store_true",
@@ -213,6 +218,14 @@ class DownstreamTrainer(DefaultTrainer):
         elif evaluator_type == "lvis":
             return LVISEvaluator(dataset_name, cfg, True, output_folder)
 
+    def test(self):
+        r"""Evaluate the model and log results to stdout and tensorboard."""
+        tensorboard_writer = SummaryWriter(log_dir=self.cfg.OUTPUT_DIR)
+        results = super().test(self.cfg, self.model)
+        flat_results = detectron2.evaluation.testing.flatten_results_dict(results)
+        for k, v in flat_results.items():
+            tensorboard_writer.add_scalar(k, v, self.start_iter)
+
 
 def main(_A: argparse.Namespace):
 
@@ -267,7 +280,7 @@ def main(_A: argparse.Namespace):
 
     del model
     trainer = DownstreamTrainer(_D2C, weights)
-    trainer.train()
+    trainer.test() if _A.eval_only else trainer.train()
 
 
 if __name__ == "__main__":

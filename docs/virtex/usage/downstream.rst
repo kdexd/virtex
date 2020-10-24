@@ -95,7 +95,7 @@ VirTex pretrained weights:
 
 .. code-block:: shell
 
-    python scripts/detectron2_tasks.py \
+    python scripts/eval_detectron2.py \
         --config /tmp/bicaptioning_R_50_L1_H2048/pretrain_config.yaml \
         --d2-config configs/detectron2/coco_segm_default_init_2x.yaml \
         --checkpoint-path /tmp/bicaptioning_R_50_L1_H2048/checkpoint_500000.pth \
@@ -105,11 +105,22 @@ VirTex pretrained weights:
         --serialization-dir /tmp/bicaptioning_R_50_L1_H2048/coco_segm_500000 \
         --checkpoint-every 5000
 
-This job is memory intensive, and it may exceed GPU memory (12 GB or so) with
-batch size 2 per GPU. In that case, try passing ``--gradient-checkpoint``, which
-reduces memory consumption but slightly increases training duration. Note that
-``--d2-config`` here is in Detectron2 format, and not our package
-:class:`~virtex.config.Config`.
+.. note::
+
+    Three general notes regarding this script, that also apply to other tasks
+    using this script (LVIS Instance Segmentation and PASCAL VOC Detection).
+
+    1. This script periodically serializes checkpoints but skips validation
+       step during training for saving time; to evaluate a serialized checkpoint
+       and write results to tensorbord, provide it as ``--checkpoint-path`` and
+       additional flags ``--resume --eval-only``.
+
+    2. This job is memory intensive, and it may exceed GPU memory (12 GB or so)
+       with batch size 2 per GPU. Try providing ``--gradient-checkpoint`` flag;
+       it reduces memory consumption but slightly increases training duration.
+
+    3. Note that ``--d2-config`` here is in Detectron2 format, and not our
+       package :class:`~virtex.config.Config`.
 
 -------------------------------------------------------------------------------
 
@@ -121,7 +132,7 @@ initializing the backbone from VirTex pretrained weights:
 
 .. code-block:: shell
 
-    python scripts/detectron2_tasks.py \
+    python scripts/eval_detectron2.py \
         --config /tmp/bicaptioning_R_50_L1_H2048/pretrain_config.yaml \
         --d2-config configs/detectron2/lvis_segm_default_init_2x.yaml \
         --checkpoint-path /tmp/bicaptioning_R_50_L1_H2048/checkpoint_500000.pth \
@@ -130,11 +141,6 @@ initializing the backbone from VirTex pretrained weights:
         --cpu-workers 2 \
         --serialization-dir /tmp/bicaptioning_R_50_L1_H2048/lvis_segm_500000 \
         --checkpoint-every 5000
-
-Like COCO Segmentation, this job is also memory intensive, try passing
-``--gradient-checkpoint`` if you encounter out-of-memory errors. Like COCO, the
-``--d2-config`` here is in Detectron2 format, and not our package
-:class:`~virtex.config.Config`.
 
 -------------------------------------------------------------------------------
 
@@ -146,7 +152,7 @@ by initializing the backbone from VirTex pretrained weights:
 
 .. code-block:: shell
 
-    python scripts/detectron2_tasks.py \
+    python scripts/eval_detectron2.py \
         --config /tmp/bicaptioning_R_50_L1_H2048/pretrain_config.yaml \
         --d2-config configs/detectron2/voc_det_default_init_24k.yaml \
         --checkpoint-path /tmp/bicaptioning_R_50_L1_H2048/checkpoint_500000.pth \
@@ -155,10 +161,6 @@ by initializing the backbone from VirTex pretrained weights:
         --cpu-workers 2 \
         --serialization-dir /tmp/bicaptioning_R_50_L1_H2048/voc_det_500000 \
         --checkpoint-every 2500
-
-Like above two, this job is also memory intensive (try ``--gradient-checkpoint``
-on out-of-memory errors). Like above two, the ``--d2-config`` here is also in
-Detectron2 format, and not our package :class:`~virtex.config.Config`.
 
 -------------------------------------------------------------------------------
 
