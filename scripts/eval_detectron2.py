@@ -52,13 +52,14 @@ parser.add_argument(
 
 parser.add_argument_group("Checkpointing and Logging")
 parser.add_argument(
-    "--weight-init", choices=["random", "imagenet", "virtex"],
-    default="checkpoint", help="""How to initialize weights:
+    "--weight-init", choices=["random", "imagenet", "torchvision", "virtex"],
+    default="virtex", help="""How to initialize weights:
         1. 'random' initializes all weights randomly
         2. 'imagenet' initializes backbone weights from torchvision model zoo
-        3. 'virtex' initializes weights from a VirTex pretrained model specified
-           with `--checkpoint-path`.
-        """
+        3. {'torchvision', 'virtex'} load state dict from --checkpoint-path
+            - with 'torchvision', state dict would be from PyTorch's training
+              script.
+            - with 'virtex' it should be for our full pretrained model."""
 )
 parser.add_argument(
     "--checkpoint-path",
@@ -67,6 +68,10 @@ parser.add_argument(
 parser.add_argument(
     "--resume", action="store_true", help="""Specify this flag when resuming
     training from a checkpoint saved by Detectron2."""
+)
+parser.add_argument(
+    "--gradient-checkpoint", action="store_true",
+    help="Activate gradient checkpointing, use when facing memory issues.",
 )
 parser.add_argument(
     "--checkpoint-every", type=int, default=5000,
@@ -88,14 +93,20 @@ class Res5ROIHeadsExtraNorm(Res5ROIHeads):
 
         # Set new momentum as ``1 - sqrt(1 - momentum)`` to ensure same
         # behavior with gradient checkpointing.
-        norm.momentum = 0.0513
+        if global_cfg.get("GRADIENT_CHECKPOINT", False):
+            norm.momentum = 0.0513
         seq.add_module("norm", norm)
         return seq, out_channels
 
     def _shared_roi_transform(self, features, boxes):
         r"""Perform gradient checkpointing to fit 2 images/GPU on 2080 Ti."""
         x = self.pooler(features, boxes)
-        x = torch.utils.checkpoint.checkpoint_sequential(self.res5, 1, x)
+
+        if global_cfg.get("GRADIENT_CHECKPOINT", False):
+            x = self.res5(x)
+        else:
+            x = torch.utils.checkpoint.checkpoint_sequential(self.res5, 1, x)
+
         return x
 
 
@@ -225,7 +236,7 @@ def main(_A: argparse.Namespace):
     default_setup(_D2C, _A)
 
     # Prepare weights to pass in instantiation call of trainer.
-    if _A.weight_init == "virtex":
+    if _A.weight_init in {"virtex", "torchvision"}:
         if _A.resume:
             # If resuming training, let detectron2 load weights by providing path.
             model = None
@@ -233,8 +244,13 @@ def main(_A: argparse.Namespace):
         else:
             # Load backbone weights from VirTex pretrained checkpoint.
             model = PretrainingModelFactory.from_config(_C)
-            CheckpointManager(model=model).load(_A.checkpoint_path)
-            model.load_state_dict(torch.load(_A.checkpoint_path, map_location="cpu"))
+            if _A.weight_init == "virtex":
+                CheckpointManager(model=model).load(_A.checkpoint_path)
+            else:
+                model.visual.cnn.load_state_dict(
+                    torch.load(_A.checkpoint_path, map_location="cpu")["state_dict"],
+                    strict=False,
+                )
             weights = model.visual.detectron2_backbone_state_dict()
     else:
         # If random or imagenet init, just load weights after initializing model.
