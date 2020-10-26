@@ -154,6 +154,11 @@ def main(_A: argparse.Namespace):
 
     # Freeze all layers except FC as per config param.
     if _DOWNC.MODEL.VISUAL.FROZEN:
+        # Set model to eval mode to prevent BatchNorm from updating running
+        # mean and std. With only a linear layer, being in eval mode when
+        # training will not matter anyway.
+        model.eval()
+
         for name, param in model.named_parameters():
             if "fc" not in name:
                 param.requires_grad = False
@@ -260,7 +265,10 @@ def main(_A: argparse.Namespace):
             dist.average_across_processes(acc)
 
             torch.set_grad_enabled(True)
-            model.train()
+
+            # Set model back to train mode only when fine-tuning end-to-end.
+            if not _DOWNC.MODEL.VISUAL.FROZEN:
+                model.train()
 
             # Save recent checkpoint and best checkpoint based on accuracy.
             if dist.is_master_process():

@@ -231,7 +231,7 @@ def main(_A: argparse.Namespace):
     # Tensorboard logging only when _A.weight_init == "virtex"
     if _A.weight_init == "virtex":
         tensorboard_writer.add_scalars(
-            "metrics/voc07_clf", {"mAP": test_map}, ITERATION
+            "metrics/voc07_clf", {f"{_A.layer}_mAP": test_map}, ITERATION
         )
 
 

@@ -222,7 +222,7 @@ class DownstreamTrainer(DefaultTrainer):
         r"""Evaluate the model and log results to stdout and tensorboard."""
         tensorboard_writer = SummaryWriter(log_dir=self.cfg.OUTPUT_DIR)
         results = super().test(self.cfg, self.model)
-        flat_results = detectron2.evaluation.testing.flatten_results_dict(results)
+        flat_results = d2.evaluation.testing.flatten_results_dict(results)
         for k, v in flat_results.items():
             tensorboard_writer.add_scalar(k, v, self.start_iter)
 
