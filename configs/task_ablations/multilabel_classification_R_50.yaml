@@ -7,3 +7,6 @@ MODEL:
   NAME: "multilabel_classification"
   TEXTUAL:
     NAME: "none"
+
+OPTIM:
+  NO_DECAY: "none"

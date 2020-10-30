@@ -207,6 +207,73 @@ class ImageCaptionBatch(Batch):
             super().__init__(image_id=image_id, image=image)
 
 
+class MaskedLmInstance(Instance):
+
+    __slots__ = [
+        "image_id",
+        "image",
+        "caption_tokens",
+        "caption_lengths",
+        "masked_labels",
+    ]
+
+    def __init__(
+        self,
+        image_id: int,
+        image: Iterable[float],
+        caption_tokens: List[int],
+        masked_labels: List[int],
+    ):
+        super().__init__(
+            image_id=torch.tensor(image_id, dtype=torch.long),
+            image=torch.tensor(image, dtype=torch.float),
+            caption_tokens=torch.tensor(caption_tokens, dtype=torch.long),
+            caption_lengths=torch.tensor(len(caption_tokens), dtype=torch.long),
+            masked_labels=torch.tensor(masked_labels, dtype=torch.long),
+        )
+
+
+class MaskedLmBatch(Batch):
+
+    __slots__ = [
+        "image_id",
+        "image",
+        "caption_tokens",
+        "caption_lengths",
+        "masked_labels",
+    ]
+
+    def __init__(self, instances: List[MaskedLmInstance], padding_value: int = 0):
+
+        # Stack `image_id` and `image` from instances to create batch at dim 0.
+        image_id = torch.stack([ins["image_id"] for ins in instances], dim=0)
+        image = torch.stack([ins["image"] for ins in instances], dim=0)
+
+        # Find maximum caption length in this batch.
+        max_caption_length = max([ins["caption_lengths"] for ins in instances])
+
+        # Pad `caption_tokens` and `masked_labels` up to this length.
+        caption_tokens = torch.nn.utils.rnn.pad_sequence(
+            [ins["caption_tokens"] for ins in instances],
+            batch_first=True,
+            padding_value=padding_value,
+        )
+        masked_labels = torch.nn.utils.rnn.pad_sequence(
+            [ins["masked_labels"] for ins in instances],
+            batch_first=True,
+            padding_value=padding_value,
+        )
+        caption_lengths = torch.stack([ins["caption_lengths"] for ins in instances])
+
+        super().__init__(
+            image_id=image_id,
+            image=image,
+            caption_tokens=caption_tokens,
+            caption_lengths=caption_lengths,
+            masked_labels=masked_labels,
+        )
+
+
 class LinearClassificationInstance(Instance):
     r"""
     An instance representing an image-label pair.

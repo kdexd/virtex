@@ -147,6 +147,11 @@ class TransformerTextualHead(TextualHead):
     norm_type: str, optional (default = "post")
         Type of transformer layer: pre-normalization (like GPT-2) or
         post-normalization (like BERT). One of ``{"pre", "post"}``.
+    mask_future_positions: bool, optional (default = True)
+        Whether to mask future positions for self-attention over caption tokens.
+        This must be ``True`` for captioning (and bicaptioning) tasks to prevent
+        the language model from cheating, and ``False`` for masked language
+        modeling, as the self-attention should consider all tokens.
     max_caption_length: int, optional (default = 30)
         Maximum length of input captions; this is used to create a fixed
         positional embedding lookup table.
@@ -165,6 +170,7 @@ class TransformerTextualHead(TextualHead):
         feedforward_size: int,
         dropout: float = 0.1,
         norm_type: str = "post",
+        mask_future_positions: bool = True,
         max_caption_length: int = 30,
         padding_idx: int = 0,
     ):
@@ -173,6 +179,7 @@ class TransformerTextualHead(TextualHead):
         self.attention_heads = attention_heads
         self.feedforward_size = feedforward_size
         self.dropout = dropout
+        self.mask_future_positions = mask_future_positions
         self.padding_idx = padding_idx
 
         self.visual_projection = nn.Linear(
@@ -271,10 +278,14 @@ class TransformerTextualHead(TextualHead):
         # shape: (batch_size, max_caption_length, textual_feature_size)
         caption_embeddings = self.embedding(caption_tokens)
 
-        # An additive mask for masking the future (one direction).
-        unidirectional_mask = self._generate_future_mask(
-            max_caption_length, caption_embeddings.dtype, caption_embeddings.device
-        )
+        if self.mask_future_positions:
+            # An additive mask for masking the future (one direction).
+            unidirectional_mask = self._generate_future_mask(
+                max_caption_length, caption_embeddings.dtype, caption_embeddings.device
+            )
+        else:
+            unidirectional_mask = None
+
         # We transpose the first two dimensions of tokens embeddings and visual
         # features, as required by decoder.
         caption_embeddings = caption_embeddings.transpose(0, 1)

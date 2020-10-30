@@ -107,6 +107,16 @@ class Config(object):
             "normalize",
         ]
 
+        # Hyper-parameters for masked LM pretraining task. These are only used
+        # when ``MODEL.NAME`` is "masked_lm".
+        _C.DATA.MASKED_LM = CN()
+        # Fraction of tokens to choose for masking, this must be less than 1.
+        _C.DATA.MASKED_LM.MASK_PROPORTION = 0.15
+        # Probability to replace chosen tokens with [MASK] token.
+        _C.DATA.MASKED_LM.MASK_PROBABILITY = 0.85
+        # Probability to replace chosen tokens with a random token.
+        _C.DATA.MASKED_LM.REPLACE_PROBABILITY = 0.10
+
         # ---------------------------------------------------------------------
         #   Model architecture: visual backbone and textual head.
         # ---------------------------------------------------------------------
@@ -114,7 +124,7 @@ class Config(object):
 
         # Name of model, based on pretraining task.
         # Possible choices: {"token_classification", "multilabel_classification",
-        # "captioning", "bicaptioning"}
+        # "captioning", "bicaptioning", "masked_lm"}
         _C.MODEL.NAME = "bicaptioning"
 
         _C.MODEL.VISUAL = CN()

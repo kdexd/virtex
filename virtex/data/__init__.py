@@ -1,4 +1,5 @@
 from .datasets.captioning import CaptioningDataset
+from .datasets.masked_lm import MaskedLmDataset
 from .datasets.multilabel import MultiLabelClassificationDataset
 from .datasets.downstream import (
     ImageNetDataset,
@@ -9,6 +10,7 @@ from .datasets.downstream import (
 
 __all__ = [
     "CaptioningDataset",
+    "MaskedLmDataset",
     "MultiLabelClassificationDataset",
     "ImageDirectoryDataset",
     "ImageNetDataset",

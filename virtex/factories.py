@@ -164,13 +164,14 @@ class PretrainingDatasetFactory(Factory):
     As an exception, the dataset for ``multilabel_classification`` provides
     COCO images and labels of their bounding box annotations.
 
-    Possible choices: ``{"bicaptioning", "captioning", "token_classification",
-    "multilabel_classification"}``.
+    Possible choices: ``{"bicaptioning", "captioning", "masked_lm",
+    "token_classification", "multilabel_classification"}``.
     """
 
     PRODUCTS: Dict[str, Callable] = {
         "bicaptioning": vdata.CaptioningDataset,
         "captioning": vdata.CaptioningDataset,
+        "masked_lm": vdata.MaskedLmDataset,
         "token_classification": vdata.CaptioningDataset,
         "multilabel_classification": vdata.MultiLabelClassificationDataset,
     }
@@ -217,6 +218,13 @@ class PretrainingDatasetFactory(Factory):
                 max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
                 use_single_caption=_C.DATA.USE_SINGLE_CAPTION,
                 percentage=_C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
+            )
+
+        if _C.MODEL.NAME == "masked_lm":
+            kwargs.update(
+                mask_proportion=_C.DATA.MASKED_LM.MASK_PROPORTION,
+                mask_probability=_C.DATA.MASKED_LM.MASK_PROBABILITY,
+                replace_probability=_C.DATA.MASKED_LM.REPLACE_PROBABILITY,
             )
 
         # Dataset names match with model names (and ofcourse pretext names).
@@ -380,6 +388,7 @@ class TextualHeadFactory(Factory):
                 attention_heads=attention_heads,
                 feedforward_size=feedforward_size,
                 dropout=_C.MODEL.TEXTUAL.DROPOUT,
+                mask_future_positions="captioning" in _C.MODEL.NAME,
                 max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
                 padding_idx=_C.DATA.UNK_INDEX,
             )
@@ -390,13 +399,14 @@ class PretrainingModelFactory(Factory):
     r"""
     Factory to create :mod:`~virtex.models` for different pretraining tasks.
 
-    Possible choices: ``{"captioning", "bicaptioning", "token_classification",
-    "multilabel_classification"}``.
+    Possible choices: ``{"bicaptioning", "captioning", "masked_lm",
+    "token_classification", "multilabel_classification"}``.
     """
 
     PRODUCTS: Dict[str, Callable] = {
-        "captioning": vmodels.ForwardCaptioningModel,
         "bicaptioning": vmodels.BidirectionalCaptioningModel,
+        "captioning": vmodels.ForwardCaptioningModel,
+        "masked_lm": vmodels.MaskedLmModel,
         "token_classification": vmodels.TokenClassificationModel,
         "multilabel_classification": vmodels.MultiLabelClassificationModel,
     }
@@ -434,13 +444,11 @@ class PretrainingModelFactory(Factory):
                     _C.DATA.UNK_INDEX,
                     _C.DATA.SOS_INDEX,
                     _C.DATA.EOS_INDEX,
-                    _C.DATA.MASK_INDEX
-                ],
+                    _C.DATA.MASK_INDEX,
+                ]
             )
         elif _C.MODEL.NAME == "multilabel_classification":
-            kwargs.update(
-                ignore_indices=[0],  # background index
-            )
+            kwargs.update(ignore_indices=[0])  # background index
 
         return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
 
@@ -529,9 +537,6 @@ class LRSchedulerFactory(Factory):
         }
         # Multistep LR requires multiplicative factor and milestones.
         if _C.OPTIM.LR_DECAY_NAME == "multistep":
-            kwargs.update(
-                gamma=_C.OPTIM.LR_GAMMA,
-                milestones=_C.OPTIM.LR_STEPS,
-            )
+            kwargs.update(gamma=_C.OPTIM.LR_GAMMA, milestones=_C.OPTIM.LR_STEPS)
 
         return cls.create(_C.OPTIM.LR_DECAY_NAME, optimizer, **kwargs)

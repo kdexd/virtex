@@ -8,6 +8,7 @@ from .classification import (
 __all__ = [
     "BidirectionalCaptioningModel",
     "ForwardCaptioningModel",
+    "MaskedLmModel",
     "MultiLabelClassificationModel",
     "TokenClassificationModel",
 ]

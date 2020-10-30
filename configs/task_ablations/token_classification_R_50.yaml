@@ -4,3 +4,6 @@ MODEL:
   NAME: "token_classification"
   TEXTUAL:
     NAME: "none"
+
+OPTIM:
+  NO_DECAY: "none"
