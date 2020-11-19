@@ -271,8 +271,5 @@ class ImageDirectoryDataset(Dataset):
         image = self.image_transform(image=image)["image"]
         image = np.transpose(image, (2, 0, 1))
 
-        # Convert image_id to integer if possible.
-        if image_id.isdigit():
-            image_id = int(image_id)
-
-        return {"image_id": image_id, "image": torch.tensor(image)}
+        # Return image id as string so collate_fn does not cast to torch.tensor.
+        return {"image_id": str(image_id), "image": torch.tensor(image)}
