@@ -83,7 +83,8 @@ def main(_A: argparse.Namespace):
         ):
             predictions.append(
                 {
-                    "image_id": image_id.item(),
+                    # Convert image id to int if possible (mainly for COCO eval).
+                    "image_id": int(image_id) if image_id.isdigit() else image_id,
                     "caption": tokenizer.decode(caption.tolist()),
                 }
             )

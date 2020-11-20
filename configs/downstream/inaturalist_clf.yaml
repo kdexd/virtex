@@ -8,7 +8,7 @@ DATA:
     - "horizontal_flip"
     - "normalize"
   IMAGE_TRANSFORM_VAL:
-    - "global_resize"
+    - "smallest_resize"
     - "center_crop"
     - "normalize"
 
