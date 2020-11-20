@@ -1,4 +1,5 @@
 from .captioning import ForwardCaptioningModel, BidirectionalCaptioningModel
+from .masked_lm import MaskedLMModel
 from .classification import (
     MultiLabelClassificationModel,
     TokenClassificationModel,
@@ -8,7 +9,7 @@ from .classification import (
 __all__ = [
     "BidirectionalCaptioningModel",
     "ForwardCaptioningModel",
-    "MaskedLmModel",
+    "MaskedLMModel",
     "MultiLabelClassificationModel",
     "TokenClassificationModel",
 ]

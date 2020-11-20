@@ -406,7 +406,7 @@ class PretrainingModelFactory(Factory):
     PRODUCTS: Dict[str, Callable] = {
         "bicaptioning": vmodels.BidirectionalCaptioningModel,
         "captioning": vmodels.ForwardCaptioningModel,
-        "masked_lm": vmodels.MaskedLmModel,
+        "masked_lm": vmodels.MaskedLMModel,
         "token_classification": vmodels.TokenClassificationModel,
         "multilabel_classification": vmodels.MultiLabelClassificationModel,
     }
