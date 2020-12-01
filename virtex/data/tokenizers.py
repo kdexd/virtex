@@ -11,32 +11,17 @@ class SentencePieceBPETokenizer(object):
 
     Parameters
     ----------
-    vocab_path: str
-        Path to the ``.vocab`` file trained by SentencePiece.
     model_path: str
         Path to the ``.model`` file trained by SentencePiece.
     """
     SP_SPACE = u"▁"
 
-    def __init__(self, vocab_path: str, model_path: str):
-        self.vocab_path = vocab_path
+    def __init__(self, model_path: str):
         self.model_path = model_path
 
         # Load pretrained tokenizer model.
         self.model = sp.SentencePieceProcessor()
         self.model.Load(model_path)
-
-        # Load vocabulary mapping (and inverse mapping) between token and id.
-        self._token_to_id: Dict[str, int] = {}
-        self._id_to_token: Dict[int, str] = {}
-
-        with open(vocab_path, "r") as vocab_file:
-            reader = csv.DictReader(
-                vocab_file, delimiter="\t", fieldnames=["token", "logprob"]
-            )
-            for index, row in enumerate(reader):
-                self._token_to_id[row["token"]] = index
-                self._id_to_token[index] = row["token"]
 
     def __getstate__(self):
         r"""
@@ -59,11 +44,13 @@ class SentencePieceBPETokenizer(object):
 
     def token_to_id(self, token: str) -> int:
         r"""Get integer ID of a string token (``<unk>`` if does not exist)."""
-        return self._token_to_id.get(token, self._token_to_id["<unk>"])
+        # Since tokenizer uses subword regularization, one token may break down to multiple IDs.
+        # Keep trying till we get a single ID.
+        return self.model.piece_to_id(token)
 
     def id_to_token(self, token_id: int) -> str:
         r"""Get string token of an integer ID (``<unk>`` if does not exist)."""
-        return self._id_to_token.get(token_id, "<unk>")
+        return self.model.id_to_piece(token_id)
 
     def encode(self, text: str) -> List[int]:
         r"""Convert a text string to a list of integer token ids."""

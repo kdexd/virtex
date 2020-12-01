@@ -41,7 +41,7 @@ def get_model_zoo_configs() -> List[str]:
 
 setup(
     name="virtex",
-    version="0.9",
+    version="0.9.1",
     author="Karan Desai and Justin Johnson",
     description="VirTex: Learning Visual Representations with Textual Annotations",
     package_data={"virtex.model_zoo": get_model_zoo_configs()},

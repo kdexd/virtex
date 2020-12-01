@@ -102,7 +102,6 @@ class TokenizerFactory(Factory):
 
         tokenizer = cls.create(
             "SentencePieceBPETokenizer",
-            vocab_path=_C.DATA.TOKENIZER_VOCAB,
             model_path=_C.DATA.TOKENIZER_MODEL,
         )
         return tokenizer
@@ -136,7 +135,7 @@ class ImageTransformsFactory(Factory):
         # Keep hue limits small in color jitter because it changes color drastically
         # and captions often mention colors. Apply with higher probability.
         "color_jitter": partial(
-            T.ColorJitter, brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1, p=0.8
+            alb.ColorJitter, brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1, p=0.8
         ),
         "horizontal_flip": partial(T.HorizontalFlip, p=0.5),
 

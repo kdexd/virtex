@@ -152,13 +152,9 @@ def main(_A: argparse.Namespace):
         timer.tic()
         optimizer.zero_grad()
 
-        batch_loss = torch.tensor(0.0, device=device)
-
         batch = next(train_dataloader_iter)
         output_dict = model(batch)
-
         loss = output_dict["loss"]
-        batch_loss += loss.item()
 
         # Perform dynamic scaling of loss to adjust for mixed precision.
         if _C.FP16_OPT > 0:
@@ -173,28 +169,29 @@ def main(_A: argparse.Namespace):
             _C.OPTIM.CLIP_GRAD_NORM,
         )
         optimizer.step()
-        scheduler.step(iteration)
+        scheduler.step()
         timer.toc()
 
         # ---------------------------------------------------------------------
-        #   TENSORBOARD LOGGING
+        #   LOGGING
         # ---------------------------------------------------------------------
-        if iteration % _A.log_every == 0 and dist.is_master_process():
+        if iteration % _A.log_every == 0:
             logger.info(
-                f"{timer.stats} | Loss: {batch_loss:.3f} | "
+                f"{timer.stats} | Loss: {loss:.3f} | "
                 f"GPU mem: {dist.gpu_mem_usage()} MB"
             )
-            tensorboard_writer.add_scalars(
-                "learning_rate",
-                {
-                    "visual": optimizer.param_groups[0]["lr"],
-                    "common": optimizer.param_groups[-1]["lr"],
-                },
-                iteration,
-            )
-            tensorboard_writer.add_scalars(
-                "train", output_dict["loss_components"], iteration
-            )
+            if dist.is_master_process():
+                tensorboard_writer.add_scalars(
+                    "learning_rate",
+                    {
+                        "visual": optimizer.param_groups[0]["lr"],
+                        "common": optimizer.param_groups[-1]["lr"],
+                    },
+                    iteration,
+                )
+                tensorboard_writer.add_scalars(
+                    "train", output_dict["loss_components"], iteration
+                )
 
         # ---------------------------------------------------------------------
         #   VALIDATION
@@ -202,6 +199,9 @@ def main(_A: argparse.Namespace):
         if iteration % _A.checkpoint_every == 0:
             if dist.is_master_process():
                 checkpoint_manager.step(iteration)
+
+            # All processes will wait till master process is done serializing.
+            dist.synchronize()
 
             torch.set_grad_enabled(False)
             model.eval()
@@ -225,12 +225,9 @@ def main(_A: argparse.Namespace):
             torch.set_grad_enabled(True)
             model.train()
 
-        if iteration % _A.checkpoint_every == 0 and dist.is_master_process():
             logger.info(f"Iter: {iteration} | Val loss: {val_loss_dict}")
-            tensorboard_writer.add_scalars("val", val_loss_dict, iteration)
-
-        # All processes will wait till master process is done logging.
-        dist.synchronize()
+            if dist.is_master_process():
+                tensorboard_writer.add_scalars("val", val_loss_dict, iteration)
 
 
 if __name__ == "__main__":

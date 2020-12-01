@@ -95,7 +95,7 @@ class Lookahead(Optimizer):
                 for p in group["params"]:
                     param_state = self.state[p]
                     p.data.mul_(self.alpha).add_(
-                        1.0 - self.alpha, param_state["slow_params"]
+                        param_state["slow_params"], alpha=1.0 - self.alpha
                     )
                     param_state["slow_params"].copy_(p.data)
         return loss

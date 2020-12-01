@@ -7,7 +7,6 @@ FP16_OPT: 2
 
 DATA:
   ROOT: "datasets/coco"
-  TOKENIZER_VOCAB: "datasets/vocab/coco_10k.vocab"
   TOKENIZER_MODEL: "datasets/vocab/coco_10k.model"
   VOCAB_SIZE: 10000
   UNK_INDEX: 0
