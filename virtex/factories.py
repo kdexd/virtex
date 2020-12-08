@@ -114,8 +114,14 @@ class ImageTransformsFactory(Factory):
     `albumentations <https://albumentations.readthedocs.io/en/latest/>`_ and
     some extended ones defined in :mod:`virtex.data.transforms`.
 
-    This factory does not implement :meth:`from_config` method. It is only used
-    by :class:`PretrainingDatasetFactory` and :class:`DownstreamDatasetFactory`.
+    It uses sensible default values, however they can be provided with the name
+    in dict syntax. Example: ``random_resized_crop::{'scale': (0.08, 1.0)}``
+
+    .. note::
+
+        This factory does not implement :meth:`from_config` method. It is only
+        used by :class:`PretrainingDatasetFactory` and
+        :class:`DownstreamDatasetFactory`.
 
     Possible choices: ``{"center_crop", "horizontal_flip", "random_resized_crop",
     "normalize", "global_resize", "color_jitter", "smallest_resize"}``.
@@ -146,6 +152,19 @@ class ImageTransformsFactory(Factory):
         ),
     }
     # fmt: on
+
+    @classmethod
+    def create(cls, name: str, *args, **kwargs) -> Any:
+        r"""Create an object by its name, args and kwargs."""
+
+        if "::" in name:
+            name, __kwargs = name.split("::")
+            _kwargs = eval(__kwargs)
+        else:
+            _kwargs = {}
+
+        _kwargs.update(kwargs)
+        return super().create(name, *args, **_kwargs)
 
     @classmethod
     def from_config(cls, config: Config):
@@ -276,9 +295,9 @@ class DownstreamDatasetFactory(Factory):
 
         for name in image_transform_names:
             # Pass dimensions for resize/crop, else rely on the defaults.
-            if name in {"random_resized_crop", "center_crop", "global_resize"}:
+            if name.split("::")[0] in {"random_resized_crop", "center_crop", "global_resize"}:
                 transform = ImageTransformsFactory.create(name, 224)
-            elif name in {"smallest_resize"}:
+            elif name.split("::")[0] in {"smallest_resize"}:
                 transform = ImageTransformsFactory.create(name, 256)
             else:
                 transform = ImageTransformsFactory.create(name)
