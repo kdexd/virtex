@@ -75,10 +75,6 @@ parser.add_argument(
     help="Skip training and evaluate checkpoint provided at --checkpoint-path.",
 )
 parser.add_argument(
-    "--gradient-checkpoint", action="store_true",
-    help="Activate gradient checkpointing, use when facing memory issues.",
-)
-parser.add_argument(
     "--checkpoint-every", type=int, default=5000,
     help="Serialize model to a checkpoint after every these many iterations.",
 )
@@ -95,24 +91,8 @@ class Res5ROIHeadsExtraNorm(Res5ROIHeads):
     def _build_res5_block(self, cfg):
         seq, out_channels = super()._build_res5_block(cfg)
         norm = d2.layers.get_norm(cfg.MODEL.RESNETS.NORM, out_channels)
-
-        # Set new momentum as ``1 - sqrt(1 - momentum)`` to ensure same
-        # behavior with gradient checkpointing.
-        if global_cfg.get("GRADIENT_CHECKPOINT", False):
-            norm.momentum = 0.0513
         seq.add_module("norm", norm)
         return seq, out_channels
-
-    def _shared_roi_transform(self, features, boxes):
-        r"""Perform gradient checkpointing to fit 2 images/GPU on 2080 Ti."""
-        x = self.pooler(features, boxes)
-
-        if global_cfg.get("GRADIENT_CHECKPOINT", False):
-            x = self.res5(x)
-        else:
-            x = torch.utils.checkpoint.checkpoint_sequential(self.res5, 1, x)
-
-        return x
 
 
 def build_detectron2_config(_C: Config, _A: argparse.Namespace):
@@ -136,10 +116,6 @@ def build_detectron2_config(_C: Config, _A: argparse.Namespace):
         if "detectron2" in _C.MODEL.VISUAL.NAME
         else 0
     )
-    # Gradient checkpointing for fitting 2 images/GPU (only needed for VOC).
-    if _A.gradient_checkpoint:
-        global_cfg.GRADIENT_CHECKPOINT = True
-
     return _D2C
 
 
@@ -158,17 +134,8 @@ class DownstreamTrainer(DefaultTrainer):
     """
 
     def __init__(self, cfg, weights: Union[str, Dict[str, Any]]):
-        self.start_iter = 0
-        self.max_iter = cfg.SOLVER.MAX_ITER
-        self.cfg = cfg
 
-        # We do not make any super call here and implement `__init__` from
-        #  `DefaultTrainer`: we need to initialize mixed precision model before
-        # wrapping to DDP, so we need to do it this way.
-        model = self.build_model(cfg)
-        optimizer = self.build_optimizer(cfg, model)
-        data_loader = self.build_train_loader(cfg)
-        scheduler = self.build_lr_scheduler(cfg, optimizer)
+        super().__init__(cfg)
 
         # Load pre-trained weights before wrapping to DDP because `ApexDDP` has
         # some weird issue with `DetectionCheckpointer`.
@@ -177,33 +144,15 @@ class DownstreamTrainer(DefaultTrainer):
             # weights are ``str`` means ImageNet init or resume training.
             self.start_iter = (
                 DetectionCheckpointer(
-                    model, optimizer=optimizer, scheduler=scheduler
+                    self._trainer.model,
+                    optimizer=self._trainer.optimizer,
+                    scheduler=self._trainer.scheduler
                 ).resume_or_load(weights, resume=True).get("iteration", -1) + 1
             )
         elif isinstance(weights, dict):
             # weights are a state dict means our pretrain init.
-            DetectionCheckpointer(model)._load_model(weights)
+            DetectionCheckpointer(self._trainer.model)._load_model(weights)
         # fmt: on
-
-        # Enable distributed training if we have multiple GPUs. Use Apex DDP for
-        # non-FPN backbones because its `delay_allreduce` functionality helps with
-        # gradient checkpointing.
-        if dist.get_world_size() > 1:
-            if global_cfg.get("GRADIENT_CHECKPOINT", False):
-                model = ApexDDP(model, delay_allreduce=True)
-            else:
-                model = nn.parallel.DistributedDataParallel(
-                    model, device_ids=[dist.get_rank()], broadcast_buffers=False
-                )
-
-        # Call `__init__` from grandparent class: `SimpleTrainer`.
-        SimpleTrainer.__init__(self, model, data_loader, optimizer)
-
-        self.scheduler = scheduler
-        self.checkpointer = DetectionCheckpointer(
-            model, cfg.OUTPUT_DIR, optimizer=optimizer, scheduler=self.scheduler
-        )
-        self.register_hooks(self.build_hooks())
 
     @classmethod
     def build_evaluator(cls, cfg, dataset_name, output_folder=None):
