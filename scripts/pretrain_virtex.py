@@ -1,17 +1,19 @@
 import argparse
 from collections import Counter
+from typing import Any
 
 from loguru import logger
 import torch
 from torch import nn
+from torch.cuda import amp
 from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 
 # fmt: off
 from virtex.config import Config
 from virtex.factories import (
-    TokenizerFactory, PretrainingDatasetFactory, PretrainingModelFactory,
-    OptimizerFactory, LRSchedulerFactory,
+    PretrainingDatasetFactory, PretrainingModelFactory, OptimizerFactory,
+    LRSchedulerFactory,
 )
 from virtex.utils.checkpointing import CheckpointManager
 from virtex.utils.common import common_parser, common_setup, cycle
@@ -43,7 +45,7 @@ def main(_A: argparse.Namespace):
 
     if _A.num_gpus_per_machine == 0:
         # Set device as CPU if num_gpus_per_machine = 0.
-        device = torch.device("cpu")
+        device: Any = torch.device("cpu")
     else:
         # Get the current device as set for current distributed process.
         # Check `launch` function in `virtex.utils.distributed` module.
@@ -55,9 +57,8 @@ def main(_A: argparse.Namespace):
     common_setup(_C, _A)
 
     # -------------------------------------------------------------------------
-    #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER
+    #   INSTANTIATE DATALOADER, MODEL, OPTIMIZER, SCHEDULER
     # -------------------------------------------------------------------------
-    tokenizer = TokenizerFactory.from_config(_C)
     train_dataset = PretrainingDatasetFactory.from_config(_C, split="train")
     val_dataset = PretrainingDatasetFactory.from_config(_C, split="val")
 
@@ -102,30 +103,19 @@ def main(_A: argparse.Namespace):
     #   BEFORE TRAINING STARTS
     # -------------------------------------------------------------------------
 
+    # Create a gradient scaler for automatic mixed precision.
+    scaler = amp.GradScaler()
+
     # Load checkpoint to resume training if specified.
     if _A.resume_from is not None:
         start_iteration = CheckpointManager(
-            model=model, optimizer=optimizer, scheduler=scheduler
+            model=model, optimizer=optimizer, scheduler=scheduler, scaler=scaler,
         ).load(_A.resume_from)
     else:
         start_iteration = 0
 
-    # Keep track of time per iteration and ETA.
-    timer = Timer(
-        start_from=start_iteration + 1,
-        total_iterations=_C.OPTIM.NUM_ITERATIONS,
-    )
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter = cycle(train_dataloader, device, start_iteration)
-
-    # Wrap model and optimizer using NVIDIA Apex for mixed precision training.
-    # NOTE: Always do this before wrapping model with DistributedDataParallel.
-    if _C.FP16_OPT > 0:
-        from apex import amp
-
-        model, optimizer = amp.initialize(
-            model, optimizer, opt_level=f"O{_C.FP16_OPT}"
-        )
 
     # Wrap model in DDP if using more than one processes.
     if dist.get_world_size() > 1:
@@ -134,16 +124,22 @@ def main(_A: argparse.Namespace):
             model, device_ids=[device], find_unused_parameters=True
         )
 
-    # Create checkpoint manager and tensorboard writer (only in master process).
+    # Keep track of time per iteration and ETA.
+    timer = Timer(
+        start_from=start_iteration + 1, total_iterations=_C.OPTIM.NUM_ITERATIONS
+    )
+    # Create tensorboard writer and checkpoint manager (only in master process).
     if dist.is_master_process():
+        tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
+        tensorboard_writer.add_text("config", f"```\n{_C}\n```")
+
         checkpoint_manager = CheckpointManager(
             _A.serialization_dir,
             model=model,
             optimizer=optimizer,
             scheduler=scheduler,
+            scaler=scaler,
         )
-        tensorboard_writer = SummaryWriter(log_dir=_A.serialization_dir)
-        tensorboard_writer.add_text("config", f"```\n{_C}\n```")
 
     # -------------------------------------------------------------------------
     #   TRAINING LOOP
@@ -151,24 +147,20 @@ def main(_A: argparse.Namespace):
     for iteration in range(start_iteration + 1, _C.OPTIM.NUM_ITERATIONS + 1):
         timer.tic()
         optimizer.zero_grad()
-
         batch = next(train_dataloader_iter)
-        output_dict = model(batch)
-        loss = output_dict["loss"]
 
-        # Perform dynamic scaling of loss to adjust for mixed precision.
-        if _C.FP16_OPT > 0:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            loss.backward()
+        with amp.autocast(enabled=_C.FP16_OPT > 0):
+            output_dict = model(batch)
+            loss = output_dict["loss"]
 
-        # Clip norm of gradients before optimizer step.
-        torch.nn.utils.clip_grad_norm_(
-            amp.master_params(optimizer) if _C.FP16_OPT > 0 else model.parameters(),
-            _C.OPTIM.CLIP_GRAD_NORM,
-        )
-        optimizer.step()
+        scaler.scale(loss).backward()
+
+        # First clip norm of gradients, and then perform optimizer step.
+        scaler.unscale_(optimizer)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), _C.OPTIM.CLIP_GRAD_NORM)
+        scaler.step(optimizer)
+
+        scaler.update()
         scheduler.step()
         timer.toc()
 
@@ -177,8 +169,7 @@ def main(_A: argparse.Namespace):
         # ---------------------------------------------------------------------
         if iteration % _A.log_every == 0:
             logger.info(
-                f"{timer.stats} | Loss: {loss:.3f} | "
-                f"GPU mem: {dist.gpu_mem_usage()} MB"
+                f"{timer.stats} [Loss {loss:.3f}] [GPU {dist.gpu_mem_usage()} MB]"
             )
             if dist.is_master_process():
                 tensorboard_writer.add_scalars(
@@ -225,7 +216,7 @@ def main(_A: argparse.Namespace):
             torch.set_grad_enabled(True)
             model.train()
 
-            logger.info(f"Iter: {iteration} | Val loss: {val_loss_dict}")
+            logger.info(f"Iteration: {iteration} [Val loss: {val_loss_dict}]")
             if dist.is_master_process():
                 tensorboard_writer.add_scalars("val", val_loss_dict, iteration)
 

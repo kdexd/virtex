@@ -30,20 +30,10 @@ class Instance(dict):
         Defines the logic to move the whole instance across different
         :class:`torch.dtype`s and :class:`torch.device`s. Default implementation
         shifts all tensor-like objects to device.
-
-        .. note::
-
-            This method is used internally by `NVIDIA Apex <https://github.com/nvidia/apex>`_
-            for casting the instance to FP16 (half) precision -- this method
-            casts floats to half; while keeping integers, booleans and other
-            data types unchanged.
         """
         new_instance = self.clone()
         device, dtype, non_blocking = torch._C._nn._parse_to(*args, **kwargs)
 
-        # Casting to non-float dtype is not allowed. Common cast dtype is
-        # `torch.half`, which would be done internally by NVIDIA Apex for mixed
-        # precision training.
         if dtype is not None:
             if not dtype.is_floating_point:
                 raise TypeError(

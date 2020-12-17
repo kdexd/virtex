@@ -5,6 +5,7 @@ import os
 from loguru import logger
 import torch
 from torch import nn
+from torch.cuda import amp
 from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 
@@ -175,17 +176,11 @@ def main(_A: argparse.Namespace):
     #  BEFORE TRAINING STARTS
     # -------------------------------------------------------------------------
 
+    # Create a gradient scaler for automatic mixed precision.
+    scaler = amp.GradScaler()
+
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter = cycle(train_dataloader, device)
-
-    # Wrap model and optimizer using NVIDIA Apex for mixed precision training.
-    # NOTE: Always do this before wrapping model with DistributedDataParallel.
-    if _DOWNC.FP16_OPT > 0:
-        from apex import amp
-
-        model, optimizer = amp.initialize(
-            model, optimizer, opt_level=f"O{_DOWNC.FP16_OPT}"
-        )
 
     if dist.get_world_size() > 1:
         dist.synchronize()
@@ -213,18 +208,15 @@ def main(_A: argparse.Namespace):
         optimizer.zero_grad()
         batch = next(train_dataloader_iter)
 
-        logits = model(batch["image"])
-        loss = criterion(logits, batch["label"])
+        with amp.autocast(enabled=_DOWNC.FP16_OPT > 0):
+            logits = model(batch["image"])
+            loss = criterion(logits, batch["label"])
 
-        # Perform dynamic scaling of loss to adjust for mixed precision.
-        if _DOWNC.FP16_OPT > 0:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            loss.backward()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
 
-        optimizer.step()
-        scheduler.step(iteration)
+        scheduler.step()
         timer.toc()
 
         if iteration % _A.log_every == 0 and dist.is_master_process():
