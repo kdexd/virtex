@@ -146,7 +146,7 @@ class DownstreamTrainer(DefaultTrainer):
                 DetectionCheckpointer(
                     self._trainer.model,
                     optimizer=self._trainer.optimizer,
-                    scheduler=self._trainer.scheduler
+                    scheduler=self.scheduler
                 ).resume_or_load(weights, resume=True).get("iteration", -1) + 1
             )
         elif isinstance(weights, dict):
@@ -167,10 +167,13 @@ class DownstreamTrainer(DefaultTrainer):
         elif evaluator_type == "lvis":
             return LVISEvaluator(dataset_name, cfg, True, output_folder)
 
-    def test(self):
+    def test(self, cfg=None, model=None, evaluators=None):
         r"""Evaluate the model and log results to stdout and tensorboard."""
-        tensorboard_writer = SummaryWriter(log_dir=self.cfg.OUTPUT_DIR)
-        results = super().test(self.cfg, self.model)
+        cfg = cfg or self.cfg
+        model = model or self.model
+
+        tensorboard_writer = SummaryWriter(log_dir=cfg.OUTPUT_DIR)
+        results = super().test(cfg, model)
         flat_results = d2.evaluation.testing.flatten_results_dict(results)
         for k, v in flat_results.items():
             tensorboard_writer.add_scalar(k, v, self.start_iter)
