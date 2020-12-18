@@ -2,10 +2,12 @@ RANDOM_SEED: 0
 DATA:
   ROOT: datasets/VOC2007
   IMAGE_TRANSFORM_TRAIN:
-    - global_resize
+    - smallest_resize
+    - center_crop
     - normalize
   IMAGE_TRANSFORM_VAL:
-    - global_resize
+    - smallest_resize
+    - center_crop
     - normalize
 
 OPTIM:

@@ -45,7 +45,7 @@ OPTIM:
   OPTIMIZER_NAME: "sgd"
   SGD_MOMENTUM: 0.9
   WEIGHT_DECAY: 0.0001
-  NO_DECAY: ".*textual.(embedding|transformer|output).*(norm.*|bias)"
+  NO_DECAY: ".*textual.(embedding|transformer).*(norm.*|bias)"
   CLIP_GRAD_NORM: 10
 
   USE_LOOKAHEAD: True

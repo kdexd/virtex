@@ -4,7 +4,7 @@ FP16_OPT: 2
 DATA:
   ROOT: "datasets/inaturalist"
   IMAGE_TRANSFORM_TRAIN:
-    - "random_resized_crop"
+    - "random_resized_crop::{'scale': (0.08, 1.0)}"
     - "horizontal_flip"
     - "normalize"
   IMAGE_TRANSFORM_VAL:
