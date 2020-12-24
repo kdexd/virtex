@@ -104,7 +104,7 @@ def main(_A: argparse.Namespace):
     # -------------------------------------------------------------------------
 
     # Create a gradient scaler for automatic mixed precision.
-    scaler = amp.GradScaler()
+    scaler = amp.GradScaler(enabled=_C.AMP)
 
     # Load checkpoint to resume training if specified.
     if _A.resume_from is not None:
@@ -149,7 +149,7 @@ def main(_A: argparse.Namespace):
         optimizer.zero_grad()
         batch = next(train_dataloader_iter)
 
-        with amp.autocast(enabled=_C.FP16_OPT > 0):
+        with amp.autocast(enabled=_C.AMP):
             output_dict = model(batch)
             loss = output_dict["loss"]
 

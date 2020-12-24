@@ -177,7 +177,7 @@ def main(_A: argparse.Namespace):
     # -------------------------------------------------------------------------
 
     # Create a gradient scaler for automatic mixed precision.
-    scaler = amp.GradScaler()
+    scaler = amp.GradScaler(enabled=_DOWNC.AMP)
 
     # Create an iterator from dataloader to sample batches perpetually.
     train_dataloader_iter = cycle(train_dataloader, device)
@@ -208,7 +208,7 @@ def main(_A: argparse.Namespace):
         optimizer.zero_grad()
         batch = next(train_dataloader_iter)
 
-        with amp.autocast(enabled=_DOWNC.FP16_OPT > 0):
+        with amp.autocast(enabled=_DOWNC.AMP):
             logits = model(batch["image"])
             loss = criterion(logits, batch["label"])
 

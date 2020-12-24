@@ -1,5 +1,8 @@
 RANDOM_SEED: 0
-FP16_OPT: 2
+# Don't need AMP to train a tiny linear layer.
+AMP: False
+CUDNN_BENCHMARK: True
+CUDNN_DETERMINISTIC: False
 
 DATA:
   ROOT: "datasets/imagenet"
@@ -19,12 +22,11 @@ MODEL:
 OPTIM:
   BATCH_SIZE: 256
   SGD_MOMENTUM: 0.9
-  WEIGHT_DECAY: 0.000001
+  WEIGHT_DECAY: 0.0
   NO_DECAY: "none"
   USE_LOOKAHEAD: False
 
   LR: 0.3
   WARMUP_STEPS: 0
   LR_DECAY_NAME: "cosine"
-  LR_GAMMA: 0.1
   NUM_ITERATIONS: 500500  # 100 epochs

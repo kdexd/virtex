@@ -70,8 +70,8 @@ def common_setup(_C: Config, _A: argparse.Namespace, job_type: str = "pretrain")
 
     # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
     torch.manual_seed(_C.RANDOM_SEED)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = _C.CUDNN_DETERMINISTIC
+    torch.backends.cudnn.benchmark = _C.CUDNN_BENCHMARK
     random.seed(_C.RANDOM_SEED)
     np.random.seed(_C.RANDOM_SEED)
 

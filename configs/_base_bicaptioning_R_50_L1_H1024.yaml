@@ -3,7 +3,9 @@
 # ResNet-50 + (L = 1, H = 1024) transformer trained for 500K iterations.
 # -----------------------------------------------------------------------------
 RANDOM_SEED: 0
-FP16_OPT: 2
+AMP: True
+CUDNN_BENCHMARK: True
+CUDNN_DETERMINISTIC: False
 
 DATA:
   ROOT: "datasets/coco"

@@ -45,9 +45,17 @@ class Config(object):
 
         # Random seed for NumPy and PyTorch, important for reproducibility.
         _C.RANDOM_SEED = 0
-        # Opt level for mixed precision training using NVIDIA Apex. This can be
-        # one of {0, 1, 2}. Refer NVIDIA Apex docs for their meaning.
-        _C.FP16_OPT = 2
+        # Train with Automatic Mixed Precision (native PyTorch).
+        _C.AMP = True
+        # Set CUDNN deterministic flag (torch.backends.cudnn.deterministic).
+        # Setting this will ensure exact results on every run at the cost of
+        # little slowdown. Good for debugging.
+        _C.CUDNN_DETERMINISTIC = False
+        # Set CUDNN benchmark flag (torch.backends.cudnn.benchmark). Enables
+        # CUDNN to select fastest implementation for operations based on GPU.
+        # May change results (in decimals) on different hardware, but faster
+        # to train. Turn off while debugging.
+        _C.CUDNN_BENCHMARK = True
 
         # ---------------------------------------------------------------------
         #   Data paths and parameters related to dataloading.
