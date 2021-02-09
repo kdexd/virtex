@@ -130,8 +130,8 @@ class Config(object):
 
         # Name of model, based on pretraining task.
         # Possible choices: {"token_classification", "multilabel_classification",
-        # "captioning", "bicaptioning", "masked_lm"}
-        _C.MODEL.NAME = "bicaptioning"
+        # "captioning", "bicaptioning", "masked_lm", "virtex"}
+        _C.MODEL.NAME = "virtex"
 
         _C.MODEL.VISUAL = CN()
         # Name of visual backbone. Possible choices: {"blind", "torchvision"}
@@ -172,7 +172,7 @@ class Config(object):
         # Weight decay co-efficient for the optimizer.
         _C.OPTIM.WEIGHT_DECAY = 0.0001
         # Regex pattern of params for which there will be no weight decay.
-        _C.OPTIM.NO_DECAY = ".*textual.*(norm.*|bias)"
+        _C.OPTIM.NO_DECAY = ".*textual.(embedding|transformer).*(norm.*|bias)"
         # Max gradient norm for clipping to avoid exploding gradients.
         _C.OPTIM.CLIP_GRAD_NORM = 10
 

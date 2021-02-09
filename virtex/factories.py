@@ -20,7 +20,7 @@ specific factories for more details.
 """
 from functools import partial
 import re
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List
 
 import albumentations as alb
 from torch import nn, optim

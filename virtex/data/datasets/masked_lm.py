@@ -1,14 +1,14 @@
 import math
 import os
 import random
-from typing import Callable, List
+from typing import Callable, Dict, List
 
 import albumentations as alb
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 
 from virtex.data.readers import LmdbReader
-from virtex.data.structures import MaskedLmInstance, MaskedLmBatch
 from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.data import transforms as T
 
@@ -51,7 +51,7 @@ class MaskedLmDataset(Dataset):
     def __len__(self):
         return len(self.reader)
 
-    def __getitem__(self, idx: int) -> MaskedLmInstance:
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
 
         image_id, image, captions = self.reader[idx]
 
@@ -97,10 +97,36 @@ class MaskedLmDataset(Dataset):
                         caption_tokens[i] = self._random_token_index()
         # ---------------------------------------------------------------------
 
-        return MaskedLmInstance(image_id, image, caption_tokens, masked_labels)
+        return {
+            "image_id": torch.tensor(image_id, dtype=torch.long),
+            "image": torch.tensor(image, dtype=torch.float),
+            "caption_tokens": torch.tensor(caption_tokens, dtype=torch.long),
+            "masked_labels": torch.tensor(masked_labels, dtype=torch.long),
+            "caption_lengths": torch.tensor(len(caption_tokens), dtype=torch.long),
+        }
 
-    def collate_fn(self, instances: List[MaskedLmInstance]) -> MaskedLmBatch:
-        return MaskedLmBatch(instances, padding_value=self.padding_idx)
+    def collate_fn(
+        self, data: List[Dict[str, torch.Tensor]]
+    ) -> Dict[str, torch.Tensor]:
+
+        # Pad `caption_tokens` and `masked_labels` up to this length.
+        caption_tokens = torch.nn.utils.rnn.pad_sequence(
+            [d["caption_tokens"] for d in data],
+            batch_first=True,
+            padding_value=self.padding_idx,
+        )
+        masked_labels = torch.nn.utils.rnn.pad_sequence(
+            [d["masked_labels"] for d in data],
+            batch_first=True,
+            padding_value=self.padding_idx,
+        )
+        return {
+            "image_id": torch.stack([d["image_id"] for d in data], dim=0),
+            "image": torch.stack([d["image"] for d in data], dim=0),
+            "caption_tokens": caption_tokens,
+            "masked_labels": masked_labels,
+            "caption_lengths": torch.stack([d["caption_lengths"] for d in data]),
+        }
 
     def _random_token_index(self) -> int:
         return random.randint(0, self._vocab_size - 1)

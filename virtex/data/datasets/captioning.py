@@ -1,15 +1,15 @@
 import os
 import random
-from typing import Callable, List
+from typing import Callable, Dict, List
 
 import albumentations as alb
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 
 from virtex.data.readers import LmdbReader
-from virtex.data.structures import ImageCaptionInstance, ImageCaptionBatch
 from virtex.data.tokenizers import SentencePieceBPETokenizer
-from virtex.data import transforms as T 
+from virtex.data import transforms as T
 
 
 class CaptioningDataset(Dataset):
@@ -73,7 +73,7 @@ class CaptioningDataset(Dataset):
     def __len__(self):
         return len(self.reader)
 
-    def __getitem__(self, idx: int) -> ImageCaptionInstance:
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
 
         image_id, image, captions = self.reader[idx]
 
@@ -91,7 +91,33 @@ class CaptioningDataset(Dataset):
         image = np.transpose(image, (2, 0, 1))
 
         caption_tokens = self.caption_transform(caption=caption)["caption"]
-        return ImageCaptionInstance(image_id, image, caption_tokens)
+        return {
+            "image_id": torch.tensor(image_id, dtype=torch.long),
+            "image": torch.tensor(image, dtype=torch.float),
+            "caption_tokens": torch.tensor(caption_tokens, dtype=torch.long),
+            "noitpac_tokens": torch.tensor(caption_tokens, dtype=torch.long).flip(0),
+            "caption_lengths": torch.tensor(len(caption_tokens), dtype=torch.long),
+        }
 
-    def collate_fn(self, instances: List[ImageCaptionInstance]) -> ImageCaptionBatch:
-        return ImageCaptionBatch(instances, padding_value=self.padding_idx)
+    def collate_fn(
+        self, data: List[Dict[str, torch.Tensor]]
+    ) -> Dict[str, torch.Tensor]:
+
+        # Pad `caption_tokens` and `masked_labels` up to this length.
+        caption_tokens = torch.nn.utils.rnn.pad_sequence(
+            [d["caption_tokens"] for d in data],
+            batch_first=True,
+            padding_value=self.padding_idx,
+        )
+        noitpac_tokens = torch.nn.utils.rnn.pad_sequence(
+            [d["noitpac_tokens"] for d in data],
+            batch_first=True,
+            padding_value=self.padding_idx,
+        )
+        return {
+            "image_id": torch.stack([d["image_id"] for d in data], dim=0),
+            "image": torch.stack([d["image"] for d in data], dim=0),
+            "caption_tokens": caption_tokens,
+            "noitpac_tokens": noitpac_tokens,
+            "caption_lengths": torch.stack([d["caption_lengths"] for d in data]),
+        }

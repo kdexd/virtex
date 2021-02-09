@@ -1,9 +1,5 @@
-from typing import Any, Dict
-
 import torch
 from torch import nn
-
-from virtex.utils.metrics import TopkAccuracy
 
 
 class FeatureExtractor(nn.Module):

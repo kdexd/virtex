@@ -6,7 +6,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from virtex.data.structures import ImageCaptionBatch
 from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.modules.textual_heads import TextualHead
 from virtex.modules.visual_backbones import VisualBackbone
@@ -81,7 +80,7 @@ class CaptioningModel(nn.Module):
         )
         self.loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
 
-    def forward(self, batch: ImageCaptionBatch) -> Dict[str, Any]:
+    def forward(self, batch: Dict[str, torch.Tensor]) -> Dict[str, Any]:
         r"""
         Given a batch of images and captions, compute log likelihood loss per
         caption token during training. During inference, given a batch of
@@ -90,8 +89,10 @@ class CaptioningModel(nn.Module):
 
         Parameters
         ----------
-        batch: virtex.data.structures.ImageCaptionBatch
+        batch: Dict[str, torch.Tensor]
             A batch of images and (optionally) ground truth caption tokens.
+            Possible set of keys: ``{"image_id", "image", "caption_tokens",
+            "noitpac_tokens", "caption_lengths"}``.
 
         Returns
         -------
@@ -243,7 +244,7 @@ class CaptioningModel(nn.Module):
         return next_logprobs
 
     def log_predictions(
-        self, batch: ImageCaptionBatch, tokenizer: SentencePieceBPETokenizer
+        self, batch: Dict[str, torch.Tensor], tokenizer: SentencePieceBPETokenizer
     ) -> str:
 
         self.eval()
@@ -311,3 +312,7 @@ class BidirectionalCaptioningModel(CaptioningModel):
             eos_index=eos_index,
             caption_backward=True,
         )
+
+
+# Convenient handle for our main model.
+VirTexModel = BidirectionalCaptioningModel

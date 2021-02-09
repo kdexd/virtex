@@ -11,7 +11,7 @@ from virtex.config import Config
 from virtex.data import ImageDirectoryDataset
 from virtex.factories import TokenizerFactory, PretrainingModelFactory
 from virtex.utils.checkpointing import CheckpointManager
-from virtex.utils.common import common_parser, common_setup
+from virtex.utils.common import common_parser
 from virtex.utils.metrics import CocoCaptionsEvaluator
 
 

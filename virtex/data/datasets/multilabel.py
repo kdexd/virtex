@@ -2,13 +2,13 @@ from collections import defaultdict
 import glob
 import json
 import os
-from typing import Callable, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 import cv2
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 
-from virtex.data.structures import ImageCaptionInstance, ImageCaptionBatch
 from virtex.data import transforms as T
 
 
@@ -46,35 +46,28 @@ class MultiLabelClassificationDataset(Dataset):
         ]
         # Load the instance (bounding box and mask) annotations.
         _annotations = json.load(
-            open(
-                os.path.join(data_root, "annotations", f"instances_{split}2017.json")
-            )
+            open(os.path.join(data_root, "annotations", f"instances_{split}2017.json"))
         )
         # Make a mapping between COCO category id and its index, to make IDs
         # consecutive, else COCO has 80 classes with IDs 1-90. Start index from 1
         # as 0 is reserved for background (padding idx).
         _category_ids = {
-            ann["id"]: index + 1
-            for index, ann in enumerate(_annotations["categories"])
+            ann["id"]: index + 1 for index, ann in enumerate(_annotations["categories"])
         }
-
-        # A mapping between image ID and list of unique category IDs (indices as above)
+        # Mapping from image ID to list of unique category IDs (indices as above)
         # in corresponding image.
-        self.instances = defaultdict(list)
+        self._labels = defaultdict(list)
 
         for ann in _annotations["annotations"]:
-            self.instances[ann["image_id"]].append(_category_ids[ann["category_id"]])
+            self._labels[ann["image_id"]].append(_category_ids[ann["category_id"]])
 
-        # De-duplicate instances and drop empty labels, we only need to do
-        # classification.
-        self.instances = {
-            image_id: list(set(ins))
-            for image_id, ins in self.instances.items()
-            if len(ins) > 0
+        # De-duplicate and drop empty labels, we only need to do classification.
+        self._labels = {
+            _id: list(set(lbl)) for _id, lbl in self._labels.items() if len(lbl) > 0
         }
-        # Filter out image IDs which didn't have any instances.
+        # Filter out image IDs which didn't have any labels.
         self.id_filename = [
-            (t[0], t[1]) for t in self.id_filename if t[0] in self.instances
+            (t[0], t[1]) for t in self.id_filename if t[0] in self._labels
         ]
         # Padding while forming a batch, because images may have variable number
         # of instances. We do not need padding index from tokenizer: COCO has
@@ -95,11 +88,25 @@ class MultiLabelClassificationDataset(Dataset):
         image = np.transpose(image, (2, 0, 1))
 
         # Get a list of instances present in the image.
-        instances = self.instances[image_id]
+        labels = self._labels[image_id]
 
-        # Treat list of instances as "caption tokens" for reusability.
-        # TODO (kd): it is hacky and written in deadline rush, make it better.
-        return ImageCaptionInstance(image_id, image, caption_tokens=instances)
+        return {
+            "image_id": torch.tensor(image_id, dtype=torch.long),
+            "image": torch.tensor(image, dtype=torch.float),
+            "labels": torch.tensor(labels, dtype=torch.long),
+        }
 
-    def collate_fn(self, instances: List[ImageCaptionInstance]) -> ImageCaptionBatch:
-        return ImageCaptionBatch(instances, padding_value=self.padding_idx)
+    def collate_fn(
+        self, data: List[Dict[str, torch.Tensor]]
+    ) -> Dict[str, torch.Tensor]:
+
+        labels = torch.nn.utils.rnn.pad_sequence(
+            [d["labels"] for d in data],
+            batch_first=True,
+            padding_value=self.padding_idx,
+        )
+        return {
+            "image_id": torch.stack([d["image_id"] for d in data], dim=0),
+            "image": torch.stack([d["image"] for d in data], dim=0),
+            "labels": labels,
+        }

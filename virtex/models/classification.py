@@ -4,7 +4,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from virtex.data.structures import Batch
 from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.modules.textual_heads import TextualHead
 from virtex.modules.visual_backbones import VisualBackbone
@@ -38,26 +37,23 @@ class ClassificationModel(nn.Module):
     """
 
     def __init__(
-        self,
-        visual: VisualBackbone,
-        textual: TextualHead,
-        ignore_indices: List[int],
+        self, visual: VisualBackbone, textual: TextualHead, ignore_indices: List[int]
     ):
         super().__init__()
         self.visual = visual
         self.textual = textual
         self.ignore_indices = ignore_indices
 
-    def forward(self, batch: Batch):
+    def forward(self, batch: Dict[str, torch.Tensor]):
         r"""
-        Given a batch of images and set of labels (named "caption_tokens" just
-        for the sake of simplicity), perform classification with multiple
-        targets by minimizing a KL-divergence loss.
+        Given a batch of images and set of labels, perform classification with
+        multiple targets by minimizing a KL-divergence loss.
 
         Parameters
         ----------
-        batch: virtex.data.structures.ImageCaptionBatch
-            A batch of images and label set (as key named "caption_tokens").
+        batch: Dict[str, torch.Tensor]
+            A batch of images and labels. Possible set of keys:
+            ``{"image_id", "image", "labels"}``
 
         Returns
         -------
@@ -98,9 +94,7 @@ class ClassificationModel(nn.Module):
 
             # Ignore indices of special tokens such as [SOS], [EOS] etc. and
             # any other token specified.
-            unique_tokens = [
-                t for t in unique_tokens if t not in self.ignore_indices
-            ]
+            unique_tokens = [t for t in unique_tokens if t not in self.ignore_indices]
             # Get log-probabilities corresponding to these tokens.
             instance_logprobs = logprobs[index, unique_tokens].mean()
 
@@ -133,7 +127,7 @@ class TokenClassificationModel(ClassificationModel):
     """
 
     def log_predictions(
-        self, batch: Batch, tokenizer: SentencePieceBPETokenizer
+        self, batch: Dict[str, torch.Tensor], tokenizer: SentencePieceBPETokenizer
     ) -> str:
 
         self.eval()
@@ -165,7 +159,9 @@ class MultiLabelClassificationModel(ClassificationModel):
     """
 
     def log_predictions(
-        self, batch: Batch, tokenizer: SentencePieceBPETokenizer = None,
+        self,
+        batch: Dict[str, torch.Tensor],
+        tokenizer: SentencePieceBPETokenizer = None,
     ) -> str:
         # We accept `tokenizer` for having consistent API but don't use it here.
         self.eval()
@@ -178,7 +174,7 @@ class MultiLabelClassificationModel(ClassificationModel):
             # Predictions here are COCO category IDs, let them be as is.
             # Sorted ground truth, remove background tokens.
             tokens = sorted([t for t in tokens.tolist() if t != 0])
-            preds = sorted(preds.tolist()[:len(tokens)])
+            preds = sorted(preds.tolist()[: len(tokens)])
             predictions_str += f"""
                 COCO Instance IDs (GT)   : {tokens}
                 COCO Instance IDs (Pred) : {preds}

@@ -1,5 +1,4 @@
 import argparse
-from collections import Counter
 import os
 
 from loguru import logger

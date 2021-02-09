@@ -10,10 +10,6 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.datasets import ImageNet
 
-from virtex.data.structures import (
-    LinearClassificationInstance,
-    LinearClassificationBatch,
-)
 from virtex.data import transforms as T
 
 
@@ -78,18 +74,23 @@ class ImageNetDataset(ImageNet):
             self.targets = [self.targets[i] for i in retained_indices]
             self.samples = self.imgs
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         image, label = super().__getitem__(idx)
 
         # Apply transformation to  image and convert to CHW format.
         image = self.image_transform(image=np.array(image))["image"]
         image = np.transpose(image, (2, 0, 1))
-        return LinearClassificationInstance(image=image, label=label)
+        return {
+            "image": torch.tensor(image, dtype=torch.float),
+            "label": torch.tensor(label, dtype=torch.long),
+        }
 
-    def collate_fn(
-        self, instances: List[LinearClassificationInstance]
-    ) -> LinearClassificationBatch:
-        return LinearClassificationBatch(instances)
+    @staticmethod
+    def collate_fn(data: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+        return {
+            "image": torch.stack([d["image"] for d in data], dim=0),
+            "label": torch.stack([d["label"] for d in data], dim=0),
+        }
 
 
 class INaturalist2018Dataset(Dataset):
@@ -145,12 +146,17 @@ class INaturalist2018Dataset(Dataset):
         image = self.image_transform(image=image)["image"]
         image = np.transpose(image, (2, 0, 1))
 
-        return LinearClassificationInstance(image=image, label=label)
+        return {
+            "image": torch.tensor(image, dtype=torch.float),
+            "label": torch.tensor(label, dtype=torch.long),
+        }
 
-    def collate_fn(
-        self, instances: List[LinearClassificationInstance]
-    ) -> LinearClassificationBatch:
-        return LinearClassificationBatch(instances)
+    @staticmethod
+    def collate_fn(data: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+        return {
+            "image": torch.stack([d["image"] for d in data], dim=0),
+            "label": torch.stack([d["label"] for d in data], dim=0),
+        }
 
 
 class VOC07ClassificationDataset(Dataset):
@@ -228,12 +234,17 @@ class VOC07ClassificationDataset(Dataset):
         image = self.image_transform(image=image)["image"]
         image = np.transpose(image, (2, 0, 1))
 
-        return LinearClassificationInstance(image=image, label=label)
+        return {
+            "image": torch.tensor(image, dtype=torch.float),
+            "label": torch.tensor(label, dtype=torch.long),
+        }
 
-    def collate_fn(
-        self, instances: List[LinearClassificationInstance]
-    ) -> LinearClassificationBatch:
-        return LinearClassificationBatch(instances)
+    @staticmethod
+    def collate_fn(data: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+        return {
+            "image": torch.stack([d["image"] for d in data], dim=0),
+            "label": torch.stack([d["label"] for d in data], dim=0),
+        }
 
 
 class ImageDirectoryDataset(Dataset):

@@ -14,14 +14,11 @@ import re
 from typing import Any, Dict, Union
 
 import torch
-from torch import nn
 from torch.utils.tensorboard import SummaryWriter
-from apex.parallel import DistributedDataParallel as ApexDDP
 
 import detectron2 as d2
 from detectron2.checkpoint import DetectionCheckpointer
-from detectron2.config import global_cfg
-from detectron2.engine import SimpleTrainer, DefaultTrainer, default_setup
+from detectron2.engine import DefaultTrainer, default_setup
 from detectron2.evaluation import (
     LVISEvaluator,
     PascalVOCDetectionEvaluator,

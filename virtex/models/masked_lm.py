@@ -3,7 +3,6 @@ from typing import Any, Dict
 import torch
 from torch import nn
 
-from virtex.data.structures import MaskedLmBatch
 from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.modules.textual_heads import TextualHead
 from virtex.modules.visual_backbones import VisualBackbone
@@ -36,15 +35,17 @@ class MaskedLMModel(nn.Module):
         self.padding_idx = self.textual.padding_idx
         self.loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
 
-    def forward(self, batch: MaskedLmBatch) -> Dict[str, Any]:
+    def forward(self, batch: Dict[str, torch.Tensor]) -> Dict[str, Any]:
         r"""
         Given a batch of images and captions with certain masked tokens,
         predict the tokens at masked positions.
 
         Parameters
         ----------
-        batch: virtex.data.structures.MaskedLmBatch
-            A batch of images and (optionally) ground truth caption tokens.
+        batch: Dict[str, torch.Tensor]
+            A batch of images, ground truth caption tokens and masked labels.
+            Possible set of keys: ``{"image_id", "image", "caption_tokens",
+            "masked_labels", "caption_lengths"}``.
 
         Returns
         -------
@@ -71,13 +72,10 @@ class MaskedLMModel(nn.Module):
         masked_labels = batch["masked_labels"]
 
         # shape: (batch_size, num_caption_tokens, vocab_size)
-        output_logits = self.textual(
-            visual_features, caption_tokens, caption_lengths
-        )
+        output_logits = self.textual(visual_features, caption_tokens, caption_lengths)
         output_dict: Dict[str, Any] = {
             "loss": self.loss(
-                output_logits.view(-1, output_logits.size(-1)),
-                masked_labels.view(-1),
+                output_logits.view(-1, output_logits.size(-1)), masked_labels.view(-1)
             )
         }
         # Single scalar per batch for logging in training script.
@@ -96,7 +94,7 @@ class MaskedLMModel(nn.Module):
         return output_dict
 
     def log_predictions(
-        self, batch: MaskedLmBatch, tokenizer: SentencePieceBPETokenizer
+        self, batch: Dict[str, torch.Tensor], tokenizer: SentencePieceBPETokenizer
     ) -> str:
 
         self.eval()
