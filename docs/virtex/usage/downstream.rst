@@ -107,20 +107,15 @@ VirTex pretrained weights:
 
 .. note::
 
-    Three general notes regarding this script, that also apply to other tasks
-    using this script (LVIS Instance Segmentation and PASCAL VOC Detection).
-
     1. This script periodically serializes checkpoints but skips validation
        step during training for saving time; to evaluate a serialized checkpoint
-       and write results to tensorbord, provide it as ``--checkpoint-path`` and
+       and write results to tensorboard, provide it as ``--checkpoint-path`` and
        additional flags ``--resume --eval-only``.
 
-    2. This job is memory intensive, and it may exceed GPU memory (12 GB or so)
-       with batch size 2 per GPU. Try providing ``--gradient-checkpoint`` flag;
-       it reduces memory consumption but slightly increases training duration.
-
-    3. Note that ``--d2-config`` here is in Detectron2 format, and not our
+    2. Note that ``--d2-config`` here is in Detectron2 format, and not our
        package :class:`~virtex.config.Config`.
+
+    These points are applicable for all tasks described below.
 
 -------------------------------------------------------------------------------
 

@@ -187,6 +187,7 @@ class PretrainingDatasetFactory(Factory):
     """
 
     PRODUCTS: Dict[str, Callable] = {
+        "virtex": vdata.CaptioningDataset,
         "bicaptioning": vdata.CaptioningDataset,
         "captioning": vdata.CaptioningDataset,
         "masked_lm": vdata.MaskedLmDataset,
@@ -422,6 +423,8 @@ class PretrainingModelFactory(Factory):
     """
 
     PRODUCTS: Dict[str, Callable] = {
+        # First two are basically the same. Added for shorthand notation.
+        "virtex": vmodels.VirTexModel,
         "bicaptioning": vmodels.BidirectionalCaptioningModel,
         "captioning": vmodels.ForwardCaptioningModel,
         "masked_lm": vmodels.MaskedLMModel,

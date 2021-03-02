@@ -2,12 +2,9 @@ How to train your VirTex model?
 ===============================
 
 We provide training scripts for all type of VirTex models from the paper;
-including our best performing model and other ablations. We also support
-training of ImageNet-supervised models with varying amounts of ImageNet data,
-which is adapted from `PyTorch examples <https://github.com/pytorch/examples>`_.
-
-Training jobs are launched with a specific config file (YAML). Execute all
-commands from project root to use the provided config files.
+including our best-performing model and other ablations.
+Our training jobs are specified by config files (YAML).
+Execute all commands from project root to use the provided config files.
 
 
 Training the base VirTex model
@@ -53,6 +50,7 @@ Pretraining Task Ablations
 2. **Forward Captioning:** configs/task_ablations/captioning_R_50_L1_H2048.yaml
 3. **Token Classification:** configs/task_ablations/token_classification_R_50.yaml
 4. **Multilabel Classification:** configs/task_ablations/multilabel_classification_R_50.yaml
+5. **Masked Language Modeling:** configs/task_ablations/masked_lm_R_50_L1_H2048.yaml
 
 Transformer Size Ablations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -97,35 +95,6 @@ train a base VirTex model on randomly selected ``50%`` of COCO Captions:
 COCO Captions provides five captions per image. To train with one fixed caption
 per image, add ``DATA.USE_SINGLE_CAPTION True`` in ``--config-override``.
 
-The randomly selected subset is governed by random seed (``RANDOM_SEED`` in
-config). When training on less than ``50%`` dataset size, we recommend using
-multiple random seeds (results will have a variance of ``±1%``).
-
--------------------------------------------------------------------------------
-
-Training ImageNet-supervised baselines
---------------------------------------
-
-We support training ImageNet-supervised baselines for comparison with VirTex
-models in **Data Efficiency Experiments** above. Training script is adapted
-from `PyTorch examples <https://github.com/pytorch/examples>`_.
-
-We do not train ImageNet-supervised baseline with ``100%`` ImageNet dataset;
-for this we use the pretrained model from `torchvision model zoo
-<https://pytorch.org/docs/stable/torchvision/models.html>`_. For example, train
-a ResNet-50 model with ``10%`` of ImageNet dataset:
-
-.. code-block::
-
-    # This script works differently than the rest (due to external source).
-    CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python scripts/pretrain_insup.py \
-        --data-percentage 10.0 \
-        --num-gpus-per-machine 8 \
-        --cpu-workers 4 \
-        --serialization-dir /tmp/IN_SUP_PERCENT_10 \
-        datasets/imagenet
-        # Default: --epochs 90 -b 256 --lr 0.1 --momentum 0.9 --wd 1e-4
-
-Like VirTex, the randomly selected subset is governed by random seed (``--seed``)
-When training on less than ``10%`` dataset size, we recommend training with
-multiple random seeds (results will have a variance of ``±1%``).
+The randomly selected subset is deterministic across runs based on random seed
+(``RANDOM_SEED`` in config). When training on less than ``50%`` dataset size, we
+recommend using multiple random seeds (results will have a variance of ``±1%``).

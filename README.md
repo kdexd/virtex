@@ -10,7 +10,7 @@ University of Michigan
 </h4>
 <hr>
 
-**Preprint:** [arxiv.org/abs/2006.06666][1]
+**CVPR 2021** [arxiv.org/abs/2006.06666][1]
 
 **Model Zoo, Usage Instructions and API docs:** [kdexd.github.io/virtex](https://kdexd.github.io/virtex)
 
@@ -34,6 +34,18 @@ import torch
 model = torch.hub.load("kdexd/virtex", "resnet50", pretrained=True)
 ```
 
+### Note (For returning users before January 2021):
+
+The pretrained models in our model zoo have changed in [`v1.0`](https://github.com/kdexd/virtex/releases/tag/v1.0).
+They are slightly better tuned than older models, and reproduce the results in our
+CVPR 2021 accepted paper ([arXiv v2](https://arxiv.org/abs/2006.06666v2)). 
+Some training and evaluation hyperparams are changed since [`v0.9`](https://github.com/kdexd/virtex/releases/tag/v0.9),
+but they should not significantly affect performance (just within decimals).
+
+Links to pretrained models in `v0.9` model zoo will be active through June 30, 2021.
+However, we highly encourage using the latest models from `v1.0`.
+
+
 Usage Instructions
 ------------------
 
@@ -42,7 +54,7 @@ Usage Instructions
 3. [How to train your VirTex model?][4]  
 4. [How to evaluate on downstream tasks?][5]  
 
-These can also be accessed from [kdexd.github.io/virtex](https://kdexd.github.io/virtex).
+Full documentation is available at [kdexd.github.io/virtex](https://kdexd.github.io/virtex).
 
 
 Citation
@@ -51,11 +63,11 @@ Citation
 If you find this code useful, please consider citing:
 
 ```text
-@article{desai2020virtex,
-    title={VirTex: Learning Visual Representations from Textual Annotations},
+@inproceedings{desai2021virtex,
+    title={{VirTex: Learning Visual Representations from Textual Annotations}},
     author={Karan Desai and Justin Johnson},
-    journal={arXiv preprint arXiv:2006.06666},
-    year={2020}
+    booktitle={CVPR},
+    year={2021}
 }
 ```
 

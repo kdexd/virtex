@@ -32,7 +32,7 @@
     -- despite using up to ten times fewer images.
     </p>
 
-**Preprint available at:** `arxiv.org/abs/2006.06666 <https://arxiv.org/abs/2006.06666>`_.
+**CVPR 2021. Paper available at:** `arxiv.org/abs/2006.06666 <https://arxiv.org/abs/2006.06666>`_.
 
 **Code available at:** `github.com/kdexd/virtex <https://github.com/kdexd/virtex>`_.
 
@@ -89,11 +89,11 @@ If you find this code useful, please consider citing:
 
 .. code-block:: text
 
-    @article{desai2020virtex,
-        title={VirTex: Learning Visual Representations from Textual Annotations},
+    @inproceedings{desai2021virtex,
+        title={{VirTex: Learning Visual Representations from Textual Annotations}},
         author={Karan Desai and Justin Johnson},
-        journal={arXiv preprint arXiv:2006.06666},
-        year={2020}
+        booktitle={CVPR},
+        year={2021}
     }
 
 

@@ -148,7 +148,7 @@ class Config(object):
         # Name of textual head. Set to "none" for MODEL.NAME = "*_classification".
         # Possible choices: {"transformer_postnorm", "transformer_prenorm"}.
         # Architectural hyper-parameters are specified as shown above.
-        _C.MODEL.TEXTUAL.NAME = "transformer_postnorm::L1_H1024_A16_F4096"
+        _C.MODEL.TEXTUAL.NAME = "transformer_postnorm::L1_H2048_A32_F8192"
         # L = Number of layers in the transformer.
         # H = Hidden size of the transformer (embeddings, attention features).
         # A = Number of attention heads in the transformer.

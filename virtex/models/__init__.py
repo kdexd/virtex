@@ -1,4 +1,8 @@
-from .captioning import ForwardCaptioningModel, BidirectionalCaptioningModel
+from .captioning import (
+    ForwardCaptioningModel,
+    BidirectionalCaptioningModel,
+    VirTexModel
+)
 from .masked_lm import MaskedLMModel
 from .classification import (
     MultiLabelClassificationModel,
@@ -7,6 +11,7 @@ from .classification import (
 
 
 __all__ = [
+    "VirTexModel",
     "BidirectionalCaptioningModel",
     "ForwardCaptioningModel",
     "MaskedLMModel",

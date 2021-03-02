@@ -85,27 +85,33 @@ Pretraining Task Ablations
     </tr>
     <tr>
         <td class="tg-0pky">task_ablations/bicaptioning_R_50_L1_H2048.yaml</td>
-        <td class="tg-c3ow">88.1</td>
-        <td class="tg-c3ow">52.8</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/fm1nq819q74vr0kqcd3gkivlzf06xvko.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.7</td>
+        <td class="tg-c3ow">53.8</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/zu8zxtxrron29icd76owgjzojmfcgdk3.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     <tr>
         <td class="tg-0pky">task_ablations/captioning_R_50_L1_H2048.yaml</td>
-        <td class="tg-c3ow">87.7</td>
-        <td class="tg-c3ow">50.7</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/7fopt8k2eutz9qvth2hh6j00o7z4o7ps.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.6</td>
+        <td class="tg-c3ow">50.8</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/1q9qh1cj2u4r5laj7mefd2mlzwthnga7.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     <tr>
         <td class="tg-0pky">task_ablations/token_classification_R_50.yaml</td>
-        <td class="tg-c3ow">88.1</td>
-        <td class="tg-c3ow">46.4</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/qwvfnji51g4gvba7i5mrw2ph5z8yfty9.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.8</td>
+        <td class="tg-c3ow">48.6</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/idvoxjl60pzpcllkbvadqgvwazil2mis.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     <tr>
         <td class="tg-0pky">task_ablations/multilabel_classification_R_50.yaml</td>
-        <td class="tg-c3ow">85.3</td>
-        <td class="tg-c3ow">46.4</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/tk1hlcue9c3268bds3h036ckk7a9btlr.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">86.2</td>
+        <td class="tg-c3ow">46.2</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/yvlflmo0klqy3m71p6ug06c6aeg282hy.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+    </tr>
+    <tr>
+        <td class="tg-0pky">task_ablations/masked_lm_R_50_L1_H2048.yaml</td>
+        <td class="tg-c3ow">86.4</td>
+        <td class="tg-c3ow">46.7</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/x3eij00eslse9j35t9j9ijyj8zkbkizh.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     </tbody>
     </table></div>
@@ -126,27 +132,27 @@ Width Ablations
     </tr>
     <tr>
         <td class="tg-0pky">width_ablations/bicaptioning_R_50_L1_H512.yaml</td>
-        <td class="tg-c3ow">86.6</td>
-        <td class="tg-c3ow">49.1</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/qostt3be0pgnd0xf55vdte3wa49x6k99.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.4</td>
+        <td class="tg-c3ow">51.8</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/wtk18v0vffws48u5yrj2qjt94wje1pit.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     <tr>
         <td class="tg-0pky"><span style="font-weight:400;font-style:normal">width_ablations/bicaptioning_R_50_L1_H768.yaml</span></td>
-        <td class="tg-c3ow">86.8</td>
-        <td class="tg-c3ow">50.0</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/v0p80tya0wjgsj0liqyvt386903xbwxc.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.3</td>
+        <td class="tg-c3ow">52.3</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/e94n0iexdvksi252bn7sm2vqjnyt9okf.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     <tr>
         <td class="tg-0pky"><span style="font-weight:400;font-style:normal">width_ablations/bicaptioning_R_50_L1_H1024.yaml</span></td>
-        <td class="tg-c3ow">87.4</td>
-        <td class="tg-c3ow">50.6</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/s2o3tvujcx2djoz1ouvuea27hrys1fbm.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.3</td>
+        <td class="tg-c3ow">53.2</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/1so9cu9y06gy27rqbzwvek4aakfd8opf.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     <tr>
         <td class="tg-0pky"><span style="font-weight:400;font-style:normal">width_ablations/bicaptioning_R_50_L1_H2048.yaml</span></td>
-        <td class="tg-c3ow">88.1</td>
-        <td class="tg-c3ow">52.8</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/fm1nq819q74vr0kqcd3gkivlzf06xvko.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.7</td>
+        <td class="tg-c3ow">53.8</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/zu8zxtxrron29icd76owgjzojmfcgdk3.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     </tbody>
     </table></div>
@@ -167,27 +173,27 @@ Depth Ablations
     </tr>
     <tr>
         <td class="tg-0pky">depth_ablations/bicaptioning_R_50_L1_H1024.yaml</td>
-        <td class="tg-c3ow">87.4</td>
-        <td class="tg-c3ow">50.6</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/s2o3tvujcx2djoz1ouvuea27hrys1fbm.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.3</td>
+        <td class="tg-c3ow">53.2</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/1so9cu9y06gy27rqbzwvek4aakfd8opf.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     <tr>
         <td class="tg-0pky">depth_ablations/bicaptioning_R_50_L2_H1024.yaml</td>
-        <td class="tg-c3ow">87.4</td>
-        <td class="tg-c3ow">50.9</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/5enura2ao2b0iyigcuikfsdd0osun0it.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.8</td>
+        <td class="tg-c3ow">53.8</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/9e88f6l13a9r8wq5bbe8qnoh9zenanq3.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     <tr>
         <td class="tg-0pky"><span style="font-weight:400;font-style:normal">depth_ablations/bicaptioning_R_50_L3_H1024.yaml</span></td>
-        <td class="tg-c3ow">87.5</td>
-        <td class="tg-c3ow">51.2</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/xit11ev6h3q7h8wth5qokewxcn6yot2n.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.7</td>
+        <td class="tg-c3ow">53.9</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/4cv8052xiq91h7lyx52cp2a6m7m9qkgo.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     <tr>
         <td class="tg-0pky"><span style="font-weight:400;font-style:normal">depth_ablations/bicaptioning_R_50_L4_H1024.yaml</span></td>
-        <td class="tg-c3ow">87.7</td>
-        <td class="tg-c3ow">52.1</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/secpwhjx9oq59mkzsztjaews6n3680bj.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.7</td>
+        <td class="tg-c3ow">53.9</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/bk5w4471mgvwa5mv6e4c7htgsafzmfm0.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     </tbody>
     </table></div>
@@ -208,21 +214,21 @@ Backbone Ablations
     </tr>
     <tr>
         <td class="tg-0pky">backbone_ablations/bicaptioning_R_50_L1_H1024.yaml</td>
-        <td class="tg-c3ow">87.4</td>
-        <td class="tg-c3ow">50.6</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/s2o3tvujcx2djoz1ouvuea27hrys1fbm.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.3</td>
+        <td class="tg-c3ow">53.2</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/1so9cu9y06gy27rqbzwvek4aakfd8opf.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     <tr>
         <td class="tg-0pky">backbone_ablations/bicaptioning_R_50W2X_L1_H1024.yaml</td>
-        <td class="tg-c3ow">87.5</td>
-        <td class="tg-c3ow">51.0</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/0rlu15xq796tz3ebvz7lf5dbpti421le.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.5</td>
+        <td class="tg-c3ow">52.9</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/19vcaf1488945836kir9ebm5itgtugaw.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     <tr>
         <td class="tg-0pky">backbone_ablations/bicaptioning_R_101_L1_H1024.yaml</td>
-        <td class="tg-c3ow">87.7</td>
-        <td class="tg-c3ow">51.7</td>
-        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/i3p45pr78jdz74r29qkj23v8kzb6gcsq.pth" target="_blank" rel="noopener noreferrer">model</a></td>
+        <td class="tg-c3ow">88.7</td>
+        <td class="tg-c3ow">52.1</td>
+        <td class="tg-c3ow"><a href="https://umich.box.com/shared/static/nptbh4jsj0c0kjsnc2hw754fkikpgx9v.pth" target="_blank" rel="noopener noreferrer">model</a></td>
     </tr>
     </tbody>
     </table></div>

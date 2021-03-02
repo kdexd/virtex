@@ -1,6 +1,6 @@
 r"""
-A utility module which provides functionality to easily load common VirTex
-models (optionally with pretrained weights) using a single line of code.
+A utility module to easily load common VirTex models (optionally with pretrained
+weights) using a single line of code.
 
 Get our full best performing VirTex model (with pretrained weights as):
 
@@ -35,34 +35,35 @@ class _ModelZooUrls(object):
     CONFIG_PATH_TO_URL_SUFFIX = {
 
         # Pretraining Task Ablations
-        "task_ablations/bicaptioning_R_50_L1_H2048.yaml": "fm1nq819q74vr0kqcd3gkivlzf06xvko.pth",
-        "task_ablations/captioning_R_50_L1_H2048.yaml": "7fopt8k2eutz9qvth2hh6j00o7z4o7ps.pth",
-        "task_ablations/token_classification_R_50.yaml": "qwvfnji51g4gvba7i5mrw2ph5z8yfty9.pth",
-        "task_ablations/multilabel_classification_R_50.yaml": "tk1hlcue9c3268bds3h036ckk7a9btlr.pth",
+        "task_ablations/bicaptioning_R_50_L1_H2048.yaml": "zu8zxtxrron29icd76owgjzojmfcgdk3.pth",
+        "task_ablations/captioning_R_50_L1_H2048.yaml": "1q9qh1cj2u4r5laj7mefd2mlzwthnga7.pth",
+        "task_ablations/token_classification_R_50.yaml": "idvoxjl60pzpcllkbvadqgvwazil2mis.pth",
+        "task_ablations/multilabel_classification_R_50.yaml": "yvlflmo0klqy3m71p6ug06c6aeg282hy.pth",
+        "task_ablations/masked_lm_R_50_L1_H2048.yaml": "x3eij00eslse9j35t9j9ijyj8zkbkizh.pth",
 
         # Width Ablations
-        "width_ablations/bicaptioning_R_50_L1_H512.yaml": "qostt3be0pgnd0xf55vdte3wa49x6k99.pth",
-        "width_ablations/bicaptioning_R_50_L1_H768.yaml": "v0p80tya0wjgsj0liqyvt386903xbwxc.pth",
-        "width_ablations/bicaptioning_R_50_L1_H1024.yaml": "s2o3tvujcx2djoz1ouvuea27hrys1fbm.pth",
-        "width_ablations/bicaptioning_R_50_L1_H2048.yaml": "fm1nq819q74vr0kqcd3gkivlzf06xvko.pth",
+        "width_ablations/bicaptioning_R_50_L1_H512.yaml": "wtk18v0vffws48u5yrj2qjt94wje1pit.pth",
+        "width_ablations/bicaptioning_R_50_L1_H768.yaml": "e94n0iexdvksi252bn7sm2vqjnyt9okf.pth",
+        "width_ablations/bicaptioning_R_50_L1_H1024.yaml": "1so9cu9y06gy27rqbzwvek4aakfd8opf.pth",
+        "width_ablations/bicaptioning_R_50_L1_H2048.yaml": "zu8zxtxrron29icd76owgjzojmfcgdk3.pth",
 
         # Depth Ablations
-        "depth_ablations/bicaptioning_R_50_L1_H1024.yaml": "s2o3tvujcx2djoz1ouvuea27hrys1fbm.pth",
-        "depth_ablations/bicaptioning_R_50_L2_H1024.yaml": "5enura2ao2b0iyigcuikfsdd0osun0it.pth",
-        "depth_ablations/bicaptioning_R_50_L3_H1024.yaml": "xit11ev6h3q7h8wth5qokewxcn6yot2n.pth",
-        "depth_ablations/bicaptioning_R_50_L4_H1024.yaml": "secpwhjx9oq59mkzsztjaews6n3680bj.pth",
+        "depth_ablations/bicaptioning_R_50_L1_H1024.yaml": "1so9cu9y06gy27rqbzwvek4aakfd8opf.pth",
+        "depth_ablations/bicaptioning_R_50_L2_H1024.yaml": "9e88f6l13a9r8wq5bbe8qnoh9zenanq3.pth",
+        "depth_ablations/bicaptioning_R_50_L3_H1024.yaml": "4cv8052xiq91h7lyx52cp2a6m7m9qkgo.pth",
+        "depth_ablations/bicaptioning_R_50_L4_H1024.yaml": "bk5w4471mgvwa5mv6e4c7htgsafzmfm0.pth",
 
         # Backbone Ablations
-        "backbone_ablations/bicaptioning_R_50_L1_H1024.yaml": "s2o3tvujcx2djoz1ouvuea27hrys1fbm.pth",
-        "backbone_ablations/bicaptioning_R_50W2X_L1_H1024.yaml": "0rlu15xq796tz3ebvz7lf5dbpti421le.pth",
-        "backbone_ablations/bicaptioning_R_101_L1_H1024.yaml": "i3p45pr78jdz74r29qkj23v8kzb6gcsq.pth",
+        "backbone_ablations/bicaptioning_R_50_L1_H1024.yaml": "1so9cu9y06gy27rqbzwvek4aakfd8opf.pth",
+        "backbone_ablations/bicaptioning_R_50W2X_L1_H1024.yaml": "19vcaf1488945836kir9ebm5itgtugaw.pth",
+        "backbone_ablations/bicaptioning_R_101_L1_H1024.yaml": "nptbh4jsj0c0kjsnc2hw754fkikpgx9v.pth",
     }
-    # Backbone from best model: fotpti1uk6bpoobeazysfc6fdbndvy90.pth
 
 
 def get(config_path, pretrained: bool = False):
     r"""
-    Get a model specified by relative path under Detectron2's official ``configs/`` directory.
+    Get a model specified by relative path under Detectron2's official
+    ``configs/`` directory.
 
     Parameters
     ----------
