@@ -89,14 +89,14 @@ class ClassificationModel(nn.Module):
         loss = torch.tensor(0.0, device=logprobs.device)
 
         for index in range(batch_size):
-            # Get unique tokens for particular instance.
-            unique_tokens = batch["caption_tokens"][index].unique()
+            # Get unique labels for particular instance.
+            unique_labels = batch["labels"][index].unique()
 
             # Ignore indices of special tokens such as [SOS], [EOS] etc. and
             # any other token specified.
-            unique_tokens = [t for t in unique_tokens if t not in self.ignore_indices]
+            unique_labels = [l for l in unique_labels if l not in self.ignore_indices]
             # Get log-probabilities corresponding to these tokens.
-            instance_logprobs = logprobs[index, unique_tokens].mean()
+            instance_logprobs = logprobs[index, unique_labels].mean()
 
             # Accumulate negative log-probability for this instance in loss.
             loss = loss - instance_logprobs
