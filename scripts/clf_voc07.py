@@ -38,7 +38,7 @@ group.add_argument(
 parser.add_argument_group("Checkpointing")
 group.add_argument(
     "--layer", choices=["layer1", "layer2", "layer3", "layer4", "avgpool"],
-    default="layer4", help="Evaluate features extracted from this layer."
+    default="avgpool", help="Evaluate features extracted from this layer."
 )
 parser.add_argument(
     "--weight-init", choices=["random", "imagenet", "torchvision", "virtex"],
