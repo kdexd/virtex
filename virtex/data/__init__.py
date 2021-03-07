@@ -1,6 +1,9 @@
 from .datasets.captioning import CaptioningDataset
+from .datasets.classification import (
+    TokenClassificationDataset,
+    MultiLabelClassificationDataset,
+)
 from .datasets.masked_lm import MaskedLmDataset
-from .datasets.multilabel import MultiLabelClassificationDataset
 from .datasets.downstream import (
     ImageNetDataset,
     INaturalist2018Dataset,
@@ -10,8 +13,9 @@ from .datasets.downstream import (
 
 __all__ = [
     "CaptioningDataset",
-    "MaskedLmDataset",
+    "TokenClassificationDataset",
     "MultiLabelClassificationDataset",
+    "MaskedLmDataset",
     "ImageDirectoryDataset",
     "ImageNetDataset",
     "INaturalist2018Dataset",

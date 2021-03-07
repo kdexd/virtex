@@ -191,7 +191,7 @@ class PretrainingDatasetFactory(Factory):
         "bicaptioning": vdata.CaptioningDataset,
         "captioning": vdata.CaptioningDataset,
         "masked_lm": vdata.MaskedLmDataset,
-        "token_classification": vdata.CaptioningDataset,
+        "token_classification": vdata.TokenClassificationDataset,
         "multilabel_classification": vdata.MultiLabelClassificationDataset,
     }
 
@@ -235,9 +235,12 @@ class PretrainingDatasetFactory(Factory):
             kwargs.update(
                 tokenizer=tokenizer,
                 max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
-                use_single_caption=_C.DATA.USE_SINGLE_CAPTION,
-                percentage=_C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
             )
+            if _C.MODEL.NAME != "token_classification":
+                kwargs.update(
+                    use_single_caption=_C.DATA.USE_SINGLE_CAPTION,
+                    percentage=_C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
+                )
 
         if _C.MODEL.NAME == "masked_lm":
             kwargs.update(

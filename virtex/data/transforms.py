@@ -74,6 +74,8 @@ class TokenizeCaption(CaptionOnlyTransform):
     tokenizer: virtex.data.tokenizers.SentencePieceBPETokenizer
         A :class:`~virtex.data.tokenizers.SentencePieceBPETokenizer` which encodes
         a caption into tokens.
+    add_boundaries: bool, optional (defalult = True)
+        Whether to add ``[SOS]`` and ``[EOS]`` boundary tokens from tokenizer.
 
     Examples
     --------
