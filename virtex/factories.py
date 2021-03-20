@@ -404,13 +404,16 @@ class TextualHeadFactory(Factory):
             attention_heads = int(architecture.group(3))
             feedforward_size = int(architecture.group(4))
 
+            # Mask the future tokens for autoregressive captioning.
+            mask_future_positions = _C.MODEL.NAME in {"virtex", "captioning", "bicaptioning"}
+
             kwargs.update(
                 hidden_size=hidden_size,
                 num_layers=num_layers,
                 attention_heads=attention_heads,
                 feedforward_size=feedforward_size,
                 dropout=_C.MODEL.TEXTUAL.DROPOUT,
-                mask_future_positions="captioning" in _C.MODEL.NAME,
+                mask_future_positions=mask_future_positions,
                 max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
                 padding_idx=_C.DATA.UNK_INDEX,
             )
@@ -454,25 +457,26 @@ class PretrainingModelFactory(Factory):
 
         # Add model specific kwargs. Refer call signatures of specific models
         # for matching kwargs here.
-        kwargs = {}
-        if "captioning" in _C.MODEL.NAME:
-            kwargs.update(
-                max_decoding_steps=_C.DATA.MAX_CAPTION_LENGTH,
-                sos_index=_C.DATA.SOS_INDEX,
-                eos_index=_C.DATA.EOS_INDEX,
-            )
+        if _C.MODEL.NAME in {"virtex", "captioning", "bicaptioning"}:
+            kwargs = {
+                "max_decoding_steps": _C.DATA.MAX_CAPTION_LENGTH,
+                "sos_index": _C.DATA.SOS_INDEX,
+                "eos_index": _C.DATA.EOS_INDEX,
+            }
 
         elif _C.MODEL.NAME == "token_classification":
-            kwargs.update(
-                ignore_indices=[
+            kwargs = {
+                "ignore_indices": [
                     _C.DATA.UNK_INDEX,
                     _C.DATA.SOS_INDEX,
                     _C.DATA.EOS_INDEX,
                     _C.DATA.MASK_INDEX,
                 ]
-            )
+            }
         elif _C.MODEL.NAME == "multilabel_classification":
-            kwargs.update(ignore_indices=[0])  # background index
+            kwargs = {"ignore_indices": [0]}  # background index
+        else:
+            kwargs = {}
 
         return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
 

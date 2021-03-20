@@ -76,7 +76,7 @@ class CaptioningModel(nn.Module):
         self.sos_index = sos_index
         self.eos_index = eos_index
         self.beam_search = AutoRegressiveBeamSearch(
-            self.eos_index, beam_size=5, max_steps=max_decoding_steps
+            self.eos_index, beam_size=beam_size, max_steps=max_decoding_steps
         )
         self.loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
 
