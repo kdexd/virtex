@@ -1,4 +1,4 @@
-from typing import Any, Dict, Union
+from typing import Any, Dict
 
 import torch
 from torch import nn
@@ -15,50 +15,6 @@ class VisualBackbone(nn.Module):
     def __init__(self, visual_feature_size: int):
         super().__init__()
         self.visual_feature_size = visual_feature_size
-
-
-class BlindVisualBackbone(VisualBackbone):
-    r"""
-    A visual backbone which cannot see the image. It always outputs a tensor
-    filled with constant value.
-
-    Parameters
-    ----------
-    visual_feature_size: int, optional (default = 2048)
-        Size of the last dimension (channels) of output from forward pass.
-    bias_value: float, optional (default = 1.0)
-        Constant value to fill in the output tensor.
-    """
-
-    def __init__(self, visual_feature_size: int = 2048, bias_value: float = 1.0):
-        super().__init__(visual_feature_size)
-
-        # We never update the bias because a blind model cannot learn anything
-        # about the image. Add an axis for proper broadcasting.
-        self._bias = nn.Parameter(
-            torch.full((1, self.visual_feature_size), fill_value=bias_value),
-            requires_grad=False,
-        )
-
-    def forward(self, image: torch.Tensor) -> torch.Tensor:
-        r"""
-        Compute visual features for a batch of input images. Since this model
-        is *blind*, output will always be constant.
-
-        Parameters
-        ----------
-        image: torch.Tensor
-            Batch of input images. A tensor of shape
-            ``(batch_size, 3, height, width)``.
-
-        Returns
-        -------
-        torch.Tensor
-            Output visual features, filled with :attr:`bias_value`. A tensor of
-            shape ``(batch_size, visual_feature_size)``.
-        """
-        batch_size = image.size(0)
-        return self._bias.repeat(batch_size, 1)
 
 
 class TorchvisionVisualBackbone(VisualBackbone):
@@ -91,7 +47,8 @@ class TorchvisionVisualBackbone(VisualBackbone):
         self.cnn = getattr(torchvision.models, name)(
             pretrained, zero_init_residual=True
         )
-        # Do nothing after the final residual stage.
+        # Reove global average pooling and fc layer.
+        self.cnn.avgpool = nn.Identity()
         self.cnn.fc = nn.Identity()
 
         # Freeze all weights if specified.
@@ -100,12 +57,7 @@ class TorchvisionVisualBackbone(VisualBackbone):
                 param.requires_grad = False
             self.cnn.eval()
 
-        # Keep a list of intermediate layer names.
-        self._stage_names = [f"layer{i}" for i in range(1, 5)]
-
-    def forward(
-        self, image: torch.Tensor, return_intermediate_outputs: bool = False
-    ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         r"""
         Compute visual features for a batch of input images.
 
@@ -114,41 +66,17 @@ class TorchvisionVisualBackbone(VisualBackbone):
         image: torch.Tensor
             Batch of input images. A tensor of shape
             ``(batch_size, 3, height, width)``.
-        return_intermediate_outputs: bool, optional (default = False)
-            Whether to return feaures extracted from all intermediate stages or
-            just the last one. This can only be set ``True`` when using a
-            ResNet-like model.
 
         Returns
         -------
-        Union[torch.Tensor, Dict[str, torch.Tensor]]
-            - If ``return_intermediate_outputs = False``, this will be a tensor
-              of shape ``(batch_size, channels, height, width)``, for example
-              it will be ``(batch_size, 2048, 7, 7)`` for ResNet-50 (``layer4``).
-
-            - If ``return_intermediate_outputs = True``, this will be a dict
-              with keys ``{"layer1", "layer2", "layer3", "layer4", "avgpool"}``
-              containing features from all intermediate layers and global
-              average pooling layer.
+        torch.Tensor
+            A tensor of shape ``(batch_size, channels, height, width)``, for
+            example it will be ``(batch_size, 2048, 7, 7)`` for ResNet-50.
         """
 
-        # Iterate through the modules in sequence and collect feature
-        # vectors for last layers in each stage.
-        intermediate_outputs: Dict[str, torch.Tensor] = {}
-        for idx, (name, layer) in enumerate(self.cnn.named_children()):
-            out = layer(image) if idx == 0 else layer(out)
-            if name in self._stage_names:
-                intermediate_outputs[name] = out
-
-        # Add pooled spatial features.
-        intermediate_outputs["avgpool"] = torch.mean(
-            intermediate_outputs["layer4"], dim=[2, 3]
-        )
-        if return_intermediate_outputs:
-            return intermediate_outputs
-        else:
-            # shape: (batch_size, channels, height, width)
-            return intermediate_outputs["layer4"]
+        # shape: (batch_size, channels, height, width)
+        # [ResNet-50: (b, 2048, 7, 7)]
+        return self.cnn(image)
 
     def detectron2_backbone_state_dict(self) -> Dict[str, Any]:
         r"""

@@ -15,7 +15,6 @@ from tqdm import tqdm
 
 from virtex.config import Config
 from virtex.factories import PretrainingModelFactory, DownstreamDatasetFactory
-from virtex.models.downstream import FeatureExtractor
 from virtex.utils.checkpointing import CheckpointManager
 from virtex.utils.common import common_parser, common_setup
 
@@ -36,10 +35,6 @@ group.add_argument(
 
 # fmt: off
 parser.add_argument_group("Checkpointing")
-group.add_argument(
-    "--layer", choices=["layer1", "layer2", "layer3", "layer4", "avgpool"],
-    default="avgpool", help="Evaluate features extracted from this layer."
-)
 parser.add_argument(
     "--weight-init", choices=["random", "imagenet", "torchvision", "virtex"],
     default="virtex", help="""How to initialize weights:
@@ -161,9 +156,12 @@ def main(_A: argparse.Namespace):
             torch.load(_A.checkpoint_path, map_location="cpu")["state_dict"],
             strict=False,
         )
+        # Set ``ITERATION`` to a dummy value.
+        ITERATION = 0
 
-    model = FeatureExtractor(model, layer_name=_A.layer, flatten_and_normalize=True)
-    model = model.to(device).eval()
+    # Transfer model to GPU and set to eval mode. This is a torchvision model
+    # and it returns features as ``(batch_size, 2048, 7, 7)``.
+    model = model.visual.cnn.to(device).eval()
 
     # -------------------------------------------------------------------------
     #   EXTRACT FEATURES FOR TRAINING SVMs
@@ -180,12 +178,32 @@ def main(_A: argparse.Namespace):
         for batch in tqdm(train_dataloader, desc="Extracting train features:"):
             features = model(batch["image"].to(device))
 
+            # Global average pool features. Assume the tensor is in NCHW format.
+            if len(features.size()) > 2:
+                features = features.view(features.size(0), features.size(1), -1)
+
+                # shape: (batch_size, visual_feature_size)
+                features = features.mean(dim=-1)
+
+            # shape: (batch_size, visual_feature_size)
+            features = features.view(features.size(0), -1)
+
+            # L2-normalize the global average pooled features.
+            features = features / torch.norm(features, dim=-1).unsqueeze(-1)
+
             features_train.append(features.cpu())
             targets_train.append(batch["label"])
 
         # Similarly extract test features.
         for batch in tqdm(test_dataloader, desc="Extracting test features:"):
             features = model(batch["image"].to(device))
+
+            if len(features.size()) > 2:
+                features = features.view(features.size(0), features.size(1), -1)
+                features = features.mean(dim=-1)
+
+            features = features.view(features.size(0), -1)
+            features = features / torch.norm(features, dim=-1).unsqueeze(-1)
 
             features_test.append(features.cpu())
             targets_test.append(batch["label"])
@@ -226,13 +244,10 @@ def main(_A: argparse.Namespace):
 
     # Test set mAP for each class, for features from every layer.
     test_map = torch.tensor(pool_output).mean()
-    logger.info(f"mAP: {test_map}")
-
-    # Tensorboard logging only when _A.weight_init == "virtex"
-    if _A.weight_init == "virtex":
-        tensorboard_writer.add_scalars(
-            "metrics/voc07_clf", {f"{_A.layer}_mAP": test_map}, ITERATION
-        )
+    logger.info(f"Iteration: {ITERATION}, mAP: {test_map}")
+    tensorboard_writer.add_scalars(
+        "metrics/voc07_clf", {f"{_A.layer}_mAP": test_map}, ITERATION
+    )
 
 
 if __name__ == "__main__":
