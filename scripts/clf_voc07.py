@@ -85,7 +85,7 @@ def train_test_single_svm(args):
             best_crossval_clf = clf
             best_cost = cost
 
-    logger.info(f"Best SVM {cls_name}: cost {best_cost}, mAP {best_crossval_ap}")
+    logger.info(f"Best SVM {cls_name}: cost {best_cost}, mAP {best_crossval_ap * 100}")
     # fmt: on
 
     # -------------------------------------------------------------------------
@@ -244,9 +244,9 @@ def main(_A: argparse.Namespace):
 
     # Test set mAP for each class, for features from every layer.
     test_map = torch.tensor(pool_output).mean()
-    logger.info(f"Iteration: {ITERATION}, mAP: {test_map}")
+    logger.info(f"Iteration: {ITERATION}, mAP: {test_map * 100}")
     tensorboard_writer.add_scalars(
-        "metrics/voc07_clf", {f"{_A.layer}_mAP": test_map}, ITERATION
+        "metrics/voc07_clf", {f"voc07_mAP": test_map * 100}, ITERATION
     )
 
 
