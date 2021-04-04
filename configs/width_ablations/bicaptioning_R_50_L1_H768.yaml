@@ -2,4 +2,4 @@ _BASE_: "../_base_bicaptioning_R_50_L1_H1024.yaml"
 
 MODEL:
   TEXTUAL:
-    NAME: "transformer_postnorm::L1_H768_A12_F3072"
+    NAME: "transdec_postnorm::L1_H768_A12_F3072"

@@ -5,9 +5,6 @@ virtex.models
 
     <hr>
 
-Pretraining Models
-------------------
-
 .. automodule:: virtex.models.classification
 
 -------------------------------------------------------------------------------
@@ -17,10 +14,3 @@ Pretraining Models
 -------------------------------------------------------------------------------
 
 .. automodule:: virtex.models.masked_lm
-
--------------------------------------------------------------------------------
-
-Downstream Models
------------------
-
-.. automodule:: virtex.models.downstream

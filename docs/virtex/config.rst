@@ -14,5 +14,5 @@ Config References
 .. literalinclude:: ../../virtex/config.py
   :language: python
   :linenos:
-  :lines: 46-205
+  :lines: 46-206
   :dedent: 8

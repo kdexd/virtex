@@ -1,8 +1,8 @@
 RANDOM_SEED: 0
 # Don't need AMP to train a tiny linear layer.
-AMP: False
-CUDNN_BENCHMARK: True
-CUDNN_DETERMINISTIC: False
+AMP: false
+CUDNN_BENCHMARK: true
+CUDNN_DETERMINISTIC: false
 
 DATA:
   ROOT: "datasets/imagenet"
@@ -24,7 +24,8 @@ OPTIM:
   SGD_MOMENTUM: 0.9
   WEIGHT_DECAY: 0.0
   NO_DECAY: "none"
-  USE_LOOKAHEAD: False
+  LOOKAHEAD:
+    USE: false
 
   LR: 0.3
   WARMUP_STEPS: 0

@@ -1,8 +1,9 @@
 """
 Finetune a pre-trained model on a downstream task, one of those available in
-Detectron2. Optionally use gradient checkpointing for saving memory.
+Detectron2.
 Supported downstream:
   - LVIS Instance Segmentation
+  - COCO Instance Segmentation
   - Pascal VOC 2007+12 Object Detection
 
 Reference: https://github.com/facebookresearch/detectron2/blob/master/tools/train_net.py

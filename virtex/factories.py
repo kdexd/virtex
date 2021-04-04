@@ -321,11 +321,10 @@ class VisualBackboneFactory(Factory):
     Use the method name for model as in torchvision, for example,
     ``torchvision::resnet50``, ``torchvision::wide_resnet50_2`` etc.
 
-    Possible choices: ``{"blind", "torchvision"}``.
+    Possible choices: ``{"torchvision"}``.
     """
 
     PRODUCTS: Dict[str, Callable] = {
-        "blind": visual_backbones.BlindVisualBackbone,
         "torchvision": visual_backbones.TorchvisionVisualBackbone,
     }
 
@@ -358,23 +357,25 @@ class TextualHeadFactory(Factory):
     r"""
     Factory to create :mod:`~virtex.modules.textual_heads`. Architectural
     hyperparameters for transformers can be specified as ``name::*``.
-    For example, ``transformer_postnorm::L1_H1024_A16_F4096`` would create a
+    For example, ``transdec_postnorm::L1_H1024_A16_F4096`` would create a
     transformer textual head with ``L = 1`` layers, ``H = 1024`` hidden size,
     ``A = 16`` attention heads, and ``F = 4096`` size of feedforward layers.
 
     Textual head should be ``"none"`` for pretraining tasks which do not
     involve language modeling, such as ``"token_classification"``.
 
-    Possible choices: ``{"transformer_postnorm", "transformer_prenorm", "none"}``.
+    Possible choices: ``{"transdec_postnorm", "transdec_prenorm", "none"}``.
     """
 
-    # fmt: off
     PRODUCTS: Dict[str, Callable] = {
-        "transformer_prenorm": partial(textual_heads.TransformerTextualHead, norm_type="pre"),
-        "transformer_postnorm": partial(textual_heads.TransformerTextualHead, norm_type="post"),
+        "transdec_prenorm": partial(
+            textual_heads.TransformerDecoderTextualHead, norm_type="pre"
+        ),
+        "transdec_postnorm": partial(
+            textual_heads.TransformerDecoderTextualHead, norm_type="post"
+        ),
         "none": textual_heads.LinearTextualHead,
     }
-    # fmt: on
 
     @classmethod
     def from_config(cls, config: Config) -> nn.Module:
@@ -394,7 +395,7 @@ class TextualHeadFactory(Factory):
             "vocab_size": _C.DATA.VOCAB_SIZE,
         }
 
-        if "transformer" in _C.MODEL.TEXTUAL.NAME:
+        if "trans" in _C.MODEL.TEXTUAL.NAME:
             # Get architectural hyper-params as per name by matching regex.
             name, architecture = name.split("::")
             architecture = re.match(r"L(\d+)_H(\d+)_A(\d+)_F(\d+)", architecture)
@@ -405,7 +406,7 @@ class TextualHeadFactory(Factory):
             feedforward_size = int(architecture.group(4))
 
             # Mask the future tokens for autoregressive captioning.
-            mask_future_positions = _C.MODEL.NAME in {"virtex", "captioning", "bicaptioning"}
+            mask_future = _C.MODEL.NAME in {"virtex", "captioning", "bicaptioning"}
 
             kwargs.update(
                 hidden_size=hidden_size,
@@ -413,7 +414,7 @@ class TextualHeadFactory(Factory):
                 attention_heads=attention_heads,
                 feedforward_size=feedforward_size,
                 dropout=_C.MODEL.TEXTUAL.DROPOUT,
-                mask_future_positions=mask_future_positions,
+                mask_future_positions=mask_future,
                 max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
                 padding_idx=_C.DATA.UNK_INDEX,
             )
@@ -521,9 +522,9 @@ class OptimizerFactory(Factory):
             kwargs = {}
 
         optimizer = cls.create(_C.OPTIM.OPTIMIZER_NAME, param_groups, **kwargs)
-        if _C.OPTIM.USE_LOOKAHEAD:
+        if _C.OPTIM.LOOKAHEAD.USE:
             optimizer = Lookahead(
-                optimizer, k=_C.OPTIM.LOOKAHEAD_STEPS, alpha=_C.OPTIM.LOOKAHEAD_ALPHA
+                optimizer, k=_C.OPTIM.LOOKAHEAD.STEPS, alpha=_C.OPTIM.LOOKAHEAD.ALPHA
             )
         return optimizer
 

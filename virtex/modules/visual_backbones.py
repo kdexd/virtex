@@ -47,8 +47,7 @@ class TorchvisionVisualBackbone(VisualBackbone):
         self.cnn = getattr(torchvision.models, name)(
             pretrained, zero_init_residual=True
         )
-        # Reove global average pooling and fc layer.
-        self.cnn.avgpool = nn.Identity()
+        # Do nothing after the final residual stage.
         self.cnn.fc = nn.Identity()
 
         # Freeze all weights if specified.
@@ -74,9 +73,13 @@ class TorchvisionVisualBackbone(VisualBackbone):
             example it will be ``(batch_size, 2048, 7, 7)`` for ResNet-50.
         """
 
-        # shape: (batch_size, channels, height, width)
-        # [ResNet-50: (b, 2048, 7, 7)]
-        return self.cnn(image)
+        for idx, (name, layer) in enumerate(self.cnn.named_children()):
+            out = layer(image) if idx == 0 else layer(out)
+
+            # These are the spatial features we need.
+            if name == "layer4":
+                # shape: (batch_size, channels, height, width)
+                return out
 
     def detectron2_backbone_state_dict(self) -> Dict[str, Any]:
         r"""

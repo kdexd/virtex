@@ -146,9 +146,9 @@ class Config(object):
 
         _C.MODEL.TEXTUAL = CN()
         # Name of textual head. Set to "none" for MODEL.NAME = "*_classification".
-        # Possible choices: {"transformer_postnorm", "transformer_prenorm"}.
+        # Possible choices: {"transdec_postnorm", "transdec_prenorm"}.
         # Architectural hyper-parameters are specified as shown above.
-        _C.MODEL.TEXTUAL.NAME = "transformer_postnorm::L1_H2048_A32_F8192"
+        _C.MODEL.TEXTUAL.NAME = "transdec_postnorm::L1_H2048_A32_F8192"
         # L = Number of layers in the transformer.
         # H = Hidden size of the transformer (embeddings, attention features).
         # A = Number of attention heads in the transformer.
@@ -174,12 +174,13 @@ class Config(object):
         # Regex pattern of params for which there will be no weight decay.
         _C.OPTIM.NO_DECAY = ".*textual.(embedding|transformer).*(norm.*|bias)"
         # Max gradient norm for clipping to avoid exploding gradients.
-        _C.OPTIM.CLIP_GRAD_NORM = 10
+        _C.OPTIM.CLIP_GRAD_NORM = 10.0
 
         # Wrap our optimizer with Lookahead (https://arxiv.org/abs/1907.08610).
-        _C.OPTIM.USE_LOOKAHEAD = False
-        _C.OPTIM.LOOKAHEAD_ALPHA = 0.5
-        _C.OPTIM.LOOKAHEAD_STEPS = 5
+        _C.OPTIM.LOOKAHEAD = CN()
+        _C.OPTIM.LOOKAHEAD.USE = True
+        _C.OPTIM.LOOKAHEAD.ALPHA = 0.5
+        _C.OPTIM.LOOKAHEAD.STEPS = 5
 
         # We set different learning rates for CNN (visual backbone) and rest of
         # the model. CNN LR is typically much higher for training from scratch.

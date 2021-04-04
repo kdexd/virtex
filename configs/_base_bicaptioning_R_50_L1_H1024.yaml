@@ -3,9 +3,9 @@
 # ResNet-50 + (L = 1, H = 1024) transformer trained for 500K iterations.
 # -----------------------------------------------------------------------------
 RANDOM_SEED: 0
-AMP: True
-CUDNN_BENCHMARK: True
-CUDNN_DETERMINISTIC: False
+AMP: true
+CUDNN_BENCHMARK: true
+CUDNN_DETERMINISTIC: false
 
 DATA:
   ROOT: "datasets/coco"
@@ -31,28 +31,27 @@ DATA:
     - "normalize"
 
   USE_PERCENTAGE: 100.0
-  USE_SINGLE_CAPTION: False
+  USE_SINGLE_CAPTION: false
 
 MODEL:
-  NAME: "bicaptioning"
+  NAME: "virtex"
   VISUAL:
     NAME: "torchvision::resnet50"
     PRETRAINED: false
     FROZEN: false
   TEXTUAL:
-    NAME: "transformer_postnorm::L1_H1024_A16_F4096"
+    NAME: "transdec_postnorm::L1_H1024_A16_F4096"
     DROPOUT: 0.1
 
 OPTIM:
   OPTIMIZER_NAME: "sgd"
   SGD_MOMENTUM: 0.9
   WEIGHT_DECAY: 0.0001
-  NO_DECAY: ".*textual.(embedding|transformer).*(norm.*|bias)"
-  CLIP_GRAD_NORM: 10
 
-  USE_LOOKAHEAD: True
-  LOOKAHEAD_ALPHA: 0.5
-  LOOKAHEAD_STEPS: 5
+  LOOKAHEAD:
+    USE: true
+    ALPHA: 0.5
+    STEPS: 5
 
   BATCH_SIZE: 256
   CNN_LR: 0.2
@@ -60,4 +59,8 @@ OPTIM:
   NUM_ITERATIONS: 500000
 
   WARMUP_STEPS: 10000
-  LR_DECAY_NAME: cosine
+  LR_DECAY_NAME: "cosine"
+
+  NO_DECAY: ".*textual.(embedding|transformer).*(norm.*|bias)"
+  CLIP_GRAD_NORM: 10.0
+

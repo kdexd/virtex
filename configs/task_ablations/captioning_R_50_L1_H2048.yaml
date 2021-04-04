@@ -3,4 +3,4 @@ _BASE_: "../_base_bicaptioning_R_50_L1_H1024.yaml"
 MODEL:
   NAME: "captioning"
   TEXTUAL:
-    NAME: "transformer_postnorm::L1_H2048_A32_F8192"
+    NAME: "transdec_postnorm::L1_H2048_A32_F8192"

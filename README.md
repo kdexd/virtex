@@ -36,7 +36,7 @@ model = torch.hub.load("kdexd/virtex", "resnet50", pretrained=True)
 
 ### Note (For returning users before January 2021):
 
-The pretrained models in our model zoo have changed in [`v1.0`](https://github.com/kdexd/virtex/releases/tag/v1.0).
+The pretrained models in our model zoo have changed from [`v1.0`](https://github.com/kdexd/virtex/releases/tag/v1.0) onwards.
 They are slightly better tuned than older models, and reproduce the results in our
 CVPR 2021 accepted paper ([arXiv v2](https://arxiv.org/abs/2006.06666v2)). 
 Some training and evaluation hyperparams are changed since [`v0.9`](https://github.com/kdexd/virtex/releases/tag/v0.9).

@@ -103,7 +103,7 @@ class LinearTextualHead(TextualHead):
         return output_logits
 
 
-class TransformerTextualHead(TextualHead):
+class TransformerDecoderTextualHead(TextualHead):
     r"""
     A textual head composed of four main modules: (1) input projection (linear
     layer) for visual features to match size with textual features, (2) word

@@ -1,7 +1,7 @@
 RANDOM_SEED: 0
-AMP: True
-CUDNN_BENCHMARK: True
-CUDNN_DETERMINISTIC: False
+AMP: true
+CUDNN_BENCHMARK: true
+CUDNN_DETERMINISTIC: false
 
 DATA:
   ROOT: "datasets/inaturalist"
@@ -23,7 +23,8 @@ OPTIM:
   SGD_MOMENTUM: 0.9
   WEIGHT_DECAY: 0.0001
   NO_DECAY: "none"
-  USE_LOOKAHEAD: False
+  LOOKAHEAD:
+    USE: false
 
   LR: 0.025
   WARMUP_STEPS: 0
