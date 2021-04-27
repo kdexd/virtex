@@ -30,6 +30,6 @@ def resnet50(pretrained: bool = False, **kwargs):
             torch.hub.load_state_dict_from_url(
                 "https://umich.box.com/shared/static/gsjqm4i4fm1wpzi947h27wweljd8gcpy.pth",
                 progress=False,
-            )["model"]
+            )
         )
     return model
