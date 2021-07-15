@@ -4,12 +4,10 @@ from typing import Any, Dict
 
 import torch
 from torch import nn
-from torch.nn import functional as F
 
 from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.modules.textual_heads import TextualHead
 from virtex.modules.visual_backbones import VisualBackbone
-from virtex.utils.beam_search import AutoRegressiveBeamSearch
 
 
 class CaptioningModel(nn.Module):
@@ -31,10 +29,6 @@ class CaptioningModel(nn.Module):
     textual: virtex.modules.textual_heads.TextualHead
         A :class:`~virtex.modules.textual_heads.TextualHead` which
         makes final predictions conditioned on visual features.
-    beam_size : int, optional (default = 5)
-        The width of the beam used for beam search.
-    max_decoding_steps: int, optional (default = 30)
-        The maximum number of decoding steps for beam search.
     sos_index: int, optional (default = 1)
         The index of the end token (``[SOS]``) in vocabulary.
     eos_index: int, optional (default = 2)
@@ -44,17 +38,20 @@ class CaptioningModel(nn.Module):
         ``False`` -- only forward captioning is performed. When ``True``, a
         clone of textual head is created, which does not share weights with
         "forward" model except input and output embeddings.
+    decoder: Any, optional (default = None)
+        An instance of :class:`~virtex.utils.beam_search.AutoRegressiveBeamSearch`
+        or :class:`~virtex.utils.nucleus_sampling.AutoRegressiveNucleusSampling`
+        for decoding captions during inference (unused during training).
     """
 
     def __init__(
         self,
         visual: VisualBackbone,
         textual: TextualHead,
-        beam_size: int = 5,
-        max_decoding_steps: int = 30,
+        caption_backward: bool = False,
         sos_index: int = 1,
         eos_index: int = 2,
-        caption_backward: bool = False,
+        decoder: Any = None,
     ):
         super().__init__()
         self.visual = visual
@@ -75,17 +72,14 @@ class CaptioningModel(nn.Module):
         # These boundary indices are needed for beam search.
         self.sos_index = sos_index
         self.eos_index = eos_index
-        self.beam_search = AutoRegressiveBeamSearch(
-            self.eos_index, beam_size=beam_size, max_steps=max_decoding_steps
-        )
+        self.beam_search = decoder
         self.loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
 
     def forward(self, batch: Dict[str, torch.Tensor]) -> Dict[str, Any]:
         r"""
         Given a batch of images and captions, compute log likelihood loss per
-        caption token during training. During inference, given a batch of
-        images, decode the most likely caption in forward direction through
-        beam search decoding.
+        caption token during training. During inference (with images), predict
+        a caption through either beam search decoding or nucleus sampling.
 
         Parameters
         ----------
@@ -140,9 +134,7 @@ class CaptioningModel(nn.Module):
                 backward_caption_tokens = batch["noitpac_tokens"]
 
                 backward_output_logits = self.backward_textual(
-                    visual_features,
-                    backward_caption_tokens,
-                    caption_lengths,
+                    visual_features, backward_caption_tokens, caption_lengths
                 )
                 backward_loss = self.loss(
                     backward_output_logits[:, :-1]
@@ -159,35 +151,41 @@ class CaptioningModel(nn.Module):
 
             if not self.training:
                 # During validation (while pretraining), get best prediction
-                # at every time-step.
+                # at every timestep.
                 output_dict["predictions"] = torch.argmax(output_logits, dim=-1)
         else:
+            if self.decoder is None:
+                raise ValueError("Decoder for predicting captions is missing!")
+
             # During inference, get beam search predictions for forward
             # model. Predictions from forward transformer will be shifted
-            # right by one time-step.
+            # right by one timestep.
             start_predictions = visual_features.new_full(
                 (batch_size,), self.sos_index
             ).long()
             # Add image features as a default argument to match callable
             # signature accepted by beam search class (partial captions only).
-            beam_search_step = functools.partial(
-                self.beam_search_step, visual_features
+            decoding_step = functools.partial(self.decoding_step, visual_features)
+
+            predicted_caption, _ = self.decoder.search(
+                start_predictions, decoding_step
             )
-            all_top_k_predictions, _ = self.beam_search.search(
-                start_predictions, beam_search_step
-            )
-            best_beam = all_top_k_predictions[:, 0, :]
-            output_dict = {"predictions": best_beam}
+            output_dict = {"predictions": predicted_caption}
 
         return output_dict
 
-    def beam_search_step(
+    def decoding_step(
         self, visual_features: torch.Tensor, partial_captions: torch.Tensor
     ) -> torch.Tensor:
         r"""
         Given visual features and a batch of (assumed) partial captions, predict
-        the distribution over vocabulary tokens for next time-step. This method
-        is used by :class:`~virtex.utils.beam_search.AutoRegressiveBeamSearch`.
+        the logits over output vocabulary tokens for next timestep. This method
+        is used by :class:`~virtex.utils.beam_search.AutoRegressiveBeamSearch`
+        and :class:`~virtex.utils.nucleus_sampling.AutoRegressiveNucleusSampling`.
+
+        .. note::
+
+            For nucleus sampling, ``beam_size`` will always be 1 (not relevant).
 
         Parameters
         ----------
@@ -202,8 +200,8 @@ class CaptioningModel(nn.Module):
         Returns
         -------
         torch.Tensor
-            A tensor of shape ``(batch_size * beam_size, vocab_size)`` -- output
-            distribution over tokens for next time-step.
+            A tensor of shape ``(batch_size * beam_size, vocab_size)`` -- logits
+            over output vocabulary tokens for next timestep.
         """
 
         # Expand and repeat image features while doing beam search.
@@ -222,26 +220,13 @@ class CaptioningModel(nn.Module):
         if len(caption_lengths.size()) == 2:
             caption_lengths = caption_lengths.sum(1)
         else:
-            # Add a time-step. shape: (batch_size, 1)
+            # Add a timestep. shape: (batch_size, 1)
             partial_captions = partial_captions.unsqueeze(1)
 
         # shape: (batch_size * beam_size, partial_caption_length, vocab_size)
-        output_logits = self.textual(
-            visual_features, partial_captions, caption_lengths
-        )
-        # Keep features for last time-step only, we only care about those.
-        output_logits = output_logits[:, -1, :]
-
-        # Return logprobs as required by `AutoRegressiveBeamSearch`.
-        # shape: (batch_size * beam_size, vocab_size)
-        next_logprobs = F.log_softmax(output_logits, dim=1)
-
-        # Set logprobs of last predicted tokens as high negative value to avoid
-        # repetition in caption.
-        for index in range(batch_size * beam_size):
-            next_logprobs[index, partial_captions[index, -1]] = -10000
-
-        return next_logprobs
+        logits = self.textual(visual_features, partial_captions, caption_lengths)
+        # Return logits from the last timestep.
+        return logits[:, -1, :]
 
     def log_predictions(
         self, batch: Dict[str, torch.Tensor], tokenizer: SentencePieceBPETokenizer
@@ -272,19 +257,17 @@ class ForwardCaptioningModel(CaptioningModel):
         self,
         visual: VisualBackbone,
         textual: TextualHead,
-        beam_size: int = 5,
-        max_decoding_steps: int = 30,
         sos_index: int = 1,
         eos_index: int = 2,
+        decoder: Any = None,
     ):
         super().__init__(
             visual,
             textual,
-            beam_size=beam_size,
-            max_decoding_steps=max_decoding_steps,
             sos_index=sos_index,
             eos_index=eos_index,
             caption_backward=False,
+            decoder=decoder,
         )
 
 
@@ -298,19 +281,17 @@ class BidirectionalCaptioningModel(CaptioningModel):
         self,
         visual: VisualBackbone,
         textual: TextualHead,
-        beam_size: int = 5,
-        max_decoding_steps: int = 30,
         sos_index: int = 1,
         eos_index: int = 2,
+        decoder: Any = None,
     ):
         super().__init__(
             visual,
             textual,
-            beam_size=beam_size,
-            max_decoding_steps=max_decoding_steps,
             sos_index=sos_index,
             eos_index=eos_index,
             caption_backward=True,
+            decoder=decoder,
         )
 
 
