@@ -35,13 +35,19 @@ DATA:
 
 MODEL:
   NAME: "virtex"
+
   VISUAL:
     NAME: "torchvision::resnet50"
     PRETRAINED: false
     FROZEN: false
+
   TEXTUAL:
     NAME: "transdec_postnorm::L1_H1024_A16_F4096"
     DROPOUT: 0.1
+
+  DECODER:
+    NAME: "beam_search"
+    BEAM_SIZE: 5
 
 OPTIM:
   OPTIMIZER_NAME: "sgd"

@@ -18,20 +18,23 @@ ensures minimal changes throughout the codebase upon any change in the call
 signature of underlying class; or config hierarchy. Refer description of
 specific factories for more details.
 """
-from functools import partial
 import re
+from functools import partial
 from typing import Any, Callable, Dict, Iterable, List
 
 import albumentations as alb
 from torch import nn, optim
 
-from virtex.config import Config
 import virtex.data as vdata
+import virtex.models as vmodels
+from virtex.config import Config
 from virtex.data import transforms as T
 from virtex.data.tokenizers import SentencePieceBPETokenizer
-import virtex.models as vmodels
 from virtex.modules import visual_backbones, textual_heads
 from virtex.optim import Lookahead, lr_scheduler
+
+from virtex.utils.beam_search import AutoRegressiveBeamSearch
+from virtex.utils.nucleus_sampling import AutoRegressiveNucleusSampling
 
 
 class Factory(object):
@@ -460,9 +463,9 @@ class PretrainingModelFactory(Factory):
         # for matching kwargs here.
         if _C.MODEL.NAME in {"virtex", "captioning", "bicaptioning"}:
             kwargs = {
-                "max_decoding_steps": _C.DATA.MAX_CAPTION_LENGTH,
                 "sos_index": _C.DATA.SOS_INDEX,
                 "eos_index": _C.DATA.EOS_INDEX,
+                "decoder": CaptionDecoderFactory.from_config(_C),
             }
 
         elif _C.MODEL.NAME == "token_classification":
@@ -482,6 +485,42 @@ class PretrainingModelFactory(Factory):
         return cls.create(_C.MODEL.NAME, visual, textual, **kwargs)
 
 
+class CaptionDecoderFactory(Factory):
+    r"""
+    Factory to create decoders from predicting captions from VirTex model.
+
+    Possible choices: ``{"beam_search", "nucleus_sampling"}``.
+    """
+
+    PRODUCTS: Dict[str, Callable] = {
+        "beam_search": AutoRegressiveBeamSearch,
+        "nucleus_sampling": AutoRegressiveNucleusSampling,
+    }
+
+    @classmethod
+    def from_config(cls, config: Config) -> nn.Module:
+        r"""
+        Create a model directly from config.
+
+        Parameters
+        ----------
+        config: virtex.config.Config
+            Config object with all the parameters.
+        """
+
+        _C = config
+        kwargs = {
+            "eos_index": _C.DATA.EOS_INDEX,
+            "max_steps": _C.MODEL.DECODER.MAX_DECODING_STEPS,
+        }
+        if _C.MODEL.DECODER.NAME == "beam_search":
+            kwargs["beam_size"] = _C.MODEL.DECODER.BEAM_SIZE
+        elif _C.MODEL.DECODER.NAME == "nucleus_sampling":
+            kwargs["nucleus_size"] = _C.MODEL.DECODER.NUCLEUS_SIZE
+
+        return cls.create(_C.MODEL.DECODER.NAME, **kwargs)
+        
+        
 class OptimizerFactory(Factory):
     r"""Factory to create optimizers. Possible choices: ``{"sgd", "adamw"}``."""
 

@@ -158,6 +158,20 @@ class Config(object):
         # Dropout probability for embedding, hidden features in textual head.
         _C.MODEL.TEXTUAL.DROPOUT = 0.1
 
+        _C.MODEL.DECODER = CN()
+        # What algorithm to use for decoding. Supported values: {"beam_search",
+        # "nucleus_sampling"}.
+        _C.MODEL.DECODER.NAME = "beam_search"
+        # Number of beams to decode (1 = greedy decoding). Ignored when decoding
+        # through nucleus sampling.
+        _C.MODEL.DECODER.BEAM_SIZE = 5
+        # Size of nucleus for sampling predictions. Ignored when decoding through
+        # beam search.
+        _C.MODEL.DECODER.NUCLEUS_SIZE = 0.9
+        # Maximum length of decoded caption. Decoding may end earlier when [EOS]
+        # token is sampled.
+        _C.MODEL.DECODER.MAX_DECODING_STEPS = _C.DATA.MAX_CAPTION_LENGTH
+
         # ---------------------------------------------------------------------
         #   Optimization hyper-parameters, default values are for pretraining
         #   our best model on bicaptioning task (COCO Captions).

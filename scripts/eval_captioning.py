@@ -21,7 +21,7 @@ parser = common_parser(
     evaluate pretrained model on COCO Captions val2017 split."""
 )
 parser.add_argument(
-    "--data-root", default=None,
+    "--images", "--data-root", default=None,
     help="""Path to a directory containing image files to generate captions for.
     Default: COCO val2017 image directory as expected relative to project root."""
 )
@@ -88,6 +88,10 @@ def main(_A: argparse.Namespace):
                     "caption": tokenizer.decode(caption.tolist()),
                 }
             )
+
+    logger.info("Displaying first 25 caption predictions:")
+    for pred in predictions[:25]:
+        logger.info(f"{pred['image_id']} :: {pred['caption']}")
 
     # Save predictions as a JSON file if specified.
     if _A.output is not None:

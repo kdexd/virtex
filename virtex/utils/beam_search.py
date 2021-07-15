@@ -3,27 +3,32 @@ This Beam Search implementation is adapted with minor modifications from
 `AllenNLP <https://github.com/allenai/allennlp/blob/master/allennlp/nn/beam_search.py>`_.
 
 Thanks to the developers of AllenNLP!
+
+**Update (v1.2):** The "backpointer" trick in Beam Search (as implemented in
+AllenNLP) does not work well with autoregressive models (transformers). It is
+now removed and it improves qualitative predictions and captioning metrics
+(CIDEr/SPICE) for VirTex. Updated captioning results are on ArXiv v3. Refer
+`CHANGELOG <https://github.com/kdexd/virtex/blob/master/CHANGELOG.md>`_ and
+`Release Page <https://github.com/kdexd/virtex/releases/tag/v1.2>`_ for more
+details.
+
+Huge thanks to Nicolas Carion (@alcinos) and Aishwarya Kamath (@ashkamath) for
+helping me fix this bug!
 """
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Tuple
 import warnings
 
 import torch
-
-
-# Short names for commonly annotated types.
-StateType = Dict[str, torch.Tensor]
-StepFunctionType = Callable[..., torch.Tensor]
+from torch.nn import functional as F
 
 
 class AutoRegressiveBeamSearch(object):
     r"""
     Implements the beam search algorithm for decoding the most likely captions.
-    This only works for auto-regressive models (Transformer-like) and not
-    recurrent models (LSTM-like).
 
     Parameters
     ----------
-    end_index: int
+    eos_index: int
         The index of the end token (``[EOS]``) in vocabulary.
     max_steps: int, optional (default = 50)
         The maximum number of decoding steps.
@@ -39,33 +44,25 @@ class AutoRegressiveBeamSearch(object):
 
     def __init__(
         self,
-        end_index: int,
+        eos_index: int,
         max_steps: int = 50,
         beam_size: int = 5,
         per_node_beam_size: int = 2,
     ) -> None:
-        self._end_index = end_index
+        self._eos_index = eos_index
         self.max_steps = max_steps
         self.beam_size = beam_size
         self.per_node_beam_size = per_node_beam_size or beam_size
 
     def search(
-        self, start_predictions: torch.Tensor, step: StepFunctionType
+        self,
+        start_predictions: torch.Tensor,
+        step: Callable[..., torch.Tensor],
+        only_return_best: bool = True,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         r"""
         Given a starting state and a step function, apply beam search to find
         the most likely target captions.
-
-        .. note::
-
-            If your step function returns ``-inf`` for some log probs
-            (like if you're using a masked log-softmax) then some of the "best"
-            captions returned may have ``-inf`` log probability. Specifically
-            this happens when the beam size is smaller than the number of actions
-            with finite log probability (non-zero probability) returned by the
-            step function. Therefore if you're using a mask you may want to
-            check the results from ``search`` and potentially discard captions
-            with non-finite log probability.
 
         Parameters
         ----------
@@ -76,30 +73,31 @@ class AutoRegressiveBeamSearch(object):
         step : Callable[..., torch.Tensor]
             A function that is responsible for computing the next most likely
             tokens, given the past predictions. Predictions from all previous
-            time-steps are required, not just the last time-step, because our
-            model is auto-regressive instead of recurrent.  The function should
-            The function is expected to return a tensor of shape
-            ``(group_size, target_vocab_size)`` containing
-            the log probs of the tokens for the next step.
+            timesteps are required, not just the last timestep. The function is
+            expected to return a tensor of shape ``(group_size, target_vocab_size)``
+            containing the token logits for the next step.
+        only_return_best: bool, optional (default = True)
+            Whether to only return the best beam (with highest logprobs). Set this
+            to ``False`` to return all the beams. If this is ``True``, then the
+            returned tensor is of shape ``(batch_size, sequence_length)``, else
+            will be ``(batch_size, beam_size, sequence_length)``.
 
         Returns
         -------
         Tuple[torch.Tensor, torch.Tensor]
-            Tuple of ``(predictions, log_probs)``, where ``predictions``
-            has shape ``(batch_size, beam_size, max_steps)`` and ``log_probs``
+            Tuple of ``(predictions, logprobs)``, where ``predictions``
+            has shape ``(batch_size, beam_size, max_steps)`` and ``logprobs``
             has shape ``(batch_size, beam_size)``.
         """
+
         batch_size = start_predictions.size()[0]
 
-        # List of `(batch_size, beam_size)` tensors. One for each time step.
+        # List of `(batch_size, beam_size, length)` tensors.
         # Does not include the start symbols, which are implicit.
-        predictions: List[torch.Tensor] = []
-
-        # List of (batch_size, beam_size) tensors. One for each time step. None
-        # for the first.  Stores the index n for the parent prediction, i.e.
-        # predictions[t-1][i][n], that it came from.
-        backpointers: List[torch.Tensor] = []
-
+        predictions: torch.Tensor = torch.empty(
+            (batch_size, self.beam_size, 0),
+            dtype=torch.long, device=start_predictions.device
+        )
         # Calculate the first timestep. This is done outside the main loop
         # because we are going from a single decoder input (the output from the
         # encoder) to the top `beam_size` decoder outputs. On the other hand,
@@ -107,62 +105,66 @@ class AutoRegressiveBeamSearch(object):
         # beam to `beam_size`^2 candidates from which we will select the top
         # `beam_size` elements for the next iteration.
         # shape: (batch_size, num_classes)
-        start_class_log_probs = step(start_predictions)
+        start_class_logits = step(start_predictions)
 
-        num_classes = start_class_log_probs.size()[1]
+        # Convert logits to logprobs.
+        # shape: (batch_size * beam_size, vocab_size)
+        start_class_logprobs = F.log_softmax(start_class_logits, dim=1)
 
-        # Make sure `per_node_beam_size` is not larger than `num_classes`.
-        if self.per_node_beam_size > num_classes:
-            raise ValueError(
-                f"Target vocab size ({num_classes:d}) too small "
-                f"relative to per_node_beam_size ({self.per_node_beam_size:d}).\n"
-                f"Please decrease beam_size or per_node_beam_size."
-            )
+        num_classes = start_class_logprobs.size()[1]
 
         # shape: (batch_size, beam_size), (batch_size, beam_size)
-        start_top_log_probs, start_predicted_classes = start_class_log_probs.topk(
+        start_top_logprobs, start_predicted_classes = start_class_logprobs.topk(
             self.beam_size
         )
         if (
             self.beam_size == 1
-            and (start_predicted_classes == self._end_index).all()
+            and (start_predicted_classes == self._eos_index).all()
         ):
             warnings.warn(
                 "Empty captions predicted. You may want to increase beam "
                 "size or ensure your step function is working properly.",
                 RuntimeWarning,
             )
-            return start_predicted_classes.unsqueeze(-1), start_top_log_probs
+            return start_predicted_classes.unsqueeze(-1), start_top_logprobs
 
         # The log probs for the last time step.
         # shape: (batch_size, beam_size)
-        last_log_probs = start_top_log_probs
+        last_logprobs = start_top_logprobs
 
-        # shape: [(batch_size, beam_size)]
-        predictions.append(start_predicted_classes)
+        # shape: (batch_size, beam_size, sequence_length)
+        predictions = torch.cat([predictions, start_predicted_classes.unsqueeze(-1)], dim=-1)
 
         # Log probability tensor that mandates that the end token is selected.
         # shape: (batch_size * beam_size, num_classes)
-        log_probs_after_end = start_class_log_probs.new_full(
+        logprobs_after_end = start_class_logprobs.new_full(
             (batch_size * self.beam_size, num_classes), float("-inf")
         )
-        log_probs_after_end[:, self._end_index] = 0.0
+        logprobs_after_end[:, self._eos_index] = 0.0
 
         for timestep in range(self.max_steps - 1):
             # shape: (batch_size * beam_size,)
-            last_predictions = predictions[-1].reshape(batch_size * self.beam_size)
+            last_predictions = predictions[:, :, -1].reshape(batch_size * self.beam_size)
 
-            # If every predicted token from the last step is `self._end_index`,
+            # If every predicted token from the last step is `self._eos_index`,
             # then we can stop early.
-            if (last_predictions == self._end_index).all():
+            if (last_predictions == self._eos_index).all():
                 break
 
-            # Take a step. This get the predicted log probs of the next classes.
-            predictions_so_far = torch.stack(predictions).permute(1, 2, 0).view(
+            predictions_so_far = predictions.view(
                 batch_size * self.beam_size, -1
-            )
+            )          
             # shape: (batch_size * beam_size, num_classes)
-            class_log_probs = step(predictions_so_far)
+            class_logits = step(predictions_so_far)
+
+            # Convert logits to logprobs.
+            # shape: (batch_size * beam_size, vocab_size)
+            class_logprobs = F.log_softmax(class_logits, dim=1)
+
+            # Set logprobs of last predicted tokens as high negative value to avoid
+            # repetition in caption.
+            for index in range(batch_size * self.beam_size):
+                class_logprobs[index, predictions_so_far[index, -1]] = -10000
 
             # shape: (batch_size * beam_size, num_classes)
             last_predictions_expanded = last_predictions.unsqueeze(-1).expand(
@@ -173,13 +175,13 @@ class AutoRegressiveBeamSearch(object):
             # one-hot distribution, forcing the beam to predict the end token
             # this timestep as well.
             # shape: (batch_size * beam_size, num_classes)
-            cleaned_log_probs = torch.where(
-                last_predictions_expanded == self._end_index,
-                log_probs_after_end,
-                class_log_probs,
+            cleaned_logprobs = torch.where(
+                last_predictions_expanded == self._eos_index,
+                logprobs_after_end,
+                class_logprobs,
             )
             # shape (both): (batch_size * beam_size, per_node_beam_size)
-            top_log_probs, predicted_classes = cleaned_log_probs.topk(
+            top_logprobs, predicted_classes = cleaned_logprobs.topk(
                 self.per_node_beam_size
             )
             # Here we expand the last log probs to `(batch_size * beam_size,
@@ -187,48 +189,43 @@ class AutoRegressiveBeamSearch(object):
             # probs for this timestep. This lets us maintain the log
             # probability of each element on the beam.
             # shape: (batch_size * beam_size, per_node_beam_size)
-            expanded_last_log_probs = (
-                last_log_probs.unsqueeze(2)
+            expanded_last_logprobs = (
+                last_logprobs.unsqueeze(2)
                 .expand(batch_size, self.beam_size, self.per_node_beam_size)
                 .reshape(batch_size * self.beam_size, self.per_node_beam_size)
             )
             # shape: (batch_size * beam_size, per_node_beam_size)
-            summed_top_log_probs = top_log_probs + expanded_last_log_probs
+            summed_top_logprobs = top_logprobs + expanded_last_logprobs
 
             # shape: (batch_size, beam_size * per_node_beam_size)
-            reshaped_summed = summed_top_log_probs.reshape(
+            reshaped_summed = summed_top_logprobs.reshape(
                 batch_size, self.beam_size * self.per_node_beam_size
             )
             # shape: (batch_size, beam_size * per_node_beam_size)
             reshaped_predicted_classes = predicted_classes.reshape(
                 batch_size, self.beam_size * self.per_node_beam_size
             )
+            # Append the predictions to the current beam.
+            reshaped_beam = (
+                predictions.view(batch_size * self.beam_size, 1, -1)
+                .repeat(1, self.per_node_beam_size, 1)
+                .reshape(batch_size, self.beam_size * self.per_node_beam_size, -1)
+            )
+            reshaped_beam = torch.cat([reshaped_beam, reshaped_predicted_classes.unsqueeze(-1)], dim=-1)
+
             # Keep only the top `beam_size` beam indices.
             # shape: (batch_size, beam_size), (batch_size, beam_size)
-            restricted_beam_log_probs, restricted_beam_indices = reshaped_summed.topk(
+            restricted_beam_logprobs, restricted_beam_indices = reshaped_summed.topk(
                 self.beam_size
             )
-            # Use the beam indices to extract the corresponding classes.
-            # shape: (batch_size, beam_size)
-            restricted_predicted_classes = reshaped_predicted_classes.gather(
-                1, restricted_beam_indices
+            predictions = reshaped_beam.gather(
+                1, restricted_beam_indices.unsqueeze(-1).repeat(1,1,reshaped_beam.shape[-1])
             )
-            predictions.append(restricted_predicted_classes)
 
             # shape: (batch_size, beam_size)
-            last_log_probs = restricted_beam_log_probs
+            last_logprobs = restricted_beam_logprobs
 
-            # The beam indices come from a `beam_size * per_node_beam_size`
-            # dimension where the indices with a common ancestor are grouped
-            # together. Hence dividing by `per_node_beam_size` gives the
-            # ancestor. (Note that this is integer division as the tensor is a
-            # LongTensor.)
-            # shape: (batch_size, beam_size)
-            backpointer = restricted_beam_indices // self.per_node_beam_size
-
-            backpointers.append(backpointer)
-
-        if not torch.isfinite(last_log_probs).all():
+        if not torch.isfinite(last_logprobs).all():
             warnings.warn(
                 "Infinite log probs encountered. Some final captions may not "
                 "make sense. This can happen when the beam size is larger than"
@@ -237,29 +234,10 @@ class AutoRegressiveBeamSearch(object):
                 RuntimeWarning,
             )
 
-        # Reconstruct the captions.
-        # shape: [(batch_size, beam_size, 1)]
-        reconstructed_predictions = [predictions[-1].unsqueeze(2)]
+        # Optionally select best beam and its logprobs.
+        if only_return_best:
+            # shape: (batch_size, sequence_length)
+            predictions = predictions[:, 0, :]
+            last_logprobs = last_logprobs[:, 0]
 
-        # shape: (batch_size, beam_size)
-        cur_backpointers = backpointers[-1]
-
-        for timestep in range(len(predictions) - 2, 0, -1):
-            # shape: (batch_size, beam_size, 1)
-            cur_preds = (
-                predictions[timestep].gather(1, cur_backpointers).unsqueeze(2)
-            )
-            reconstructed_predictions.append(cur_preds)
-
-            # shape: (batch_size, beam_size)
-            cur_backpointers = backpointers[timestep - 1].gather(1, cur_backpointers)
-
-        # shape: (batch_size, beam_size, 1)
-        final_preds = predictions[0].gather(1, cur_backpointers).unsqueeze(2)
-
-        reconstructed_predictions.append(final_preds)
-
-        # shape: (batch_size, beam_size, max_steps)
-        all_predictions = torch.cat(list(reversed(reconstructed_predictions)), 2)
-
-        return all_predictions, last_log_probs
+        return predictions, last_logprobs
