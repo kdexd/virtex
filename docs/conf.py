@@ -24,7 +24,7 @@ copyright = "2021, Karan Desai and Justin Johnson"
 author = "Karan Desai"
 
 # The full version, including alpha/beta/rc tags
-release = "1.1"
+release = "1.2"
 
 
 # -- General configuration ---------------------------------------------------

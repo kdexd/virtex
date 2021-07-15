@@ -72,7 +72,7 @@ class CaptioningModel(nn.Module):
         # These boundary indices are needed for beam search.
         self.sos_index = sos_index
         self.eos_index = eos_index
-        self.beam_search = decoder
+        self.decoder = decoder
         self.loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
 
     def forward(self, batch: Dict[str, torch.Tensor]) -> Dict[str, Any]:
