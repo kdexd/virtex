@@ -13,6 +13,7 @@ University of Michigan
 **CVPR 2021** [arxiv.org/abs/2006.06666][1]
 
 **Model Zoo, Usage Instructions and API docs:** [kdexd.github.io/virtex](https://kdexd.github.io/virtex)
+[**Demo and Docker image of image captioning on Replicate**](https://replicate.ai/kdexd/virtex-image-captioning)
 
 VirTex is a pretraining approach which uses semantically dense captions to
 learn visual representations. We train CNN + Transformers from scratch on
