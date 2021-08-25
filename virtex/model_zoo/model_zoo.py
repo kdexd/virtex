@@ -30,33 +30,33 @@ from virtex.utils.checkpointing import CheckpointManager
 class _ModelZooUrls(object):
     r"""Mapping from config names to URL suffixes of pretrained weights."""
 
-    URL_PREFIX = "https://umich.box.com/shared/static"
+    URL_PREFIX = "https://www.dropbox.com/s"
 
-    CONFIG_PATH_TO_URL_SUFFIX = {
+    CONFIG_PATH_TO_DB_ID = {
 
         # Pretraining Task Ablations
-        "task_ablations/bicaptioning_R_50_L1_H2048.yaml": "zu8zxtxrron29icd76owgjzojmfcgdk3.pth",
-        "task_ablations/captioning_R_50_L1_H2048.yaml": "1q9qh1cj2u4r5laj7mefd2mlzwthnga7.pth",
-        "task_ablations/token_classification_R_50.yaml": "idvoxjl60pzpcllkbvadqgvwazil2mis.pth",
-        "task_ablations/multilabel_classification_R_50.yaml": "yvlflmo0klqy3m71p6ug06c6aeg282hy.pth",
-        "task_ablations/masked_lm_R_50_L1_H2048.yaml": "x3eij00eslse9j35t9j9ijyj8zkbkizh.pth",
+        "task_ablations/bicaptioning_R_50_L1_H2048.yaml": "mbeeso8wyieq8wy",
+        "task_ablations/captioning_R_50_L1_H2048.yaml": "r6zen9k43m5oo58",
+        "task_ablations/token_classification_R_50.yaml": "o4p9lki505r0mef",
+        "task_ablations/multilabel_classification_R_50.yaml": "hbspp3jv3u8h3bc",
+        "task_ablations/masked_lm_R_50_L1_H2048.yaml": "ldzrk6vem4mg6bl",
 
         # Width Ablations
-        "width_ablations/bicaptioning_R_50_L1_H512.yaml": "wtk18v0vffws48u5yrj2qjt94wje1pit.pth",
-        "width_ablations/bicaptioning_R_50_L1_H768.yaml": "e94n0iexdvksi252bn7sm2vqjnyt9okf.pth",
-        "width_ablations/bicaptioning_R_50_L1_H1024.yaml": "1so9cu9y06gy27rqbzwvek4aakfd8opf.pth",
-        "width_ablations/bicaptioning_R_50_L1_H2048.yaml": "zu8zxtxrron29icd76owgjzojmfcgdk3.pth",
+        "width_ablations/bicaptioning_R_50_L1_H512.yaml": "o9fr69jjqfn8a65",
+        "width_ablations/bicaptioning_R_50_L1_H768.yaml": "1zxglqrrbfufv9d",
+        "width_ablations/bicaptioning_R_50_L1_H1024.yaml": "pdat4tvhnqxel64",
+        "width_ablations/bicaptioning_R_50_L1_H2048.yaml": "mbeeso8wyieq8wy",
 
         # Depth Ablations
-        "depth_ablations/bicaptioning_R_50_L1_H1024.yaml": "1so9cu9y06gy27rqbzwvek4aakfd8opf.pth",
-        "depth_ablations/bicaptioning_R_50_L2_H1024.yaml": "9e88f6l13a9r8wq5bbe8qnoh9zenanq3.pth",
-        "depth_ablations/bicaptioning_R_50_L3_H1024.yaml": "4cv8052xiq91h7lyx52cp2a6m7m9qkgo.pth",
-        "depth_ablations/bicaptioning_R_50_L4_H1024.yaml": "bk5w4471mgvwa5mv6e4c7htgsafzmfm0.pth",
+        "depth_ablations/bicaptioning_R_50_L1_H1024.yaml": "pdat4tvhnqxel64",
+        "depth_ablations/bicaptioning_R_50_L2_H1024.yaml": "ft1vtt4okirzjgo",
+        "depth_ablations/bicaptioning_R_50_L3_H1024.yaml": "5ldo1rcsnrshmjr",
+        "depth_ablations/bicaptioning_R_50_L4_H1024.yaml": "zgiit2wcluuq3xh",
 
         # Backbone Ablations
-        "backbone_ablations/bicaptioning_R_50_L1_H1024.yaml": "1so9cu9y06gy27rqbzwvek4aakfd8opf.pth",
-        "backbone_ablations/bicaptioning_R_50W2X_L1_H1024.yaml": "19vcaf1488945836kir9ebm5itgtugaw.pth",
-        "backbone_ablations/bicaptioning_R_101_L1_H1024.yaml": "nptbh4jsj0c0kjsnc2hw754fkikpgx9v.pth",
+        "backbone_ablations/bicaptioning_R_50_L1_H1024.yaml": "pdat4tvhnqxel64",
+        "backbone_ablations/bicaptioning_R_50W2X_L1_H1024.yaml": "5o198ux709r6376",
+        "backbone_ablations/bicaptioning_R_101_L1_H1024.yaml": "bb74jubt68cpn80",
     }
 
 
@@ -87,9 +87,12 @@ def get(config_path, pretrained: bool = False):
 
     if pretrained:
         # Get URL for the checkpoint for this config path.
-        if config_path in _ModelZooUrls.CONFIG_PATH_TO_URL_SUFFIX:
-            url_suffix = _ModelZooUrls.CONFIG_PATH_TO_URL_SUFFIX[config_path]
-            checkpoint_url = f"{_ModelZooUrls.URL_PREFIX}/{url_suffix}"
+        if config_path in _ModelZooUrls.CONFIG_PATH_TO_DB_ID:
+
+            dropbox_id = _ModelZooUrls.CONFIG_PATH_TO_DB_ID[config_path]
+            filename = os.path.basename(config_path).replace(".yaml", ".pth")
+
+            checkpoint_url = f"{_ModelZooUrls.URL_PREFIX}/{dropbox_id}/{filename}?dl=1"
         else:
             raise RuntimeError("{} not available in Model Zoo!".format(config_path))
 

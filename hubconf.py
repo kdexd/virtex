@@ -4,6 +4,9 @@ import torch
 import torchvision
 
 
+R50_URL = "https://www.dropbox.com/s/pxgjxcva7oypf12/backbone_bicaptioning_R_50_L1_H2048.pth?dl=1"
+
+
 def resnet50(pretrained: bool = False, **kwargs):
     r"""
     ResNet-50 visual backbone from the best performing VirTex model: pretrained
@@ -27,9 +30,6 @@ def resnet50(pretrained: bool = False, **kwargs):
 
     if pretrained:
         model.load_state_dict(
-            torch.hub.load_state_dict_from_url(
-                "https://umich.box.com/shared/static/gsjqm4i4fm1wpzi947h27wweljd8gcpy.pth",
-                progress=False,
-            )
+            torch.hub.load_state_dict_from_url(R50_URL, progress=False)
         )
     return model
