@@ -30,9 +30,6 @@ DATA:
     - "center_crop"
     - "normalize"
 
-  USE_PERCENTAGE: 100.0
-  USE_SINGLE_CAPTION: false
-
 MODEL:
   NAME: "virtex"
 

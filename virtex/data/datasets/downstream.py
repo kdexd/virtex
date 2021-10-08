@@ -15,11 +15,8 @@ from virtex.data import transforms as T
 
 class ImageNetDataset(ImageNet):
     r"""
-    Simple wrapper over torchvision's ImageNet dataset with a feature to support
-    restricting dataset size for semi-supervised learning setup (data-efficiency
-    ablations).
-
-    We also handle image transform here instead of passing to super class.
+    Simple wrapper over torchvision's ImageNet dataset. Image transform is
+    handled here instead of passing to super class.
 
     Parameters
     ----------
@@ -32,10 +29,6 @@ class ImageNetDataset(ImageNet):
         A list of transformations, from either `albumentations
         <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
         to be applied on the image.
-    percentage: int, optional (default = 100)
-        Percentage of dataset to keep. This dataset retains first K% of images
-        per class to retain same class label distribution. This is 100% by
-        default, and will be ignored if ``split`` is ``val``.
     """
 
     def __init__(
@@ -43,36 +36,9 @@ class ImageNetDataset(ImageNet):
         data_root: str = "datasets/imagenet",
         split: str = "train",
         image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
-        percentage: float = 100,
     ):
         super().__init__(data_root, split)
-        assert percentage > 0, "Cannot load dataset with 0 percent original size."
-
         self.image_transform = image_transform
-
-        # Super class has `imgs` list and `targets` list. Make a dict of
-        # class ID to index of instances in these lists and pick first K%.
-        if split == "train" and percentage < 100:
-            label_to_indices: Dict[int, List[int]] = defaultdict(list)
-            for index, target in enumerate(self.targets):
-                label_to_indices[target].append(index)
-
-            # Trim list of indices per label.
-            for label in label_to_indices:
-                retain = int(len(label_to_indices[label]) * (percentage / 100))
-                label_to_indices[label] = label_to_indices[label][:retain]
-
-            # Trim `self.imgs` and `self.targets` as per indices we have.
-            retained_indices: List[int] = [
-                index
-                for indices_per_label in label_to_indices.values()
-                for index in indices_per_label
-            ]
-            # Shorter dataset with size K% of original dataset, but almost same
-            # class label distribution. super class will handle the rest.
-            self.imgs = [self.imgs[i] for i in retained_indices]
-            self.targets = [self.targets[i] for i in retained_indices]
-            self.samples = self.imgs
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         image, label = super().__getitem__(idx)

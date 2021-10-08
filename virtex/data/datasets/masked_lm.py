@@ -1,5 +1,4 @@
 import math
-import os
 import random
 from typing import Callable, Dict, List
 
@@ -8,9 +7,9 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from virtex.data.readers import LmdbReader
 from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.data import transforms as T
+from .coco_captions import CocoCaptionsDataset
 
 
 class MaskedLmDataset(Dataset):
@@ -24,12 +23,8 @@ class MaskedLmDataset(Dataset):
         mask_probability: float = 0.80,
         replace_probability: float = 0.10,
         max_caption_length: int = 30,
-        use_single_caption: bool = False,
-        percentage: float = 100.0,
     ):
-        lmdb_path = os.path.join(data_root, f"serialized_{split}.lmdb")
-        self.reader = LmdbReader(lmdb_path, percentage=percentage)
-
+        self._dset = CocoCaptionsDataset(data_root, split)
         self.image_transform = image_transform
         self.caption_transform = alb.Compose(
             [
@@ -38,7 +33,6 @@ class MaskedLmDataset(Dataset):
                 T.TruncateCaptionTokens(max_caption_length),
             ]
         )
-        self.use_single_caption = use_single_caption
         self.padding_idx = tokenizer.token_to_id("<unk>")
 
         # Handles to commonly used variables for word masking.
@@ -49,17 +43,18 @@ class MaskedLmDataset(Dataset):
         self._repl_prob = replace_probability
 
     def __len__(self):
-        return len(self.reader)
+        return len(self._dset)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
 
-        image_id, image, captions = self.reader[idx]
-
-        # Pick a random caption or first caption and process (transform) it.
-        if self.use_single_caption:
-            caption = captions[0]
-        else:
-            caption = random.choice(captions)
+        # keys: {"image_id", "image", "captions"}
+        instance = self._dset[idx]
+        image_id, image, captions = (
+            instance["image_id"],
+            instance["image"],
+            instance["captions"],
+        )
+        caption = random.choice(captions)
 
         # Transform image-caption pair and convert image from HWC to CHW format.
         # Pass in caption to image_transform due to paired horizontal flip.

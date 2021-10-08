@@ -12,6 +12,7 @@ from .datasets.downstream import (
 )
 
 __all__ = [
+    "CocoCaptionsDataset",
     "CaptioningDataset",
     "TokenClassificationDataset",
     "MultiLabelClassificationDataset",

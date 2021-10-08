@@ -92,12 +92,6 @@ class Config(object):
         # Longer captions will be truncated up to this length.
         _C.DATA.MAX_CAPTION_LENGTH = 30
 
-        # COCO Captions has five captions per image. If ``True``, training will
-        # use one random caption per image (data efficiency ablations).
-        _C.DATA.USE_SINGLE_CAPTION = False
-        # Percentage of dataset to use for training (data efficiency ablations).
-        _C.DATA.USE_PERCENTAGE = 100.0
-
         # List of image transforms (pre-processing and data augmentation) to be
         # applied sequentially (always or randomly) during training and
         # validation. Refer ``virtex/facetories.py`` for all possible transforms.

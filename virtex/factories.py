@@ -239,11 +239,6 @@ class PretrainingDatasetFactory(Factory):
                 tokenizer=tokenizer,
                 max_caption_length=_C.DATA.MAX_CAPTION_LENGTH,
             )
-            if _C.MODEL.NAME != "token_classification":
-                kwargs.update(
-                    use_single_caption=_C.DATA.USE_SINGLE_CAPTION,
-                    percentage=_C.DATA.USE_PERCENTAGE if split == "train" else 100.0,
-                )
 
         if _C.MODEL.NAME == "masked_lm":
             kwargs.update(

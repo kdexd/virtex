@@ -11,9 +11,9 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from virtex.data.readers import LmdbReader
 from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.data import transforms as T
+from .coco_captions import CocoCaptionsDataset
 
 
 class TokenClassificationDataset(Dataset):
@@ -32,7 +32,7 @@ class TokenClassificationDataset(Dataset):
     tokenizer: virtex.data.tokenizers.SentencePieceBPETokenizer
         A tokenizer which has the mapping between word tokens and their
         integer IDs.
-    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
+    image_transform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
         A list of transformations, from either `albumentations
         <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
         to be applied on the image.
@@ -49,9 +49,7 @@ class TokenClassificationDataset(Dataset):
         image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
         max_caption_length: int = 30,
     ):
-        lmdb_path = os.path.join(data_root, f"serialized_{split}.lmdb")
-        self.reader = LmdbReader(lmdb_path)
-
+        self._dset = CocoCaptionsDataset(data_root, split)
         self.image_transform = image_transform
         self.caption_transform = alb.Compose(
             [
@@ -63,13 +61,17 @@ class TokenClassificationDataset(Dataset):
         self.padding_idx = tokenizer.token_to_id("<unk>")
 
     def __len__(self):
-        return len(self.reader)
+        return len(self._dset)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
 
-        image_id, image, captions = self.reader[idx]
-
-        # Pick a random caption and then transform it.
+        # keys: {"image_id", "image", "captions"}
+        instance = self._dset[idx]
+        image_id, image, captions = (
+            instance["image_id"],
+            instance["image"],
+            instance["captions"],
+        )
         caption = random.choice(captions)
 
         # Transform image-caption pair and convert image from HWC to CHW format.
@@ -114,7 +116,7 @@ class MultiLabelClassificationDataset(Dataset):
         annotations (``train2017``, ``val2017`` and ``annotations`` directories).
     split: str, optional (default = "train")
         Which split (from COCO 2017 version) to read. One of ``{"train", "val"}``.
-    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
+    image_transform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
         A list of transformations, from either `albumentations
         <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
         to be applied on the image.

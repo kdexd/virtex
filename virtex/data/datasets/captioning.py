@@ -1,4 +1,3 @@
-import os
 import random
 from typing import Callable, Dict, List
 
@@ -7,9 +6,9 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from virtex.data.readers import LmdbReader
 from virtex.data.tokenizers import SentencePieceBPETokenizer
 from virtex.data import transforms as T
+from .coco_captions import CocoCaptionsDataset
 
 
 class CaptioningDataset(Dataset):
@@ -32,18 +31,13 @@ class CaptioningDataset(Dataset):
     tokenizer: virtex.data.tokenizers.SentencePieceBPETokenizer
         A tokenizer which has the mapping between word tokens and their
         integer IDs.
-    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
+    image_transform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
         A list of transformations, from either `albumentations
         <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
         to be applied on the image.
     max_caption_length: int, optional (default = 30)
         Maximum number of tokens to keep in output caption tokens. Extra tokens
         will be trimmed from the right end of the token list.
-    use_single_caption: bool, optional (default = False)
-        COCO Captions provides five captions per image. If this is True, only
-        one fixed caption per image is use fo training (used for an ablation).
-    percentage: float, optional (default = 100.0)
-        Randomly sample this much percentage of full dataset for training.
     """
 
     def __init__(
@@ -53,12 +47,8 @@ class CaptioningDataset(Dataset):
         tokenizer: SentencePieceBPETokenizer,
         image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
         max_caption_length: int = 30,
-        use_single_caption: bool = False,
-        percentage: float = 100.0,
     ):
-        lmdb_path = os.path.join(data_root, f"serialized_{split}.lmdb")
-        self.reader = LmdbReader(lmdb_path, percentage=percentage)
-
+        self._dset = CocoCaptionsDataset(data_root, split)
         self.image_transform = image_transform
         self.caption_transform = alb.Compose(
             [
@@ -67,21 +57,21 @@ class CaptioningDataset(Dataset):
                 T.TruncateCaptionTokens(max_caption_length),
             ]
         )
-        self.use_single_caption = use_single_caption
         self.padding_idx = tokenizer.token_to_id("<unk>")
 
     def __len__(self):
-        return len(self.reader)
+        return len(self._dset)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
 
-        image_id, image, captions = self.reader[idx]
-
-        # Pick a random caption or first caption and process (transform) it.
-        if self.use_single_caption:
-            caption = captions[0]
-        else:
-            caption = random.choice(captions)
+        # keys: {"image_id", "image", "captions"}
+        instance = self._dset[idx]
+        image_id, image, captions = (
+            instance["image_id"],
+            instance["image"],
+            instance["captions"],
+        )
+        caption = random.choice(captions)
 
         # Transform image-caption pair and convert image from HWC to CHW format.
         # Pass in caption to image_transform due to paired horizontal flip.
