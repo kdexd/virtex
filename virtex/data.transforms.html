@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-120523111-2"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-120523111-2');
+    </script>
+
+    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
+
+
+  <title>virtex.data.transforms &mdash; virtex 1.4 documentation</title>
+
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/copybutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/clipboard.min.js"></script>
+        <script src="../_static/copybutton.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="virtex.models" href="models.html" />
+    <link rel="prev" title="virtex.data.tokenizers" href="data.tokenizers.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> virtex
+          </a>
+              <div class="version">
+                1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="usage/setup_dependencies.html">How to setup this codebase?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/model_zoo.html">VirTex Model Zoo</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/pretrain.html">How to train your VirTex model?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/downstream.html">How to evaluate on downstream tasks?</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="config.html">virtex.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="factories.html">virtex.factories</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="data.html">virtex.data</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data.datasets.html">virtex.data.datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.tokenizers.html">virtex.data.tokenizers</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">virtex.data.transforms</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">virtex.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">virtex.modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="optim.html">virtex.optim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">virtex.utils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_zoo.html">virtex.model_zoo</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">virtex</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="data.html">virtex.data</a> &raquo;</li>
+      <li>virtex.data.transforms</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/virtex/data.transforms.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="virtex-data-transforms">
+<h1>virtex.data.transforms<a class="headerlink" href="#virtex-data-transforms" title="Permalink to this headline"></a></h1>
+<hr><span class="target" id="module-virtex.data.transforms"></span><dl class="py class">
+<dt class="sig sig-object py" id="virtex.data.transforms.CaptionOnlyTransform">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">CaptionOnlyTransform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">always_apply</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/data/transforms.py#L11-L28"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.data.transforms.CaptionOnlyTransform" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">albumentations.core.transforms_interface.BasicTransform</span></code></p>
+<p>Base class for custom <a class="reference external" href="https://albumentations.readthedocs.io/en/latest/">albumentations</a>
+transform, which can transform captions. Captions may be <code class="docutils literal notranslate"><span class="pre">str</span></code>, or tokens
+(<code class="docutils literal notranslate"><span class="pre">List[int]</span></code>) as per implementation of <code class="xref py py-meth docutils literal notranslate"><span class="pre">apply_to_caption()</span></code>. These
+transforms will have consistent API as other transforms from albumentations.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.data.transforms.ImageCaptionTransform">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">ImageCaptionTransform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">always_apply</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/data/transforms.py#L31-L42"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.data.transforms.ImageCaptionTransform" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">albumentations.core.transforms_interface.BasicTransform</span></code></p>
+<p>Similar to <a class="reference internal" href="#virtex.data.transforms.CaptionOnlyTransform" title="virtex.data.transforms.CaptionOnlyTransform"><code class="xref py py-class docutils literal notranslate"><span class="pre">CaptionOnlyTransform</span></code></a>, this
+extends super class to work on <code class="docutils literal notranslate"><span class="pre">(image,</span> <span class="pre">caption)</span></code> pair together.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.data.transforms.NormalizeCaption">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">NormalizeCaption</span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/data/transforms.py#L45-L63"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.data.transforms.NormalizeCaption" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.data.transforms.CaptionOnlyTransform" title="virtex.data.transforms.CaptionOnlyTransform"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.data.transforms.CaptionOnlyTransform</span></code></a></p>
+<p>Perform common normalization with caption: lowercase, trim leading and
+trailing whitespaces, NFKD normalization and strip accents.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">normalize</span> <span class="o">=</span> <span class="n">NormalizeCaption</span><span class="p">(</span><span class="n">always_apply</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">caption</span><span class="o">=</span><span class="s2">&quot;Some caption input here.&quot;</span><span class="p">)</span>  <span class="c1"># keys: {&quot;caption&quot;}</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.data.transforms.TokenizeCaption">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">TokenizeCaption</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tokenizer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="data.tokenizers.html#virtex.data.tokenizers.SentencePieceBPETokenizer" title="virtex.data.tokenizers.SentencePieceBPETokenizer"><span class="pre">virtex.data.tokenizers.SentencePieceBPETokenizer</span></a></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/data/transforms.py#L66-L96"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.data.transforms.TokenizeCaption" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.data.transforms.CaptionOnlyTransform" title="virtex.data.transforms.CaptionOnlyTransform"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.data.transforms.CaptionOnlyTransform</span></code></a></p>
+<p>Tokenize a caption (<code class="docutils literal notranslate"><span class="pre">str</span></code>) to list of tokens (<code class="docutils literal notranslate"><span class="pre">List[int]</span></code>) by the
+mapping defined in <code class="xref py py-attr docutils literal notranslate"><span class="pre">tokenizer</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tokenizer</strong> – A <a class="reference internal" href="data.tokenizers.html#virtex.data.tokenizers.SentencePieceBPETokenizer" title="virtex.data.tokenizers.SentencePieceBPETokenizer"><code class="xref py py-class docutils literal notranslate"><span class="pre">SentencePieceBPETokenizer</span></code></a>
+which encodes a caption into tokens.</p></li>
+<li><p><strong>add_boundaries</strong> – Whether to add <code class="docutils literal notranslate"><span class="pre">[SOS]</span></code>/<code class="docutils literal notranslate"><span class="pre">[EOS]</span></code> tokens from tokenizer.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">SentencePieceBPETokenizer</span><span class="p">(</span><span class="s2">&quot;coco.vocab&quot;</span><span class="p">,</span> <span class="s2">&quot;coco.model&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tokenize</span> <span class="o">=</span> <span class="n">TokenizeCaption</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">,</span> <span class="n">always_apply</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span> <span class="o">=</span> <span class="n">tokenize</span><span class="p">(</span><span class="n">caption</span><span class="o">=</span><span class="s2">&quot;Some caption input here.&quot;</span><span class="p">)</span>  <span class="c1"># keys: {&quot;caption&quot;}</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.data.transforms.TruncateCaptionTokens">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">TruncateCaptionTokens</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_caption_length</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/data/transforms.py#L99-L123"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.data.transforms.TruncateCaptionTokens" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.data.transforms.CaptionOnlyTransform" title="virtex.data.transforms.CaptionOnlyTransform"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.data.transforms.CaptionOnlyTransform</span></code></a></p>
+<p>Truncate a list of caption tokens (<code class="docutils literal notranslate"><span class="pre">List[int]</span></code>) to maximum length.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>max_caption_length</strong> – Maximum number of tokens to keep in output caption
+tokens. Extra tokens will be trimmed from the right end of token list.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">truncate</span> <span class="o">=</span> <span class="n">TruncateCaptionTokens</span><span class="p">(</span><span class="n">max_caption_length</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span> <span class="o">=</span> <span class="n">truncate</span><span class="p">(</span><span class="n">caption</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">35</span><span class="p">,</span> <span class="mi">41</span><span class="p">,</span> <span class="mi">67</span><span class="p">,</span> <span class="mi">98</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span><span class="p">[</span><span class="s2">&quot;caption&quot;</span><span class="p">]</span>
+<span class="go">[2, 35, 41, 67, 98]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.data.transforms.HorizontalFlip">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">HorizontalFlip</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">always_apply</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/data/transforms.py#L126-L154"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.data.transforms.HorizontalFlip" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.data.transforms.ImageCaptionTransform" title="virtex.data.transforms.ImageCaptionTransform"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.data.transforms.ImageCaptionTransform</span></code></a></p>
+<p>Flip the image horizontally randomly (equally likely) and replace the
+word “left” with “right” in the caption.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This transform can also work on images only (without the captions).
+Its behavior will be same as albumentations
+<code class="xref py py-class docutils literal notranslate"><span class="pre">HorizontalFlip</span></code>.</p>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">flip</span> <span class="o">=</span> <span class="n">HorizontalFlip</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out1</span> <span class="o">=</span> <span class="n">flip</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span> <span class="n">caption</span><span class="o">=</span><span class="n">caption</span><span class="p">)</span>  <span class="c1"># keys: {&quot;image&quot;, &quot;caption&quot;}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Also works with images (without caption).</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out2</span> <span class="o">=</span> <span class="n">flip</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">)</span>  <span class="c1"># keys: {&quot;image&quot;}</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.data.transforms.RandomResizedSquareCrop">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">RandomResizedSquareCrop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/data/transforms.py#L157-L167"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.data.transforms.RandomResizedSquareCrop" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">albumentations.augmentations.crops.transforms.RandomResizedCrop</span></code></p>
+<p>A variant of <code class="xref py py-class docutils literal notranslate"><span class="pre">albumentations.augmentations.transforms.RandomResizedCrop</span></code>
+which assumes a square crop (width = height). Everything else is same.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>size</strong> – Dimension of the width and height of the cropped image.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.data.transforms.CenterSquareCrop">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">CenterSquareCrop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/data/transforms.py#L170-L180"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.data.transforms.CenterSquareCrop" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">albumentations.augmentations.crops.transforms.CenterCrop</span></code></p>
+<p>A variant of <code class="xref py py-class docutils literal notranslate"><span class="pre">albumentations.augmentations.transforms.CenterCrop</span></code>
+which assumes a square crop (width = height). Everything else is same.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>size</strong> – Dimension of the width and height of the cropped image.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.data.transforms.SquareResize">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">SquareResize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/data/transforms.py#L183-L193"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.data.transforms.SquareResize" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">albumentations.augmentations.geometric.resize.Resize</span></code></p>
+<p>A variant of <code class="xref py py-class docutils literal notranslate"><span class="pre">albumentations.augmentations.transforms.Resize</span></code> which
+assumes a square resize (width = height). Everything else is same.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>size</strong> – Dimension of the width and height of the cropped image.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="virtex.data.transforms.IMAGENET_COLOR_MEAN">
+<span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">IMAGENET_COLOR_MEAN</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(0.485,</span> <span class="pre">0.456,</span> <span class="pre">0.406)</span></em><a class="headerlink" href="#virtex.data.transforms.IMAGENET_COLOR_MEAN" title="Permalink to this definition"></a></dt>
+<dd><p>ImageNet color normalization mean in RGB format (values in 0-1).</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="virtex.data.transforms.IMAGENET_COLOR_STD">
+<span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">IMAGENET_COLOR_STD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(0.229,</span> <span class="pre">0.224,</span> <span class="pre">0.225)</span></em><a class="headerlink" href="#virtex.data.transforms.IMAGENET_COLOR_STD" title="Permalink to this definition"></a></dt>
+<dd><p>ImageNet color normalization std in RGB format (values in 0-1).</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM">
+<span class="sig-prename descclassname"><span class="pre">virtex.data.transforms.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_IMAGE_TRANSFORM</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Compose([</span>&#160;&#160; <span class="pre">SmallestMaxSize(always_apply=False,</span> <span class="pre">p=1.0,</span> <span class="pre">max_size=256,</span> <span class="pre">interpolation=1),</span>&#160;&#160; <span class="pre">CenterSquareCrop(always_apply=False,</span> <span class="pre">p=1.0,</span> <span class="pre">height=224,</span> <span class="pre">width=224),</span>&#160;&#160; <span class="pre">Normalize(always_apply=False,</span> <span class="pre">p=1.0,</span> <span class="pre">mean=(0.485,</span> <span class="pre">0.456,</span> <span class="pre">0.406),</span> <span class="pre">std=(0.229,</span> <span class="pre">0.224,</span> <span class="pre">0.225),</span> <span class="pre">max_pixel_value=255.0),</span> <span class="pre">],</span> <span class="pre">p=1.0,</span> <span class="pre">bbox_params=None,</span> <span class="pre">keypoint_params=None,</span> <span class="pre">additional_targets={})</span></em><a class="headerlink" href="#virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM" title="Permalink to this definition"></a></dt>
+<dd><p>Default transform without any data augmentation (during pretraining).</p>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="data.tokenizers.html" class="btn btn-neutral float-left" title="virtex.data.tokenizers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="models.html" class="btn btn-neutral float-right" title="virtex.models" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Karan Desai and Justin Johnson.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

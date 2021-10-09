@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-120523111-2"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-120523111-2');
+    </script>
+
+    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
+
+
+  <title>VirTex Model Zoo &mdash; virtex 1.4 documentation</title>
+
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/copybutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/clipboard.min.js"></script>
+        <script src="../../_static/copybutton.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="How to train your VirTex model?" href="pretrain.html" />
+    <link rel="prev" title="How to setup this codebase?" href="setup_dependencies.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> virtex
+          </a>
+              <div class="version">
+                1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="setup_dependencies.html">How to setup this codebase?</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">VirTex Model Zoo</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#pretraining-task-ablations">Pretraining Task Ablations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#width-ablations">Width Ablations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#depth-ablations">Depth Ablations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#backbone-ablations">Backbone Ablations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pretrain.html">How to train your VirTex model?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="downstream.html">How to evaluate on downstream tasks?</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../config.html">virtex.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../factories.html">virtex.factories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data.html">virtex.data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../models.html">virtex.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">virtex.modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../optim.html">virtex.optim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils.html">virtex.utils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model_zoo.html">virtex.model_zoo</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">virtex</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>VirTex Model Zoo</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/virtex/usage/model_zoo.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="virtex-model-zoo">
+<h1>VirTex Model Zoo<a class="headerlink" href="#virtex-model-zoo" title="Permalink to this headline"></a></h1>
+<p>We provide a collection of pretrained model weights and corresponding config
+names in this model zoo. Tables contain partial paths to config files for each
+model, download link for pretrained weights and for reference – VOC07 mAP and
+ImageNet top-1 accuracy.</p>
+<p>The simplest way to download and use a <em>full</em> pretrained model (including both,
+the visual backbone and the textual head) is through <a class="reference internal" href="../model_zoo.html"><span class="doc">virtex.model_zoo</span></a> API as
+follows. This code snippet works from anywhere, and does not require to be
+executed from project root.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get our full best performing VirTex model:</span>
+<span class="kn">import</span> <span class="nn">virtex.model_zoo</span> <span class="k">as</span> <span class="nn">mz</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">mz</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;width_ablations/bicaptioning_R_50_L1_H2048.yaml&quot;</span><span class="p">,</span> <span class="n">pretrained</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Optionally extract the torchvision-like visual backbone (with ``avgpool``</span>
+<span class="c1"># and ``fc`` layers replaced with ``nn.Identity`` module).</span>
+<span class="n">cnn</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">visual</span><span class="o">.</span><span class="n">cnn</span>
+</pre></div>
+</div>
+<p>Alternatively, weights can be manually downloaded from links below, and this
+can be executed from the project root:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">virtex.config</span> <span class="kn">import</span> <span class="n">Config</span>
+<span class="kn">from</span> <span class="nn">virtex.factories</span> <span class="kn">import</span> <span class="n">PretrainingModelFactory</span>
+<span class="kn">from</span> <span class="nn">virtex.utils.checkpointing</span> <span class="kn">import</span> <span class="n">CheckpointManager</span>
+
+<span class="c1"># Get the best performing VirTex model:</span>
+<span class="n">_C</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="s2">&quot;configs/width_ablations/bicaptioning_R_50_L1_H2048.yaml&quot;</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">PretrainingModelFactory</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">_C</span><span class="p">)</span>
+
+<span class="n">CheckpointManager</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;/path/to/downloaded/weights.pth&quot;</span><span class="p">)</span>
+
+<span class="c1"># Optionally extract the torchvision-like visual backbone (with ``avgpool``</span>
+<span class="c1"># and ``fc`` layers replaced with ``nn.Identity`` module).</span>
+<span class="n">cnn</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">visual</span><span class="o">.</span><span class="n">cnn</span>
+</pre></div>
+</div>
+<p>The pretrained ResNet-50 visual backbone of our best performing model
+(<code class="docutils literal notranslate"><span class="pre">width_ablations/bicaptioning_R_50_L1_H2048.yaml</span></code>) can be loaded in a single
+line, <em>without following any installation steps</em> (only requires PyTorch v1.5):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">hub</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;kdexd/virtex&quot;</span><span class="p">,</span> <span class="s2">&quot;resnet50&quot;</span><span class="p">,</span> <span class="n">pretrained</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># This is a torchvision-like resnet50 model, with ``avgpool`` and ``fc``</span>
+<span class="c1"># layers replaced with ``nn.Identity`` module.</span>
+<span class="n">image_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">224</span><span class="p">,</span> <span class="mi">224</span><span class="p">)</span>  <span class="c1"># batch tensor of one image.</span>
+<span class="n">features_batch</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">image_batch</span><span class="p">)</span>  <span class="c1"># shape: (1, 2048, 7, 7)</span>
+</pre></div>
+</div>
+<hr class="docutils" />
+<section id="pretraining-task-ablations">
+<h2>Pretraining Task Ablations<a class="headerlink" href="#pretraining-task-ablations" title="Permalink to this headline"></a></h2>
+<style type="text/css">
+.tg  {border-collapse:collapse;border-spacing:0;}
+.tg td{border-color:black;border-style:solid;border-width:1px;
+overflow:hidden;padding:10px 5px;word-break:normal;}
+.tg th{border-color:black;border-style:solid;border-width:1px;
+font-weight:normal;overflow:hidden;padding:10px 5px;word-break:normal;}
+.tg .tg-zlqz{background-color:#d5d5d5;border-color:inherit;font-weight:bold;text-align:center;vertical-align:center}
+.tg .tg-c3ow{border-color:inherit;text-align:center;vertical-align:top}
+.tg .tg-c3ow a{color: darkgreen; text-decoration: none; border-bottom: 1px dashed green;text-underline-position: under;
+.tg .tg-c3ow a:hover{font-weight: 700;border-bottom: 1px solid green;}
+.tg .tg-0pky{border-color:inherit;text-align:left;vertical-align:top}
+@media screen and (max-width: 767px) {.tg {width: auto !important;}.tg col {width: auto !important;}.tg-wrap {overflow-x: auto;-webkit-overflow-scrolling: touch;}}</style>
+<div class="tg-wrap"><table class="tg">
+<tbody>
+<tr>
+    <td class="tg-zlqz">Model Config Name</td>
+    <td class="tg-zlqz">VOC07<br>mAP</td>
+    <td class="tg-zlqz">ImageNet<br>Top-1 Acc.</td>
+    <td class="tg-zlqz">Model URL</td>
+</tr>
+<tr>
+    <td class="tg-0pky">task_ablations/bicaptioning_R_50_L1_H2048.yaml</td>
+    <td class="tg-c3ow">88.7</td>
+    <td class="tg-c3ow">53.8</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/mbeeso8wyieq8wy/bicaptioning_R_50_L1_H2048.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky">task_ablations/captioning_R_50_L1_H2048.yaml</td>
+    <td class="tg-c3ow">88.6</td>
+    <td class="tg-c3ow">50.8</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/r6zen9k43m5oo58/captioning_R_50_L1_H2048.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky">task_ablations/token_classification_R_50.yaml</td>
+    <td class="tg-c3ow">88.8</td>
+    <td class="tg-c3ow">48.6</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/o4p9lki505r0mef/token_classification_R_50.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky">task_ablations/multilabel_classification_R_50.yaml</td>
+    <td class="tg-c3ow">86.2</td>
+    <td class="tg-c3ow">46.2</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/hbspp3jv3u8h3bc/multilabel_classification_R_50.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky">task_ablations/masked_lm_R_50_L1_H2048.yaml</td>
+    <td class="tg-c3ow">86.4</td>
+    <td class="tg-c3ow">46.7</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/ldzrk6vem4mg6bl/masked_lm_R_50_L1_H2048.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+</tbody>
+</table></div></section>
+<section id="width-ablations">
+<h2>Width Ablations<a class="headerlink" href="#width-ablations" title="Permalink to this headline"></a></h2>
+<div class="tg-wrap"><table class="tg">
+<tbody>
+<tr>
+    <td class="tg-zlqz">Model Config Name</td>
+    <td class="tg-zlqz">VOC07<br>mAP</td>
+    <td class="tg-zlqz">ImageNet<br>Top-1 Acc.</td>
+    <td class="tg-zlqz">Model URL</td>
+</tr>
+<tr>
+    <td class="tg-0pky">width_ablations/bicaptioning_R_50_L1_H512.yaml</td>
+    <td class="tg-c3ow">88.4</td>
+    <td class="tg-c3ow">51.8</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/o9fr69jjqfn8a65/bicaptioning_R_50_L1_H512.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky"><span style="font-weight:400;font-style:normal">width_ablations/bicaptioning_R_50_L1_H768.yaml</span></td>
+    <td class="tg-c3ow">88.3</td>
+    <td class="tg-c3ow">52.3</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/1zxglqrrbfufv9d/bicaptioning_R_50_L1_H768.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky"><span style="font-weight:400;font-style:normal">width_ablations/bicaptioning_R_50_L1_H1024.yaml</span></td>
+    <td class="tg-c3ow">88.3</td>
+    <td class="tg-c3ow">53.2</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/pdat4tvhnqxel64/bicaptioning_R_50_L1_H1024.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky"><span style="font-weight:400;font-style:normal">width_ablations/bicaptioning_R_50_L1_H2048.yaml</span></td>
+    <td class="tg-c3ow">88.7</td>
+    <td class="tg-c3ow">53.8</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/mbeeso8wyieq8wy/bicaptioning_R_50_L1_H2048.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+</tbody>
+</table></div></section>
+<section id="depth-ablations">
+<h2>Depth Ablations<a class="headerlink" href="#depth-ablations" title="Permalink to this headline"></a></h2>
+<div class="tg-wrap"><table class="tg">
+<tbody>
+<tr>
+    <td class="tg-zlqz">Model Config Name</td>
+    <td class="tg-zlqz">VOC07<br>mAP</td>
+    <td class="tg-zlqz">ImageNet<br>Top-1 Acc.</td>
+    <td class="tg-zlqz">Model URL</td>
+</tr>
+<tr>
+    <td class="tg-0pky">depth_ablations/bicaptioning_R_50_L1_H1024.yaml</td>
+    <td class="tg-c3ow">88.3</td>
+    <td class="tg-c3ow">53.2</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/pdat4tvhnqxel64/bicaptioning_R_50_L1_H1024.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky">depth_ablations/bicaptioning_R_50_L2_H1024.yaml</td>
+    <td class="tg-c3ow">88.8</td>
+    <td class="tg-c3ow">53.8</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/ft1vtt4okirzjgo/bicaptioning_R_50_L2_H1024.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky"><span style="font-weight:400;font-style:normal">depth_ablations/bicaptioning_R_50_L3_H1024.yaml</span></td>
+    <td class="tg-c3ow">88.7</td>
+    <td class="tg-c3ow">53.9</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/5ldo1rcsnrshmjr/bicaptioning_R_50_L3_H1024.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky"><span style="font-weight:400;font-style:normal">depth_ablations/bicaptioning_R_50_L4_H1024.yaml</span></td>
+    <td class="tg-c3ow">88.7</td>
+    <td class="tg-c3ow">53.9</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/zgiit2wcluuq3xh/bicaptioning_R_50_L4_H1024.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+</tbody>
+</table></div></section>
+<section id="backbone-ablations">
+<h2>Backbone Ablations<a class="headerlink" href="#backbone-ablations" title="Permalink to this headline"></a></h2>
+<div class="tg-wrap"><table class="tg">
+<tbody>
+<tr>
+    <td class="tg-zlqz">Model Config Name</td>
+    <td class="tg-zlqz">VOC07<br>mAP</td>
+    <td class="tg-zlqz">ImageNet<br>Top-1 Acc.</td>
+    <td class="tg-zlqz">Model URL</td>
+</tr>
+<tr>
+    <td class="tg-0pky">backbone_ablations/bicaptioning_R_50_L1_H1024.yaml</td>
+    <td class="tg-c3ow">88.3</td>
+    <td class="tg-c3ow">53.2</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/pdat4tvhnqxel64/bicaptioning_R_50_L1_H1024.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky">backbone_ablations/bicaptioning_R_50W2X_L1_H1024.yaml</td>
+    <td class="tg-c3ow">88.5</td>
+    <td class="tg-c3ow">52.9</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/5o198ux709r6376/bicaptioning_R_50W2X_L1_H1024.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+<tr>
+    <td class="tg-0pky">backbone_ablations/bicaptioning_R_101_L1_H1024.yaml</td>
+    <td class="tg-c3ow">88.7</td>
+    <td class="tg-c3ow">52.1</td>
+    <td class="tg-c3ow"><a href="https://www.dropbox.com/s/bb74jubt68cpn80/bicaptioning_R_101_L1_H1024.pth?dl=0" target="_blank" rel="noopener noreferrer">model</a></td>
+</tr>
+</tbody>
+</table></div></section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="setup_dependencies.html" class="btn btn-neutral float-left" title="How to setup this codebase?" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="pretrain.html" class="btn btn-neutral float-right" title="How to train your VirTex model?" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Karan Desai and Justin Johnson.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-120523111-2"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-120523111-2');
+    </script>
+
+    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
+
+
+  <title>virtex.factories &mdash; virtex 1.4 documentation</title>
+
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/copybutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/clipboard.min.js"></script>
+        <script src="../_static/copybutton.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="virtex.data" href="data.html" />
+    <link rel="prev" title="virtex.config" href="config.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> virtex
+          </a>
+              <div class="version">
+                1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="usage/setup_dependencies.html">How to setup this codebase?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/model_zoo.html">VirTex Model Zoo</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/pretrain.html">How to train your VirTex model?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/downstream.html">How to evaluate on downstream tasks?</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="config.html">virtex.config</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">virtex.factories</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#dataloading-related-factories">Dataloading-related Factories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#modeling-related-factories">Modeling-related Factories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#optimization-related-factories">Optimization-related Factories</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data.html">virtex.data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">virtex.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">virtex.modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="optim.html">virtex.optim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">virtex.utils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_zoo.html">virtex.model_zoo</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">virtex</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>virtex.factories</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/virtex/factories.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="virtex-factories">
+<h1>virtex.factories<a class="headerlink" href="#virtex-factories" title="Permalink to this headline"></a></h1>
+<hr><span class="target" id="module-virtex.factories"></span><p>This module is a collection of <em>factories</em> for creating objects of datasets,
+models, optimizers and other useful components. For example, a ResNet-50
+visual backbone can be created as:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Explicitly by name, args and kwargs:</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">backbone</span> <span class="o">=</span> <span class="n">VisualBackboneFactory</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="s2">&quot;torchvision::resnet50&quot;</span><span class="p">,</span> <span class="n">pretrained</span><span class="o">=</span><span class="kc">False</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Directly from a config object:</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_C</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="n">override_list</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;MODEL.VISUAL.NAME&quot;</span><span class="p">,</span> <span class="s2">&quot;torchvision::resnet50&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">backbone</span> <span class="o">=</span> <span class="n">VisualBackboneFactory</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">_C</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>Creating directly from <a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a> is fast and simple, and
+ensures minimal changes throughout the codebase upon any change in the call
+signature of underlying class; or config hierarchy. Refer description of
+specific factories for more details.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.factories.Factory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.factories.</span></span><span class="sig-name descname"><span class="pre">Factory</span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L40-L78"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.Factory" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Base class for all factories. All factories must inherit this base class
+and follow these guidelines for a consistent behavior:</p>
+<ul class="simple">
+<li><p>Factory objects cannot be instantiated, doing <code class="docutils literal notranslate"><span class="pre">factory</span> <span class="pre">=</span> <span class="pre">SomeFactory()</span></code>
+is illegal. Child classes should not implement <code class="docutils literal notranslate"><span class="pre">__init__</span></code> methods.</p></li>
+<li><p>All factories must have an attribute named <code class="docutils literal notranslate"><span class="pre">PRODUCTS</span></code> of type
+<code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">Callable]</span></code>, which associates each class with a unique string
+name which can be used to create it.</p></li>
+<li><p>All factories must implement one classmethod, <a class="reference internal" href="#virtex.factories.Factory.from_config" title="virtex.factories.Factory.from_config"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_config()</span></code></a> which
+contains logic for creating an object directly by taking name and other
+arguments directly from <a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a>. They can use
+<a class="reference internal" href="#virtex.factories.Factory.create" title="virtex.factories.Factory.create"><code class="xref py py-meth docutils literal notranslate"><span class="pre">create()</span></code></a> already implemented in this base class.</p></li>
+<li><p><a class="reference internal" href="#virtex.factories.Factory.from_config" title="virtex.factories.Factory.from_config"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_config()</span></code></a> should not use too many extra arguments than the
+config itself, unless necessary (such as model parameters for optimizer).</p></li>
+</ul>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.Factory.create">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L67-L73"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.Factory.create" title="Permalink to this definition"></a></dt>
+<dd><p>Create an object by its name, args and kwargs.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.Factory.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><span class="pre">virtex.config.Config</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L75-L78"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.Factory.from_config" title="Permalink to this definition"></a></dt>
+<dd><p>Create an object directly from config.</p>
+</dd></dl>
+
+</dd></dl>
+
+<hr class="docutils" />
+<section id="dataloading-related-factories">
+<h2>Dataloading-related Factories<a class="headerlink" href="#dataloading-related-factories" title="Permalink to this headline"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.factories.TokenizerFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.factories.</span></span><span class="sig-name descname"><span class="pre">TokenizerFactory</span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L81-L108"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.TokenizerFactory" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.factories.Factory" title="virtex.factories.Factory"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.factories.Factory</span></code></a></p>
+<p>Factory to create text tokenizers. This codebase ony supports one tokenizer
+for now, but having a dedicated factory makes it easy to add more if needed.</p>
+<p>Possible choices: <code class="docutils literal notranslate"><span class="pre">{&quot;SentencePieceBPETokenizer&quot;}</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.TokenizerFactory.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><span class="pre">virtex.config.Config</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="data.tokenizers.html#virtex.data.tokenizers.SentencePieceBPETokenizer" title="virtex.data.tokenizers.SentencePieceBPETokenizer"><span class="pre">virtex.data.tokenizers.SentencePieceBPETokenizer</span></a></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L93-L108"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.TokenizerFactory.from_config" title="Permalink to this definition"></a></dt>
+<dd><p>Create a tokenizer directly from config.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> – Config object with all the parameters.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.factories.ImageTransformsFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.factories.</span></span><span class="sig-name descname"><span class="pre">ImageTransformsFactory</span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L111-L173"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.ImageTransformsFactory" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.factories.Factory" title="virtex.factories.Factory"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.factories.Factory</span></code></a></p>
+<p>Factory to create image transformations for common preprocessing and data
+augmentations. These are a mix of default transformations from
+<a class="reference external" href="https://albumentations.readthedocs.io/en/latest/">albumentations</a> and
+some extended ones defined in <a class="reference internal" href="data.transforms.html#module-virtex.data.transforms" title="virtex.data.transforms"><code class="xref py py-mod docutils literal notranslate"><span class="pre">virtex.data.transforms</span></code></a>.</p>
+<p>It uses sensible default values, however they can be provided with the name
+in dict syntax. Example: <code class="docutils literal notranslate"><span class="pre">random_resized_crop::{'scale':</span> <span class="pre">(0.08,</span> <span class="pre">1.0)}</span></code></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This factory does not implement <a class="reference internal" href="#virtex.factories.ImageTransformsFactory.from_config" title="virtex.factories.ImageTransformsFactory.from_config"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_config()</span></code></a> method. It is only
+used by <a class="reference internal" href="#virtex.factories.PretrainingDatasetFactory" title="virtex.factories.PretrainingDatasetFactory"><code class="xref py py-class docutils literal notranslate"><span class="pre">PretrainingDatasetFactory</span></code></a> and
+<a class="reference internal" href="#virtex.factories.DownstreamDatasetFactory" title="virtex.factories.DownstreamDatasetFactory"><code class="xref py py-class docutils literal notranslate"><span class="pre">DownstreamDatasetFactory</span></code></a>.</p>
+</div>
+<p>Possible choices: <code class="docutils literal notranslate"><span class="pre">{&quot;center_crop&quot;,</span> <span class="pre">&quot;horizontal_flip&quot;,</span> <span class="pre">&quot;random_resized_crop&quot;,</span>
+<span class="pre">&quot;normalize&quot;,</span> <span class="pre">&quot;global_resize&quot;,</span> <span class="pre">&quot;color_jitter&quot;,</span> <span class="pre">&quot;smallest_resize&quot;}</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.ImageTransformsFactory.create">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L157-L168"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.ImageTransformsFactory.create" title="Permalink to this definition"></a></dt>
+<dd><p>Create an object by its name, args and kwargs.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.ImageTransformsFactory.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><span class="pre">virtex.config.Config</span></a></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L170-L173"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.ImageTransformsFactory.from_config" title="Permalink to this definition"></a></dt>
+<dd><p>Augmentations cannot be created from config, only <a class="reference internal" href="#virtex.factories.ImageTransformsFactory.create" title="virtex.factories.ImageTransformsFactory.create"><code class="xref py py-meth docutils literal notranslate"><span class="pre">create()</span></code></a>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.factories.PretrainingDatasetFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.factories.</span></span><span class="sig-name descname"><span class="pre">PretrainingDatasetFactory</span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L176-L246"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.PretrainingDatasetFactory" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.factories.Factory" title="virtex.factories.Factory"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.factories.Factory</span></code></a></p>
+<p>Factory to create <a class="reference external" href="https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset" title="(in PyTorch v1.10.1)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a> s for pretraining
+VirTex models. Datasets are created depending on pretraining task used.
+Typically these datasets either provide image-caption pairs, or only images
+from COCO Captions dataset (serialized to an LMDB file).</p>
+<p>As an exception, the dataset for <code class="docutils literal notranslate"><span class="pre">multilabel_classification</span></code> provides
+COCO images and labels of their bounding box annotations.</p>
+<p>Possible choices: <code class="docutils literal notranslate"><span class="pre">{&quot;bicaptioning&quot;,</span> <span class="pre">&quot;captioning&quot;,</span> <span class="pre">&quot;masked_lm&quot;,</span>
+<span class="pre">&quot;token_classification&quot;,</span> <span class="pre">&quot;multilabel_classification&quot;}</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.PretrainingDatasetFactory.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><span class="pre">virtex.config.Config</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'train'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L199-L246"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.PretrainingDatasetFactory.from_config" title="Permalink to this definition"></a></dt>
+<dd><p>Create a dataset directly from config. Names in this factory match with
+names in <a class="reference internal" href="#virtex.factories.PretrainingModelFactory" title="virtex.factories.PretrainingModelFactory"><code class="xref py py-class docutils literal notranslate"><span class="pre">PretrainingModelFactory</span></code></a> because both use same config
+parameter <code class="docutils literal notranslate"><span class="pre">MODEL.NAME</span></code> to create objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> – Config object with all the parameters.</p></li>
+<li><p><strong>split</strong> – Which dataset split to load. One of <code class="docutils literal notranslate"><span class="pre">{&quot;train&quot;,</span> <span class="pre">&quot;val&quot;}</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.factories.DownstreamDatasetFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.factories.</span></span><span class="sig-name descname"><span class="pre">DownstreamDatasetFactory</span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L249-L303"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.DownstreamDatasetFactory" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.factories.Factory" title="virtex.factories.Factory"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.factories.Factory</span></code></a></p>
+<p>Factory to create <a class="reference external" href="https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset" title="(in PyTorch v1.10.1)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a> s for evaluating
+VirTex models on downstream tasks.</p>
+<p>Possible choices: <code class="docutils literal notranslate"><span class="pre">{&quot;datasets/VOC2007&quot;,</span> <span class="pre">&quot;datasets/imagenet&quot;}</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.DownstreamDatasetFactory.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><span class="pre">virtex.config.Config</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'train'</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L263-L303"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.DownstreamDatasetFactory.from_config" title="Permalink to this definition"></a></dt>
+<dd><p>Create a dataset directly from config. Names in this factory are paths
+of dataset directories (relative to the project directory), because
+config parameter <code class="docutils literal notranslate"><span class="pre">DATA.ROOT</span></code> is used to create objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> – Config object with all the parameters.</p></li>
+<li><p><strong>split</strong> – Which dataset split to load. One of <code class="docutils literal notranslate"><span class="pre">{&quot;trainval&quot;,</span> <span class="pre">&quot;test&quot;}</span></code>
+for VOC2007, or one of <code class="docutils literal notranslate"><span class="pre">{&quot;train&quot;,</span> <span class="pre">&quot;val&quot;}</span></code> for ImageNet.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<hr class="docutils" />
+<section id="modeling-related-factories">
+<h2>Modeling-related Factories<a class="headerlink" href="#modeling-related-factories" title="Permalink to this headline"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.factories.VisualBackboneFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.factories.</span></span><span class="sig-name descname"><span class="pre">VisualBackboneFactory</span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L306-L341"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.VisualBackboneFactory" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.factories.Factory" title="virtex.factories.Factory"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.factories.Factory</span></code></a></p>
+<p>Factory to create <a class="reference internal" href="modules.visual_backbones.html#module-virtex.modules.visual_backbones" title="virtex.modules.visual_backbones"><code class="xref py py-mod docutils literal notranslate"><span class="pre">visual_backbones</span></code></a>. This factory
+supports any ResNet-like model from
+<a class="reference external" href="https://pytorch.org/docs/stable/torchvision/models.html">Torchvision</a>.
+Use the method name for model as in torchvision, for example,
+<code class="docutils literal notranslate"><span class="pre">torchvision::resnet50</span></code>, <code class="docutils literal notranslate"><span class="pre">torchvision::wide_resnet50_2</span></code> etc.</p>
+<p>Possible choices: <code class="docutils literal notranslate"><span class="pre">{&quot;torchvision&quot;}</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.VisualBackboneFactory.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><span class="pre">virtex.config.Config</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="modules.visual_backbones.html#virtex.modules.visual_backbones.VisualBackbone" title="virtex.modules.visual_backbones.VisualBackbone"><span class="pre">virtex.modules.visual_backbones.VisualBackbone</span></a></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L321-L341"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.VisualBackboneFactory.from_config" title="Permalink to this definition"></a></dt>
+<dd><p>Create a visual backbone directly from config.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> – Config object with all the parameters.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.factories.TextualHeadFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.factories.</span></span><span class="sig-name descname"><span class="pre">TextualHeadFactory</span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L344-L407"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.TextualHeadFactory" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.factories.Factory" title="virtex.factories.Factory"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.factories.Factory</span></code></a></p>
+<p>Factory to create <a class="reference internal" href="modules.textual_heads.html#module-virtex.modules.textual_heads" title="virtex.modules.textual_heads"><code class="xref py py-mod docutils literal notranslate"><span class="pre">textual_heads</span></code></a>. Architectural
+hyperparameters for transformers can be specified as <code class="docutils literal notranslate"><span class="pre">name::*</span></code>.
+For example, <code class="docutils literal notranslate"><span class="pre">transdec_postnorm::L1_H1024_A16_F4096</span></code> would create a
+transformer textual head with <code class="docutils literal notranslate"><span class="pre">L</span> <span class="pre">=</span> <span class="pre">1</span></code> layers, <code class="docutils literal notranslate"><span class="pre">H</span> <span class="pre">=</span> <span class="pre">1024</span></code> hidden size,
+<code class="docutils literal notranslate"><span class="pre">A</span> <span class="pre">=</span> <span class="pre">16</span></code> attention heads, and <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">=</span> <span class="pre">4096</span></code> size of feedforward layers.</p>
+<p>Textual head should be <code class="docutils literal notranslate"><span class="pre">&quot;none&quot;</span></code> for pretraining tasks which do not
+involve language modeling, such as <code class="docutils literal notranslate"><span class="pre">&quot;token_classification&quot;</span></code>.</p>
+<p>Possible choices: <code class="docutils literal notranslate"><span class="pre">{&quot;transdec_postnorm&quot;,</span> <span class="pre">&quot;transdec_prenorm&quot;,</span> <span class="pre">&quot;none&quot;}</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.TextualHeadFactory.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><span class="pre">virtex.config.Config</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.nn.modules.module.Module</span></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L368-L407"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.TextualHeadFactory.from_config" title="Permalink to this definition"></a></dt>
+<dd><p>Create a textual head directly from config.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> – Config object with all the parameters.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.factories.PretrainingModelFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.factories.</span></span><span class="sig-name descname"><span class="pre">PretrainingModelFactory</span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L410-L466"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.PretrainingModelFactory" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.factories.Factory" title="virtex.factories.Factory"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.factories.Factory</span></code></a></p>
+<p>Factory to create <code class="xref py py-mod docutils literal notranslate"><span class="pre">models</span></code> for different pretraining tasks.</p>
+<p>Possible choices: <code class="docutils literal notranslate"><span class="pre">{&quot;bicaptioning&quot;,</span> <span class="pre">&quot;captioning&quot;,</span> <span class="pre">&quot;masked_lm&quot;,</span>
+<span class="pre">&quot;token_classification&quot;,</span> <span class="pre">&quot;multilabel_classification&quot;}</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.PretrainingModelFactory.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><span class="pre">virtex.config.Config</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.nn.modules.module.Module</span></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L428-L466"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.PretrainingModelFactory.from_config" title="Permalink to this definition"></a></dt>
+<dd><p>Create a model directly from config.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>config</strong> – Config object with all the parameters.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<hr class="docutils" />
+<section id="optimization-related-factories">
+<h2>Optimization-related Factories<a class="headerlink" href="#optimization-related-factories" title="Permalink to this headline"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.factories.OptimizerFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.factories.</span></span><span class="sig-name descname"><span class="pre">OptimizerFactory</span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L503-L545"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.OptimizerFactory" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.factories.Factory" title="virtex.factories.Factory"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.factories.Factory</span></code></a></p>
+<p>Factory to create optimizers. Possible choices: <code class="docutils literal notranslate"><span class="pre">{&quot;sgd&quot;,</span> <span class="pre">&quot;adamw&quot;}</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.OptimizerFactory.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><span class="pre">virtex.config.Config</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">named_parameters</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Iterable</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.optim.optimizer.Optimizer</span></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L508-L545"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.OptimizerFactory.from_config" title="Permalink to this definition"></a></dt>
+<dd><p>Create an optimizer directly from config.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> – Config object with all the parameters.</p></li>
+<li><p><strong>named_parameters</strong> – Named parameters of model (retrieved by
+<code class="docutils literal notranslate"><span class="pre">model.named_parameters()</span></code>) for the optimizer. We use named
+parameters to set different LR and turn off weight decay for
+certain parameters based on their names.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.factories.LRSchedulerFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.factories.</span></span><span class="sig-name descname"><span class="pre">LRSchedulerFactory</span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L548-L584"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.LRSchedulerFactory" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.factories.Factory" title="virtex.factories.Factory"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.factories.Factory</span></code></a></p>
+<p>Factory to create LR schedulers. All schedulers have a built-in LR warmup
+schedule before actual LR scheduling (decay) starts.</p>
+<p>Possible choices: <code class="docutils literal notranslate"><span class="pre">{&quot;none&quot;,</span> <span class="pre">&quot;multistep&quot;,</span> <span class="pre">&quot;linear&quot;,</span> <span class="pre">&quot;cosine&quot;}</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.factories.LRSchedulerFactory.from_config">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="config.html#virtex.config.Config" title="virtex.config.Config"><span class="pre">virtex.config.Config</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimizer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.optim.optimizer.Optimizer</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.LambdaLR.html#torch.optim.lr_scheduler.LambdaLR" title="(in PyTorch v1.10.1)"><span class="pre">torch.optim.lr_scheduler.LambdaLR</span></a></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/factories.py#L563-L584"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.factories.LRSchedulerFactory.from_config" title="Permalink to this definition"></a></dt>
+<dd><p>Create an LR scheduler directly from config.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> – Config object with all the parameters.</p></li>
+<li><p><strong>optimizer</strong> – Optimizer on which LR scheduling would be performed.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="config.html" class="btn btn-neutral float-left" title="virtex.config" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="data.html" class="btn btn-neutral float-right" title="virtex.data" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Karan Desai and Justin Johnson.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-120523111-2"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-120523111-2');
+    </script>
+
+    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
+
+
+  <title>User Guide &mdash; virtex 1.4 documentation</title>
+
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/copybutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/clipboard.min.js"></script>
+        <script src="_static/copybutton.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="How to setup this codebase?" href="virtex/usage/setup_dependencies.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="#" class="icon icon-home"> virtex
+          </a>
+              <div class="version">
+                1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="virtex/usage/setup_dependencies.html">How to setup this codebase?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/usage/model_zoo.html">VirTex Model Zoo</a></li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/usage/pretrain.html">How to train your VirTex model?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/usage/downstream.html">How to evaluate on downstream tasks?</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="virtex/config.html">virtex.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/factories.html">virtex.factories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/data.html">virtex.data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/models.html">virtex.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/modules.html">virtex.modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/optim.html">virtex.optim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/utils.html">virtex.utils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/model_zoo.html">virtex.model_zoo</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">virtex</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+      <li>User Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1 style="text-align: center">
+VirTex: Learning Visual Representations from Textual Annotations
+</h1>
+<h4 style="text-align: center">
+Karan Desai and Justin Johnson
+</br>
+<span style="font-size: 14pt; color: #555555">
+University of Michigan
+</span>
+</h4>
+<hr>
+
+<h4 style="text-align: center">
+Abstract
+</h4>
+
+<p style="text-align: justify">
+The de-facto approach to many vision tasks is to start from pretrained
+visual representations, typically learned via supervised training on
+ImageNet. Recent methods have explored unsupervised pretraining to scale to
+vast quantities of unlabeled images. In contrast, we aim to learn
+high-quality visual representations from fewer images. To this end we
+revisit supervised pretraining, and seek data-efficient alternatives to
+classification-based pretraining. We propose VirTex -- a pretraining
+approach using semantically dense captions to learn visual representations.
+We train convolutional networks from scratch on COCO Captions, and transfer
+them to downstream recognition tasks including image classification, object
+detection, and instance segmentation. On all tasks, VirTex yields features
+that match or exceed those learned on ImageNet -- supervised or unsupervised
+-- despite using up to ten times fewer images.
+</p><p><strong>CVPR 2021. Paper available at:</strong> <a class="reference external" href="https://arxiv.org/abs/2006.06666">arxiv.org/abs/2006.06666</a>.</p>
+<p><strong>Code available at:</strong> <a class="reference external" href="https://github.com/kdexd/virtex">github.com/kdexd/virtex</a>.</p>
+<img alt="_images/system_figure.jpg" src="_images/system_figure.jpg" />
+<p>Get the pretrained ResNet-50 visual backbone from our best performing VirTex
+model in one line <em>without any installation</em>!</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="c1"># That&#39;s it, this one line only requires PyTorch.</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">hub</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;kdexd/virtex&quot;</span><span class="p">,</span> <span class="s2">&quot;resnet50&quot;</span><span class="p">,</span> <span class="n">pretrained</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>More details in <a class="reference internal" href="virtex/usage/model_zoo.html"><span class="doc">VirTex Model Zoo</span></a>. Next, dive deeper into our
+code with User Guide and API References!</p>
+<section id="user-guide">
+<h1>User Guide<a class="headerlink" href="#user-guide" title="Permalink to this headline"></a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="virtex/usage/setup_dependencies.html">How to setup this codebase?</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/setup_dependencies.html#install-dependencies">Install Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/setup_dependencies.html#setup-datasets">Setup Datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/setup_dependencies.html#build-vocabulary">Build vocabulary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/usage/model_zoo.html">VirTex Model Zoo</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/model_zoo.html#pretraining-task-ablations">Pretraining Task Ablations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/model_zoo.html#width-ablations">Width Ablations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/model_zoo.html#depth-ablations">Depth Ablations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/model_zoo.html#backbone-ablations">Backbone Ablations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/usage/pretrain.html">How to train your VirTex model?</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/pretrain.html#training-the-base-virtex-model">Training the base VirTex model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/pretrain.html#reproducing-all-virtex-ablations">Reproducing all VirTex ablations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/usage/downstream.html">How to evaluate on downstream tasks?</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/downstream.html#pascal-voc-2007-linear-classification">PASCAL VOC 2007 Linear Classification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/downstream.html#imagenet-linear-classification">ImageNet Linear Classification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/downstream.html#instance-segmentation-and-object-detection-on-coco">Instance Segmentation (and Object Detection) on COCO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/downstream.html#instance-segmentation-on-lvis">Instance Segmentation on LVIS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/downstream.html#object-detection-on-pascal-voc-2007-12">Object Detection on PASCAL VOC 2007+12</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/downstream.html#inaturalist-2018-fine-grained-classification">iNaturalist 2018 Fine-Grained Classification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/downstream.html#image-captioning-on-coco-captions-val2017">Image Captioning on COCO Captions val2017</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/usage/downstream.html#running-image-captioning-inference-on-arbitrary-images">Running Image Captioning Inference on Arbitrary Images</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Permalink to this headline"></a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="virtex/config.html">virtex.config</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="virtex/config.html#config-references">Config References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/factories.html">virtex.factories</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="virtex/factories.html#dataloading-related-factories">Dataloading-related Factories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/factories.html#modeling-related-factories">Modeling-related Factories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/factories.html#optimization-related-factories">Optimization-related Factories</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/data.html">virtex.data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="virtex/data.datasets.html">virtex.data.datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/data.tokenizers.html">virtex.data.tokenizers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/data.transforms.html">virtex.data.transforms</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/models.html">virtex.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/modules.html">virtex.modules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="virtex/modules.embedding.html">virtex.modules.embedding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/modules.visual_backbones.html">virtex.modules.visual_backbones</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/modules.textual_heads.html">virtex.modules.textual_heads</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/optim.html">virtex.optim</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="virtex/optim.lookahead.html">virtex.optim.lookahead</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/optim.lr_scheduler.html">virtex.optim.lr_scheduler</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/utils.html">virtex.utils</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="virtex/utils.common.html">virtex.utils.common</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/utils.distributed.html">virtex.utils.distributed</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/utils.timer.html">virtex.utils.timer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/utils.checkpointing.html">virtex.utils.checkpointing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/utils.beam_search.html">virtex.utils.beam_search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtex/utils.metrics.html">virtex.utils.metrics</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="virtex/model_zoo.html">virtex.model_zoo</a></li>
+</ul>
+</div>
+</section>
+<section id="citation">
+<h1>Citation<a class="headerlink" href="#citation" title="Permalink to this headline"></a></h1>
+<p>If you find this code useful, please consider citing:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>@inproceedings{desai2021virtex,
+    title={{VirTex: Learning Visual Representations from Textual Annotations}},
+    author={Karan Desai and Justin Johnson},
+    booktitle={CVPR},
+    year={2021}
+}
+</pre></div>
+</div>
+</section>
+<section id="acknowledgments">
+<h1>Acknowledgments<a class="headerlink" href="#acknowledgments" title="Permalink to this headline"></a></h1>
+<p>We thank Harsh Agrawal, Mohamed El Banani, Richard  Higgins, Nilesh Kulkarni
+and Chris Rockwell for helpful discussions and feedback on the paper. We thank
+Ishan Misra for discussions regarding PIRL evaluation protocol; Saining Xie for
+discussions about replicating iNaturalist evaluation as MoCo; Ross Girshick and
+Yuxin Wu for help with Detectron2 model zoo; Georgia Gkioxari for suggesting
+the Instance Segmentation pretraining task ablation; and Stefan Lee for
+suggestions on figure aesthetics. We thank Jia Deng for access to extra GPUs
+during project development; and UMich ARC-TS team for support with GPU cluster
+management. Finally, we thank all the Starbucks outlets in Ann Arbor for many
+hours of free WiFi. This work was partially supported by the Toyota Research
+Institute (TRI). However, note that this article solely reflects the opinions
+and conclusions of its authors and not TRI or any other Toyota entity.</p>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and Tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="virtex/usage/setup_dependencies.html" class="btn btn-neutral float-right" title="How to setup this codebase?" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Karan Desai and Justin Johnson.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

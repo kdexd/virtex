@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-120523111-2"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-120523111-2');
+    </script>
+
+    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
+
+
+  <title>virtex.modules.textual_heads &mdash; virtex 1.4 documentation</title>
+
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/copybutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/clipboard.min.js"></script>
+        <script src="../_static/copybutton.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="virtex.optim" href="optim.html" />
+    <link rel="prev" title="virtex.modules.visual_backbones" href="modules.visual_backbones.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> virtex
+          </a>
+              <div class="version">
+                1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="usage/setup_dependencies.html">How to setup this codebase?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/model_zoo.html">VirTex Model Zoo</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/pretrain.html">How to train your VirTex model?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/downstream.html">How to evaluate on downstream tasks?</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="config.html">virtex.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="factories.html">virtex.factories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data.html">virtex.data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">virtex.models</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">virtex.modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="modules.embedding.html">virtex.modules.embedding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules.visual_backbones.html">virtex.modules.visual_backbones</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">virtex.modules.textual_heads</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="optim.html">virtex.optim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">virtex.utils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_zoo.html">virtex.model_zoo</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">virtex</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="modules.html">virtex.modules</a> &raquo;</li>
+      <li>virtex.modules.textual_heads</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/virtex/modules.textual_heads.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="virtex-modules-textual-heads">
+<h1>virtex.modules.textual_heads<a class="headerlink" href="#virtex-modules-textual-heads" title="Permalink to this headline"></a></h1>
+<hr><span class="target" id="module-virtex.modules.textual_heads"></span><p>A textual head accepts visual features from the visual backbone, and performs
+task specific modeling (captioning, classification etc.) to predict an output
+distribution over vocabulary tokens for one or multiple time-steps in the batch.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.modules.textual_heads.TextualHead">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.modules.textual_heads.</span></span><span class="sig-name descname"><span class="pre">TextualHead</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">visual_feature_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/modules/textual_heads.py#L14-L42"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.modules.textual_heads.TextualHead" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<p>Base class for all textual heads. All child classes can simply inherit
+from <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v1.10.1)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a>, however this is kept here for uniform
+type annotations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>visual_feature_size</strong> – Size (number of channels) of the input features
+from the visual backbone.</p></li>
+<li><p><strong>vocab_size</strong> – Number of tokens in the output vocabulary.</p></li>
+<li><p><strong>hidden_size</strong> – Size of the token embedding vectors, or hidden state vector
+of the language model.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="virtex.modules.textual_heads.TextualHead.textual_feature_size">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">textual_feature_size</span></span><a class="headerlink" href="#virtex.modules.textual_heads.TextualHead.textual_feature_size" title="Permalink to this definition"></a></dt>
+<dd><p>Size of the last dimension of output right before the output linear
+layer (which predicts a distribution over vocabulary tokens). This is
+typically same as <code class="xref py py-attr docutils literal notranslate"><span class="pre">hidden_size</span></code> for most modules. This property
+is used to add more modules on top of this.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.modules.textual_heads.LinearTextualHead">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.modules.textual_heads.</span></span><span class="sig-name descname"><span class="pre">LinearTextualHead</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">visual_feature_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/modules/textual_heads.py#L45-L94"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.modules.textual_heads.LinearTextualHead" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.modules.textual_heads.TextualHead" title="virtex.modules.textual_heads.TextualHead"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.modules.textual_heads.TextualHead</span></code></a></p>
+<p>A textual head containing a single linear layer projecting from the visual
+feature size to the output vocabulary size.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>visual_feature_size</strong> – Size (number of channels) of the input features from
+the visual backbone.</p></li>
+<li><p><strong>vocab_size</strong> – Number of tokens in the output vocabulary.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.modules.textual_heads.LinearTextualHead.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">visual_features</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.10.1)"><span class="pre">torch.Tensor</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">caption_tokens</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.10.1)"><span class="pre">torch.Tensor</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">caption_lengths</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.10.1)"><span class="pre">torch.Tensor</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.10.1)"><span class="pre">torch.Tensor</span></a></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/modules/textual_heads.py#L62-L94"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.modules.textual_heads.LinearTextualHead.forward" title="Permalink to this definition"></a></dt>
+<dd><p>Project visual features directly to predict a distribution over
+vocabulary tokens through a single linear layer. This textual head
+ignores arguments <code class="docutils literal notranslate"><span class="pre">caption_tokens</span></code> and <code class="docutils literal notranslate"><span class="pre">caption_lengths</span></code>, they
+are here for API consistency.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>visual_features</strong> – A tensor of shape <code class="docutils literal notranslate"><span class="pre">(batch_size,</span> <span class="pre">channels,</span> <span class="pre">height,</span>
+<span class="pre">width)</span></code> containing features from visual backbone.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A tensor of shape <code class="docutils literal notranslate"><span class="pre">(batch_size,</span> <span class="pre">vocab_size)</span></code> containing output
+vocabulary logits.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="virtex.modules.textual_heads.TransformerDecoderTextualHead">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.modules.textual_heads.</span></span><span class="sig-name descname"><span class="pre">TransformerDecoderTextualHead</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">visual_feature_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_layers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attention_heads</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feedforward_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dropout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'post'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask_future_positions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_caption_length</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/modules/textual_heads.py#L97-L296"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.modules.textual_heads.TransformerDecoderTextualHead" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#virtex.modules.textual_heads.TextualHead" title="virtex.modules.textual_heads.TextualHead"><code class="xref py py-class docutils literal notranslate"><span class="pre">virtex.modules.textual_heads.TextualHead</span></code></a></p>
+<p>A textual head composed of four main modules: (1) input projection (linear
+layer) for visual features to match size with textual features, (2) word
+and positional embedding for input captions, (3) a unidirectional transformer
+decoder, and (4) and output projection (linear layer) to predict a
+distribution over vocabulary tokens. The word embedding weights are tied
+with output projection; the latter still has its own learnable bias.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For the “bicaptioning” pretraining task, our <em>textual head</em> (as defined
+in the paper) must have two transformer decoders: one each to decode
+caption in either direction. This class however will always have one
+transformer per object.</p>
+<p>Refer <a class="reference internal" href="models.html#virtex.models.captioning.BidirectionalCaptioningModel" title="virtex.models.captioning.BidirectionalCaptioningModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">BidirectionalCaptioningModel</span></code></a>
+source to understand how an object of this class is cloned, along with
+tying embedding and output weights, for bicaptioning.</p>
+<p>Hence, while there are <em>two objects</em> of this class, it is pragmatically
+a <em>single</em> textual head as a whole, according to the terminology used
+in paper.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>visual_feature_size</strong> – Size (number of channels) of the input features from
+the visual backbone.</p></li>
+<li><p><strong>vocab_size</strong> – Number of tokens in the output vocabulary.</p></li>
+<li><p><strong>hidden_size</strong> – Size of the token embedding vectors, or hidden state vector of
+the language model.</p></li>
+<li><p><strong>num_layers</strong> – Number of layers in the transformer.</p></li>
+<li><p><strong>attention_heads</strong> – Number of attention heads in the transformer.</p></li>
+<li><p><strong>feedforward_size</strong> – Size of feedforward layers in the transformer.</p></li>
+<li><p><strong>dropout</strong> – Dropout probability for transformer (applied after layernorm).</p></li>
+<li><p><strong>norm_type</strong> – Type of transformer layer: pre-normalization (like GPT-2) or
+post-normalization (like BERT). One of <code class="docutils literal notranslate"><span class="pre">{&quot;pre&quot;,</span> <span class="pre">&quot;post&quot;}</span></code>.</p></li>
+<li><p><strong>mask_future_positions</strong> – Whether to mask future positions for self-attention
+over caption tokens. This must be <code class="docutils literal notranslate"><span class="pre">True</span></code> for captioning (and
+bicaptioning) tasks to prevent the language model from cheating, and
+<code class="docutils literal notranslate"><span class="pre">False</span></code> for masked language modeling, as the self-attention should
+consider all tokens.</p></li>
+<li><p><strong>max_caption_length</strong> – Maximum length of input captions; this is used to
+create a fixed positional embedding lookup table.</p></li>
+<li><p><strong>padding_idx</strong> – Token index of <code class="docutils literal notranslate"><span class="pre">[PAD]</span></code> token, word embedding for these
+tokens will be a vector of zeroes (and not trainable).</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.modules.textual_heads.TransformerDecoderTextualHead._init_weights">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">_init_weights</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/modules/textual_heads.py#L197-L209"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.modules.textual_heads.TransformerDecoderTextualHead._init_weights" title="Permalink to this definition"></a></dt>
+<dd><p>Initialize weights like BERT - N(0.0, 0.02), bias = 0.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.modules.textual_heads.TransformerDecoderTextualHead.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">visual_features</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.10.1)"><span class="pre">torch.Tensor</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">caption_tokens</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.10.1)"><span class="pre">torch.Tensor</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">caption_lengths</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.10.1)"><span class="pre">torch.Tensor</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.10.1)"><span class="pre">torch.Tensor</span></a></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/modules/textual_heads.py#L211-L282"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.modules.textual_heads.TransformerDecoderTextualHead.forward" title="Permalink to this definition"></a></dt>
+<dd><p>Given (projected) visual features from visual backbone and caption
+tokens, predict the output logits for next time-step.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>visual_features</strong> – A tensor of shape <code class="docutils literal notranslate"><span class="pre">(batch_size,</span> <span class="pre">channels,</span> <span class="pre">height,</span>
+<span class="pre">width)</span></code> containing features from visual backbone.</p></li>
+<li><p><strong>caption_tokens</strong> – A tensor of shape <code class="docutils literal notranslate"><span class="pre">(batch_size,</span> <span class="pre">max_caption_length)</span></code>
+of caption tokens padded to the right by <code class="docutils literal notranslate"><span class="pre">padding_idx</span></code>.</p></li>
+<li><p><strong>caption_lengths</strong> – A tensor of shape <code class="docutils literal notranslate"><span class="pre">(batch_size,</span> <span class="pre">)</span></code> containing
+lengths of caption tokens in the batch.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A tensor of shape <code class="docutils literal notranslate"><span class="pre">(batch_size,</span> <span class="pre">max_caption_length,</span> <span class="pre">vocab_size)</span></code>
+containing output vocabulary logits for each time-step.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="virtex.modules.textual_heads.TransformerDecoderTextualHead._generate_future_mask">
+<span class="sig-name descname"><span class="pre">_generate_future_mask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.dtype</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">torch.device</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.10.1)"><span class="pre">torch.Tensor</span></a></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/modules/textual_heads.py#L284-L296"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.modules.textual_heads.TransformerDecoderTextualHead._generate_future_mask" title="Permalink to this definition"></a></dt>
+<dd><p>Generate a mask for “future” positions, useful when using this module
+for language modeling.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="modules.visual_backbones.html" class="btn btn-neutral float-left" title="virtex.modules.visual_backbones" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="optim.html" class="btn btn-neutral float-right" title="virtex.optim" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Karan Desai and Justin Johnson.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
