@@ -23,17 +23,13 @@ class ClassificationModel(nn.Module):
     During training, it minimizes the KL-divergence loss with a K-hot vector,
     with values ``1/K``, where K are the number of unique labels to classify.
 
-    Parameters
-    ----------
-    visual: virtex.modules.visual_backbones.VisualBackbone
-        A :class:`~virtex.modules.visual_backbones.VisualBackbone` which
-        computes visual features from an input image.
-    textual: virtex.modules.textual_heads.TextualHead
-        A :class:`~virtex.modules.textual_heads.TextualHead` which
-        makes final predictions conditioned on visual features.
-    ignore_indices: List[int]
-        Ignore a set of token indices while computing KL-divergence loss. These
-        are usually the special tokens such as ``[SOS]``, ``[EOS]`` etc.
+    Args:
+        visual: A :class:`~virtex.modules.visual_backbones.VisualBackbone` which
+            computes visual features from an input image.
+        textual: A :class:`~virtex.modules.textual_heads.TextualHead` which
+            makes final predictions conditioned on visual features.
+        ignore_indices: Ignore a set of token indices while computing KL-divergence
+            loss. These are special tokens such as ``[SOS]``, ``[EOS]`` etc.
     """
 
     def __init__(
@@ -49,16 +45,11 @@ class ClassificationModel(nn.Module):
         Given a batch of images and set of labels, perform classification with
         multiple targets by minimizing a KL-divergence loss.
 
-        Parameters
-        ----------
-        batch: Dict[str, torch.Tensor]
-            A batch of images and labels. Possible set of keys:
-            ``{"image_id", "image", "labels"}``
+        Args:
+            batch: A batch of images and labels. Possible set of keys:
+                ``{"image_id", "image", "labels"}``
 
-        Returns
-        -------
-        Dict[str, Any]
-
+        Returns:
             A dict with the following structure, containing loss for optimization,
             loss components to log directly to tensorboard, and optionally
             predictions.

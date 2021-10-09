@@ -1,4 +1,3 @@
-import csv
 from typing import Any, Dict, List
 
 import sentencepiece as sp
@@ -9,10 +8,8 @@ class SentencePieceBPETokenizer(object):
     A tokenizer based on `SentencePiece <https://github.com/google/sentencepiece>`_
     with BPE sub-routine. It encodes caption strings into list of tokens.
 
-    Parameters
-    ----------
-    model_path: str
-        Path to the ``.model`` file trained by SentencePiece.
+    Args:
+        model_path: Path to the ``.model`` file trained by SentencePiece.
     """
     SP_SPACE = u"▁"
 

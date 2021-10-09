@@ -43,14 +43,10 @@ def _read_captions(annotations_path: str) -> List[str]:
     Given a path to annotation file, read it and return a list of captions.
     These are not processed by any means, returned from the file as-is.
 
-    Parameters
-    ----------
-    annotations_path: str
-        Path to an annotations file containing captions.
+    Args:
+        annotations_path: Path to an annotations file containing captions.
 
-    Returns
-    -------
-    List[str]
+    Returns:
         List of captions from this annotation file.
     """
 

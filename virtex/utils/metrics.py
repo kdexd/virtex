@@ -30,10 +30,8 @@ class TopkAccuracy(object):
         If used in :class:`~torch.nn.parallel.DistributedDataParallel`, results
         need to be aggregated across GPU processes outside this class.
 
-    Parameters
-    ----------
-    top_k: int, optional (default = 1)
-        ``k`` for computing Top-K accuracy.
+    Args:
+        top_k: ``k`` for computing Top-K accuracy.
     """
 
     def __init__(self, top_k: int = 1):
@@ -49,13 +47,11 @@ class TopkAccuracy(object):
         r"""
         Update accumulated accuracy using the current batch.
 
-        Parameters
-        ----------
-        ground_truth: torch.Tensor
-            A tensor of shape ``(batch_size, )``, an integer label per example.
-        predictions : torch.Tensor
-            Predicted logits or log-probabilities of shape
-            ``(batch_size, num_classes)``.
+        Args:
+            ground_truth: A tensor of shape ``(batch_size, )``, an integer label
+                per example.
+            predictions : Predicted logits or log-probabilities of shape
+                ``(batch_size, num_classes)``.
         """
 
         if self._top_k == 1:
@@ -84,11 +80,9 @@ class CocoCaptionsEvaluator(object):
     :meth:`cider` and :meth:`spice` which exactly follow original COCO Captions
     evaluation protocol.
 
-    Parameters
-    ----------
-    gt_annotations_path: str
-        Path to ground truth annotations in COCO format (typically this would
-        be COCO Captions ``val2017`` split).
+    Args:
+        gt_annotations_path: Path to ground truth annotations in COCO format
+            (typically this would be COCO Captions ``val2017`` split).
     """
 
     def __init__(self, gt_annotations_path: str):
@@ -104,15 +98,11 @@ class CocoCaptionsEvaluator(object):
     def evaluate(self, preds: List[Dict[str, Any]]) -> Dict[str, float]:
         r"""Compute CIDEr and SPICE scores for predictions.
 
-        Parameters
-        ----------
-        preds: List[Dict[str, Any]]
-            List of per instance predictions in COCO Captions format:
-            ``[ {"image_id": int, "caption": str} ...]``.
+        Args:
+            preds: List of per instance predictions in COCO Captions format:
+                ``[ {"image_id": int, "caption": str} ...]``.
 
-        Returns
-        -------
-        Dict[str, float]
+        Returns:
             Computed metrics; a dict with keys ``{"CIDEr", "SPICE"}``.
         """
         if isinstance(preds, str):

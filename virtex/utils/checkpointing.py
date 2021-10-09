@@ -26,27 +26,23 @@ class CheckpointManager(object):
         The observed metric for keeping best checkpoint is assumed "higher is
         better", flip the sign if otherwise.
 
-    Parameters
-    ----------
-    serialization_dir: str
-        Path to a directory to save checkpoints.
-    keep_recent: int, optional (default = 100)
-        Number of recent ``k`` checkpoints to keep on disk. Older checkpoints
-        will be removed. Set to a very large value for keeping all checkpoints.
-    checkpointables: Any
-        Keyword arguments with any checkpointable objects, for example: model,
-        optimizer, learning rate scheduler.
+    Args:
+        serialization_dir: Path to a directory to save checkpoints.
+        keep_recent: Number of recent ``k`` checkpoints to keep on disk. Older
+            checkpoints will be removed. Set to a very large value for keeping
+            all checkpoints.
+        checkpointables: Keyword arguments with any checkpointable objects, for
+            example: model, optimizer, learning rate scheduler.
 
-    Examples
-    --------
-    >>> model = torch.nn.Linear(10, 2)
-    >>> optimizer = torch.optim.Adam(model.parameters())
-    >>> ckpt_manager = CheckpointManager("/tmp", model=model, optimizer=optimizer)
-    >>> num_epochs = 20
-    >>> for epoch in range(num_epochs):
-    ...     train(model)
-    ...     val_loss = validate(model)
-    ...     ckpt_manager.step(- val_loss, epoch)
+    Examples:
+        >>> model = torch.nn.Linear(10, 2)
+        >>> optimizer = torch.optim.Adam(model.parameters())
+        >>> ckpt_manager = CheckpointManager("/tmp", model=model, optimizer=optimizer)
+        >>> num_epochs = 20
+        >>> for epoch in range(num_epochs):
+        ...     train(model)
+        ...     val_loss = validate(model)
+        ...     ckpt_manager.step(- val_loss, epoch)
     """
 
     def __init__(
@@ -74,14 +70,12 @@ class CheckpointManager(object):
         Serialize checkpoint and update best checkpoint based on metric. Keys
         in serialized checkpoint match those in :attr:`checkpointables`.
 
-        Parameters
-        ----------
-        iteration: int
-            Current training iteration. Will be saved with other checkpointables.
-        metric: float, optional (default = None)
-            Observed metric (higher is better) for keeping track of best
-            checkpoint. If this is ``None``, best chckpoint will not be
-            recorded/updated.
+        Args:
+            iteration: Current training iteration. Will be saved with other
+                checkpointables.
+            metric: Observed metric (higher is better) for keeping track of the
+                best checkpoint. If this is ``None``, best chckpoint will not be
+                recorded/updated.
         """
 
         checkpointable_state_dict: Dict[str, Any] = self._state_dict()
@@ -137,14 +131,10 @@ class CheckpointManager(object):
         Since our checkpointables are held as references, this method does not
         return them.
 
-        Parameters
-        ----------
-        checkpoint_path: str
-            Path to a checkpoint serialized by :meth:`step`.
+        Args:
+            checkpoint_path: Path to a checkpoint serialized by :meth:`step`.
 
-        Returns
-        -------
-        int
+        Returns:
             Iteration corresponding to the loaded checkpoint. Useful for
             resuming training. This will be -1 in case of best checkpoint,
             or if info does not exist.

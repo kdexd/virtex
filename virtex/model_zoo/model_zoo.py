@@ -60,19 +60,16 @@ class _ModelZooUrls(object):
     }
 
 
-def get(config_path, pretrained: bool = False):
+def get(config_path: str, pretrained: bool = False):
     r"""
     Get a model specified by relative path under Detectron2's official
     ``configs/`` directory.
 
-    Parameters
-    ----------
-    config_path: str
-        Name of config file relative to ``configs/`` directory under project
-        root. (For example, ``width_ablations/bicaptioning_R_50_L1_H2048.yaml``)
-    pretrained: bool, optional (default = False)
-        If ``True``, will initialize the model with the pretrained weights. If
-        ``False``, the weights will be initialized randomly.
+    Args:
+        config_path: Name of config file relative to ``configs/`` directory
+            under project root. (E.g. ``width_ablations/bicaptioning_R_50_L1_H2048.yaml``)
+        pretrained: If ``True``, will initialize the model with the pretrained
+            weights. If ``False``, the weights will be initialized randomly.
     """
 
     # Get the original path to config file (shipped with inside the package).

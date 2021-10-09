@@ -18,14 +18,11 @@ class MaskedLMModel(nn.Module):
     replaced by ``[MASK]`` token, and it predicts these masked tokens based on
     surrounding context.
 
-    Parameters
-    ----------
-    visual: virtex.modules.visual_backbones.VisualBackbone
-        A :class:`~virtex.modules.visual_backbones.VisualBackbone` which
-        computes visual features from an input image.
-    textual: virtex.modules.textual_heads.TextualHead
-        A :class:`~virtex.modules.textual_heads.TextualHead` which
-        makes final predictions conditioned on visual features.
+    Args:
+        visual: A :class:`~virtex.modules.visual_backbones.VisualBackbone` which
+            computes visual features from an input image.
+        textual: A :class:`~virtex.modules.textual_heads.TextualHead` which
+            makes final predictions conditioned on visual features.
     """
 
     def __init__(self, visual: VisualBackbone, textual: TextualHead):
@@ -40,17 +37,12 @@ class MaskedLMModel(nn.Module):
         Given a batch of images and captions with certain masked tokens,
         predict the tokens at masked positions.
 
-        Parameters
-        ----------
-        batch: Dict[str, torch.Tensor]
-            A batch of images, ground truth caption tokens and masked labels.
-            Possible set of keys: ``{"image_id", "image", "caption_tokens",
-            "masked_labels", "caption_lengths"}``.
+        Args:
+            batch: A batch of images, ground truth caption tokens and masked labels.
+                Possible set of keys: ``{"image_id", "image", "caption_tokens",
+                "masked_labels", "caption_lengths"}``.
 
-        Returns
-        -------
-        Dict[str, Any]
-
+        Returns:
             A dict with the following structure, containing loss for optimization,
             loss components to log directly to tensorboard, and optionally
             predictions.

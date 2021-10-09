@@ -12,20 +12,14 @@ class WordAndPositionalEmbedding(nn.Module):
     These are summed together followed by layer normalization and an optional
     dropout.
 
-    Parameters
-    ----------
-    vocab_size: int
-        Size of token vocabulary.
-    hidden_size: int
-        Size of token embedding vectors.
-    dropout: float, optional (default = 0.1)
-        Dropout probability for final dropout applied after layer normalization.
-    max_caption_length: int, optional (default = 30)
-        Maximum length of input captions; this is used to create a fixed
-        positional embedding lookup table.
-    padding_idx: int, optional (default = 0)
-        Token index of ``[PAD]`` token, word embedding for these tokens will
-        be a vector of zeroes (and not trainable).
+    Args:
+        vocab_size: Size of token vocabulary.
+        hidden_size: Size of token embedding vectors.
+        dropout: Probability for final dropout applied after layer normalization.
+        max_caption_length: Maximum length of input captions; this is used to create a
+            fixed positional embedding lookup table.
+        padding_idx: Token index of ``[PAD]`` token, word embedding for these tokens
+            will be a vector of zeroes (and not trainable).
     """
     def __init__(
         self,
@@ -53,15 +47,11 @@ class WordAndPositionalEmbedding(nn.Module):
         r"""
         Get combined word and positional embeddings for input tokens.
 
-        Parameters
-        ----------
-        tokens: torch.Tensor
-            A tensor of shape ``(batch_size, max_caption_length)`` containing
-            a batch of caption tokens, with values in ``[0, vocab_size)``.
+        Args:
+            tokens: A tensor of shape ``(batch_size, max_caption_length)``
+                containing a batch of caption tokens, values in ``[0, vocab_size)``.
 
-        Returns
-        -------
-        torch.Tensor
+        Returns:
             A tensor of shape ``(batch_size, max_caption_length, hidden_size)``
             containing corresponding token embeddings.
         """

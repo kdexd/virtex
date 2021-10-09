@@ -11,18 +11,13 @@ class LinearWarmupNoDecayLR(LambdaLR):
     A learning rate scheduler which linearly increases learning rate from 0
     LR, and further keeps it constant throughout training.
 
-    Parameters
-    ----------
-    optimizer: torch.optim.Optimizer
-        Wrapper optimizer.
-    total_steps: int
-        Total epochs (or iterations) for training.
-    warmup_steps: int
-        Number of first few steps to do linear warmup.
-    last_epoch: int, optional (default = -1)
-        The index of last step (epoch or iteration). We named it ``last_epoch``
-        instead of ``last_step`` to keep the naming consistent with other LR
-        schedulers in PyTorch.
+    Args:
+        optimizer: Wrapped optimizer.
+        total_steps: Total epochs (or iterations) for training.
+        warmup_steps: Number of first few steps to do linear warmup.
+        last_epoch: The index of last step (epoch or iteration). We named it
+            ``last_epoch`` instead of ``last_step`` to keep the naming consistent
+            with other LR schedulers in PyTorch.
     """
 
     def __init__(
@@ -51,23 +46,19 @@ class LinearWarmupMultiStepLR(LambdaLR):
     LR, and further decreases it by gamma once the number of steps reaches one
     of the milestones.
 
-    Parameters
-    ----------
-    optimizer: torch.optim.Optimizer
-        Wrapper optimizer.
-    total_steps: int
-        Total epochs (or iterations) for training.
-    warmup_steps: int
-        Number of first few steps to do linear warmup.
-    milestones: List[int]
-        List of step indices (epochs or iterations depending on context). Must
-        be increasing.
-    gamma: float, optional (default = 0.1)
-        Multiplicative factor of learning rate decay.
-    last_epoch: int, optional (default = -1)
-        The index of last step (epoch or iteration). We named it ``last_epoch``
-        instead of ``last_step`` to keep the naming consistent with other LR
-        schedulers in PyTorch.
+    Args:
+        optimizer: Wrapped optimizer.
+        total_steps: Total epochs (or iterations) for training.
+        warmup_steps: Number of first few steps to do linear warmup.
+        last_epoch: The index of last step (epoch or iteration). We named it
+            ``last_epoch`` instead of ``last_step`` to keep the naming consistent
+            with other LR schedulers in PyTorch.
+        milestones: List of step indices (epochs or iterations depending on
+            context). Must be increasing.
+        gamma: Multiplicative factor of learning rate decay.
+        last_epoch: The index of last step (epoch or iteration). We named it
+            ``last_epoch`` instead of ``last_step`` to keep the naming consistent
+            with other LR schedulers in PyTorch.
     """
 
     def __init__(
@@ -112,18 +103,13 @@ class LinearWarmupLinearDecayLR(LambdaLR):
     A learning rate scheduler which linearly increases learning rate from 0
     LR, and further decreases it linearly to zero.
 
-    Parameters
-    ----------
-    optimizer: torch.optim.Optimizer
-        Wrapper optimizer.
-    total_steps: int
-        Total epochs (or iterations) for training.
-    warmup_steps: int
-        Number of first few steps to do linear warmup.
-    last_epoch: int, optional (default = -1)
-        The index of last step (epoch or iteration). We named it ``last_epoch``
-        instead of ``last_step`` to keep the naming consistent with other LR
-        schedulers in PyTorch.
+    Args:
+        optimizer: Wrapped optimizer.
+        total_steps: Total epochs (or iterations) for training.
+        warmup_steps: Number of first few steps to do linear warmup.
+        last_epoch: The index of last step (epoch or iteration). We named it
+            ``last_epoch`` instead of ``last_step`` to keep the naming consistent
+            with other LR schedulers in PyTorch.
     """
 
     def __init__(
@@ -161,19 +147,14 @@ class LinearWarmupCosineAnnealingLR(LambdaLR):
     .. math::
         \eta_t = \eta_{max}\cos^2(\frac{T_{cur} - T_{warm}}{T_{max} - T_{warm}}\frac{\pi}{2})
 
-    Parameters
-    ----------
-    optimizer: torch.optim.Optimizer
-        Wrapper optimizer.
-    total_steps: int
-        Total epochs (or iterations) for training.
-    warmup_steps: int
-        Number of first few steps to do linear warmup.
-    last_epoch: int, optional (default = -1)
-        The index of last step (epoch or iteration). We named it ``last_epoch``
-        instead of ``last_step`` to keep the naming consistent with other LR
-        schedulers in PyTorch.
-    """
+    Args:
+        optimizer: Wrapped optimizer.
+        total_steps: Total epochs (or iterations) for training.
+        warmup_steps: Number of first few steps to do linear warmup.
+        last_epoch: The index of last step (epoch or iteration). We named it
+            ``last_epoch`` instead of ``last_step`` to keep the naming consistent
+            with other LR schedulers in PyTorch.
+   """
 
     def __init__(
         self,

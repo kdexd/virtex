@@ -53,15 +53,11 @@ def common_setup(_C: Config, _A: argparse.Namespace, job_type: str = "pretrain")
         already been launched from outside. Functions from
         :mod:`virtex.utils.distributed` module ae used to get process info.
 
-    Parameters
-    ----------
-    _C: virtex.config.Config
-        Config object with all the parameters.
-    _A: argparse.Namespace
-        Command line arguments.
-    job_type: str, optional (default = "pretrain")
-        Type of job for which setup is to be done; one of ``{"pretrain",
-        "downstream"}``.
+    Args:
+        _C: Config object with all the parameters.
+        _A: Argparse command line arguments.
+        job_type: Type of job for which setup is to be done; one of
+            ``{"pretrain", "downstream"}``.
     """
 
     # Get process rank and world size (assuming distributed is initialized).
@@ -108,14 +104,10 @@ def common_parser(description: str = "") -> argparse.ArgumentParser:
     Create an argument parser some common arguments useful for any pretraining
     or downstream evaluation scripts.
 
-    Parameters
-    ----------
-    description: str, optional (default = "")
-        Description to be used with the argument parser.
+    Args:
+        description: Description to be used with the argument parser.
 
-    Returns
-    -------
-    argparse.ArgumentParser
+    Returns:
         A parser object with added arguments.
     """
     parser = argparse.ArgumentParser(description=description)

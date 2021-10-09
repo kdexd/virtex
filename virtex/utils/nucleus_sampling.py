@@ -27,14 +27,10 @@ class AutoRegressiveNucleusSampling(object):
     Implements the nucleus sampling for decoding captions. This class only works
     for auto-regressive models (Transformer-like), not recurrent models (LSTM-like).
 
-    Parameters
-    ----------
-    eos_index: int
-        The index of the end token (``[EOS]``) in vocabulary.
-    max_steps: int, optional (default = 50)
-        The maximum number of decoding steps.
-    nucleus_size: float, optional (default = 0.9)
-        Size of top-K nucleus for sampling.
+    Args:
+        eos_index: The index of the end token (``[EOS]``) in vocabulary.
+        max_steps: The maximum number of decoding steps.
+        nucleus_size: Size of top-K nucleus for sampling.
     """
 
     def __init__(

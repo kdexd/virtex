@@ -21,27 +21,20 @@ class CaptioningModel(nn.Module):
     conditioned on image features. During inference, it predicts a caption for
     an input image through beam search decoding.
 
-    Parameters
-    ----------
-    visual: virtex.modules.visual_backbones.VisualBackbone
-        A :class:`~virtex.modules.visual_backbones.VisualBackbone` which
-        computes visual features from an input image.
-    textual: virtex.modules.textual_heads.TextualHead
-        A :class:`~virtex.modules.textual_heads.TextualHead` which
-        makes final predictions conditioned on visual features.
-    sos_index: int, optional (default = 1)
-        The index of the end token (``[SOS]``) in vocabulary.
-    eos_index: int, optional (default = 2)
-        The index of the end token (``[EOS]``) in vocabulary.
-    caption_backward: bool, optional (default = False)
-        Whether to *also* perform captioning in backward direction. Default is
-        ``False`` -- only forward captioning is performed. When ``True``, a
-        clone of textual head is created, which does not share weights with
-        "forward" model except input and output embeddings.
-    decoder: Any, optional (default = None)
-        An instance of :class:`~virtex.utils.beam_search.AutoRegressiveBeamSearch`
-        or :class:`~virtex.utils.nucleus_sampling.AutoRegressiveNucleusSampling`
-        for decoding captions during inference (unused during training).
+    Args:
+        visual: A :class:`~virtex.modules.visual_backbones.VisualBackbone` which
+            computes visual features from an input image.
+        textual: A :class:`~virtex.modules.textual_heads.TextualHead` which
+            makes final predictions conditioned on visual features.
+        sos_index: The index of the start token (``[SOS]``) in vocabulary.
+        eos_index: The index of the end token (``[EOS]``) in vocabulary.
+        caption_backward: Whether to *also* perform captioning in backward
+            direction. Default is ``False`` -- only forward captioning is
+            performed. When ``True``, a clone of textual head is created, which
+            does not share weights with "forward" model except input/output embeddings.
+        decoder: A :class:`~virtex.utils.beam_search.AutoRegressiveBeamSearch`
+            or :class:`~virtex.utils.nucleus_sampling.AutoRegressiveNucleusSampling`
+            object for decoding captions during inference (unused during training).
     """
 
     def __init__(
@@ -81,17 +74,12 @@ class CaptioningModel(nn.Module):
         caption token during training. During inference (with images), predict
         a caption through either beam search decoding or nucleus sampling.
 
-        Parameters
-        ----------
-        batch: Dict[str, torch.Tensor]
-            A batch of images and (optionally) ground truth caption tokens.
-            Possible set of keys: ``{"image_id", "image", "caption_tokens",
-            "noitpac_tokens", "caption_lengths"}``.
+        Args:
+            batch: A batch of images and (optionally) ground truth caption tokens.
+                Possible set of keys: ``{"image_id", "image", "caption_tokens",
+                "noitpac_tokens", "caption_lengths"}``.
 
-        Returns
-        -------
-        Dict[str, Any]
-
+        Returns:
             A dict with the following structure, containing loss for optimization,
             loss components to log directly to tensorboard, and optionally
             predictions.
@@ -187,19 +175,15 @@ class CaptioningModel(nn.Module):
 
             For nucleus sampling, ``beam_size`` will always be 1 (not relevant).
 
-        Parameters
-        ----------
-        projected_visual_features: torch.Tensor
-            A tensor of shape ``(batch_size, ..., textual_feature_size)``
-            with visual features already projected to ``textual_feature_size``.
-        partial_captions: torch.Tensor
-            A tensor of shape ``(batch_size * beam_size, timesteps)``
-            containing tokens predicted so far -- one for each beam. We need all
-            prior predictions because our model is auto-regressive.
+        Args:
+            projected_visual_features: A tensor of shape ``(batch_size, ...,
+                textual_feature_size)`` with visual features already projected to
+                ``textual_feature_size``.
+            partial_captions: A tensor of shape ``(batch_size * beam_size, timesteps)``
+                containing tokens predicted so far -- one for each beam. We need all
+                prior predictions because our model is auto-regressive.
 
-        Returns
-        -------
-        torch.Tensor
+        Returns:
             A tensor of shape ``(batch_size * beam_size, vocab_size)`` -- logits
             over output vocabulary tokens for next timestep.
         """

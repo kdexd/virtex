@@ -1,7 +1,6 @@
 albumentations>=0.5.0
 Cython>=0.25
 future==0.18.0
-lmdb==0.97
 loguru==0.3.2
 mypy_extensions==0.4.1
 lvis==0.5.3

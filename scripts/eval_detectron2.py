@@ -12,7 +12,6 @@ Thanks to the developers of Detectron2!
 import argparse
 import os
 import re
-from typing import Any, Dict, Union
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -121,17 +120,15 @@ class DownstreamTrainer(DefaultTrainer):
     r"""
     Extension of detectron2's ``DefaultTrainer``: custom evaluator and hooks.
 
-    Parameters
-    ----------
-    cfg: detectron2.config.CfgNode
-        Detectron2 config object containing all config params.
-    weights: Union[str, Dict[str, Any]]
-        Weights to load in the initialized model. If ``str``, then we assume path
-        to a checkpoint, or if a ``dict``, we assume a state dict. This will be
-        an ``str`` only if we resume training from a Detectron2 checkpoint.
+    Arguments:
+        cfg (detectron2.config.CfgNode): Detectron2 config object.
+        weights (Union[str, Dict]): Weights to load in the initialized model.
+            If ``str``, then we assume path to a checkpoint, or if a ``dict``,
+            we assume a state dict. This will be an ``str`` only if training
+            is resumed from a Detectron2 checkpoint.
     """
 
-    def __init__(self, cfg, weights: Union[str, Dict[str, Any]]):
+    def __init__(self, cfg, weights):
 
         super().__init__(cfg)
 
@@ -178,10 +175,6 @@ class DownstreamTrainer(DefaultTrainer):
 
 
 def main(_A: argparse.Namespace):
-
-    # Get the current device as set for current distributed process.
-    # Check `launch` function in `virtex.utils.distributed` module.
-    device = torch.cuda.current_device()
 
     # Local process group is needed for detectron2.
     pg = list(range(dist.get_world_size()))

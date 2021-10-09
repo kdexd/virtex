@@ -10,7 +10,7 @@ from virtex.data.tokenizers import SentencePieceBPETokenizer
 
 class CaptionOnlyTransform(alb.BasicTransform):
     r"""
-    A base class for custom `albumentations <https://albumentations.readthedocs.io/en/latest/>`_
+    Base class for custom `albumentations <https://albumentations.readthedocs.io/en/latest/>`_
     transform, which can transform captions. Captions may be ``str``, or tokens
     (``List[int]``) as per implementation of :meth:`apply_to_caption`. These
     transforms will have consistent API as other transforms from albumentations.
@@ -47,10 +47,9 @@ class NormalizeCaption(CaptionOnlyTransform):
     Perform common normalization with caption: lowercase, trim leading and
     trailing whitespaces, NFKD normalization and strip accents.
 
-    Examples
-    --------
-    >>> normalize = NormalizeCaption(always_apply=True)
-    >>> out = normalize(caption="Some caption input here.")  # keys: {"caption"}
+    Examples:
+        >>> normalize = NormalizeCaption(always_apply=True)
+        >>> out = normalize(caption="Some caption input here.")  # keys: {"caption"}
     """
 
     def __init__(self):
@@ -69,19 +68,15 @@ class TokenizeCaption(CaptionOnlyTransform):
     Tokenize a caption (``str``) to list of tokens (``List[int]``) by the
     mapping defined in :attr:`tokenizer`.
 
-    Parameters
-    ----------
-    tokenizer: virtex.data.tokenizers.SentencePieceBPETokenizer
-        A :class:`~virtex.data.tokenizers.SentencePieceBPETokenizer` which encodes
-        a caption into tokens.
-    add_boundaries: bool, optional (defalult = True)
-        Whether to add ``[SOS]`` and ``[EOS]`` boundary tokens from tokenizer.
+    Args:
+        tokenizer: A :class:`~virtex.data.tokenizers.SentencePieceBPETokenizer`
+            which encodes a caption into tokens.
+        add_boundaries: Whether to add ``[SOS]``/``[EOS]`` tokens from tokenizer.
 
-    Examples
-    --------
-    >>> tokenizer = SentencePieceBPETokenizer("coco.vocab", "coco.model")
-    >>> tokenize = TokenizeCaption(tokenizer, always_apply=True)
-    >>> out = tokenize(caption="Some caption input here.")  # keys: {"caption"}
+    Examples:
+        >>> tokenizer = SentencePieceBPETokenizer("coco.vocab", "coco.model")
+        >>> tokenize = TokenizeCaption(tokenizer, always_apply=True)
+        >>> out = tokenize(caption="Some caption input here.")  # keys: {"caption"}
     """
 
     def __init__(self, tokenizer: SentencePieceBPETokenizer):
@@ -105,21 +100,18 @@ class TruncateCaptionTokens(CaptionOnlyTransform):
     r"""
     Truncate a list of caption tokens (``List[int]``) to maximum length.
 
-    Parameters
-    ----------
-    max_caption_length: int, optional (default = 30)
-        Maximum number of tokens to keep in output caption tokens. Extra tokens
-        will be trimmed from the right end of the token list.
+    Args:
+        max_caption_length: Maximum number of tokens to keep in output caption
+            tokens. Extra tokens will be trimmed from the right end of token list.
 
-    Examples
-    --------
-    >>> truncate = TruncateCaptionTokens(max_caption_length=5, always_apply=True)
-    >>> out = truncate(caption=[2, 35, 41, 67, 98, 50, 3])
-    >>> out["caption"]
-    [2, 35, 41, 67, 98]
+    Examples:
+        >>> truncate = TruncateCaptionTokens(max_caption_length=5)
+        >>> out = truncate(caption=[2, 35, 41, 67, 98, 50, 3])
+        >>> out["caption"]
+        [2, 35, 41, 67, 98]
     """
 
-    def __init__(self, max_caption_length: int = 30):
+    def __init__(self, max_caption_length: int):
         # `always_apply = True` because this is essential part of pipeline.
         super().__init__(always_apply=True)
         self.max_caption_length = max_caption_length
@@ -142,12 +134,11 @@ class HorizontalFlip(ImageCaptionTransform):
         Its behavior will be same as albumentations
         :class:`~albumentations.augmentations.transforms.HorizontalFlip`.
 
-    Examples
-    --------
-    >>> flip = HorizontalFlip(p=0.5)
-    >>> out1 = flip(image=image, caption=caption)  # keys: {"image", "caption"}
-    >>> # Also works with images (without caption).
-    >>> out2 = flip(image=image)  # keys: {"image"}
+    Examples:
+        >>> flip = HorizontalFlip(p=0.5)
+        >>> out1 = flip(image=image, caption=caption)  # keys: {"image", "caption"}
+        >>> # Also works with images (without caption).
+        >>> out2 = flip(image=image)  # keys: {"image"}
 
     """
 
@@ -168,10 +159,8 @@ class RandomResizedSquareCrop(alb.RandomResizedCrop):
     A variant of :class:`albumentations.augmentations.transforms.RandomResizedCrop`
     which assumes a square crop (width = height). Everything else is same.
 
-    Parameters
-    ----------
-    size: int
-        Dimension of the width and height of the cropped image.
+    Args:
+        size: Dimension of the width and height of the cropped image.
     """
 
     def __init__(self, size: int, *args, **kwargs):
@@ -180,13 +169,11 @@ class RandomResizedSquareCrop(alb.RandomResizedCrop):
 
 class CenterSquareCrop(alb.CenterCrop):
     r"""
-    A variant of :class:`albumentations.augmentations.transforms.CenterCrop` which
-    assumes a square crop (width = height). Everything else is same.
+    A variant of :class:`albumentations.augmentations.transforms.CenterCrop`
+    which assumes a square crop (width = height). Everything else is same.
 
-    Parameters
-    ----------
-    size: int
-        Dimension of the width and height of the cropped image.
+    Args:
+        size: Dimension of the width and height of the cropped image.
     """
 
     def __init__(self, size: int, *args, **kwargs):
@@ -198,10 +185,8 @@ class SquareResize(alb.Resize):
     A variant of :class:`albumentations.augmentations.transforms.Resize` which
     assumes a square resize (width = height). Everything else is same.
 
-    Parameters
-    ----------
-    size: int
-        Dimension of the width and height of the resized image.
+    Args:
+        size: Dimension of the width and height of the cropped image.
     """
 
     def __init__(self, size: int, *args, **kwargs):

@@ -26,15 +26,11 @@ class Lookahead(Optimizer):
     r"""
     Implements Lookahead optimizer.
 
-    Parameters
-    ----------
-    optimizer: torch.optim.Optimizer
-        Wrapper inner optimizer. The weights it manages will be the "fast"
-        weights.
-    k: int, optional (default = 5)
-        Number of lookahead steps before updating "slow" weights.
-    alpha: float, optional (default = 0.8)
-        Linear interpolation factor, 1.0 recovers inner optimizer.
+    Args:
+        optimizer: Wrapper inner optimizer. The weights it manages will be the
+            "fast" weights.
+        k: Number of lookahead steps before updating "slow" weights.
+        alpha: Linear interpolation factor, 1.0 recovers inner optimizer.
     """
 
     def __init__(self, optimizer: Optimizer, k: int = 5, alpha: float = 0.8):
@@ -80,10 +76,8 @@ class Lookahead(Optimizer):
         r"""
         Perform a single Lookahead optimization step.
 
-        Parameters
-        ----------
-        closure: Callable, optional (default = None)
-            A callable that re-evaluates the model and returns the loss.
+        Args:
+            closure: A callable that re-evaluates the model and returns loss.
         """
         loss = self.optimizer.step(closure)
         self._k_counter += 1

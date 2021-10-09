@@ -26,20 +26,15 @@ class AutoRegressiveBeamSearch(object):
     r"""
     Implements the beam search algorithm for decoding the most likely captions.
 
-    Parameters
-    ----------
-    eos_index: int
-        The index of the end token (``[EOS]``) in vocabulary.
-    max_steps: int, optional (default = 50)
-        The maximum number of decoding steps.
-    beam_size: int, optional (default = 5)
-        The width of the beam used.
-    per_node_beam_size: int, optional (default = 2)
-        The maximum number of candidates to consider per node, at each step in
-        the search. Setting this parameter to a number smaller than `beam_size`
-        may give better results, as it can introduce more diversity into the
-        search. See `Beam Search Strategies for Neural Machine Translation.
-        Freitag and Al-Onaizan, 2017 <https://arxiv.org/abs/1702.01806>`_.
+    Args:
+        eos_index: The index of the end token (``[EOS]``) in vocabulary.
+        max_steps: The maximum number of decoding steps.
+        beam_size: The width of the beam used.
+        per_node_beam_size: The maximum number of candidates to consider per node,
+            at each step in the search. Setting this parameter to a number smaller
+            than ``beam_size`` may give better results, as it can introduce more
+            diversity into the search. See `Beam Search Strategies for Neural
+            Machine Translation. Freitag and Al-Onaizan, 2017 <https://arxiv.org/abs/1702.01806>`_.
     """
 
     def __init__(
@@ -64,27 +59,22 @@ class AutoRegressiveBeamSearch(object):
         Given a starting state and a step function, apply beam search to find
         the most likely target captions.
 
-        Parameters
-        ----------
-        start_predictions : torch.Tensor
-            Tensor containing the initial predictions, shape ``(batch_size, )``.
-            Usually the initial predictions are just the index of the start
-            token (``[SOS]``) in the vocabulary.
-        step : Callable[..., torch.Tensor]
-            A function that is responsible for computing the next most likely
-            tokens, given the past predictions. Predictions from all previous
-            timesteps are required, not just the last timestep. The function is
-            expected to return a tensor of shape ``(group_size, target_vocab_size)``
-            containing the token logits for the next step.
-        only_return_best: bool, optional (default = True)
-            Whether to only return the best beam (with highest logprobs). Set this
-            to ``False`` to return all the beams. If this is ``True``, then the
-            returned tensor is of shape ``(batch_size, sequence_length)``, else
-            will be ``(batch_size, beam_size, sequence_length)``.
+        Args:
+            start_predictions: Tensor containing the initial predictions, shape
+                ``(batch_size, )``. Usually the initial predictions are just the
+                index of the start token (``[SOS]``) in the vocabulary.
+            step: A function that is responsible for computing the next most likely
+                tokens, given the past predictions. Predictions from all previous
+                timesteps are required, not just the last timestep. The function is
+                expected to return a tensor of shape ``(group_size, target_vocab_size)``
+                containing the token logits for the next step.
+            only_return_best: Whether to only return the best beam (with highest
+                logprobs). Set this to ``False`` to return all the beams. If this is
+                ``True``, then the returned tensor is of shape ``(batch_size,
+                sequence_length)``, else will be ``(batch_size, beam_size,
+                sequence_length)``.
 
-        Returns
-        -------
-        Tuple[torch.Tensor, torch.Tensor]
+        Returns:
             Tuple of ``(predictions, logprobs)``, where ``predictions``
             has shape ``(batch_size, beam_size, max_steps)`` and ``logprobs``
             has shape ``(batch_size, beam_size)``.
@@ -96,7 +86,8 @@ class AutoRegressiveBeamSearch(object):
         # Does not include the start symbols, which are implicit.
         predictions: torch.Tensor = torch.empty(
             (batch_size, self.beam_size, 0),
-            dtype=torch.long, device=start_predictions.device
+            dtype=torch.long,
+            device=start_predictions.device,
         )
         # Calculate the first timestep. This is done outside the main loop
         # because we are going from a single decoder input (the output from the
@@ -117,10 +108,7 @@ class AutoRegressiveBeamSearch(object):
         start_top_logprobs, start_predicted_classes = start_class_logprobs.topk(
             self.beam_size
         )
-        if (
-            self.beam_size == 1
-            and (start_predicted_classes == self._eos_index).all()
-        ):
+        if self.beam_size == 1 and (start_predicted_classes == self._eos_index).all():
             warnings.warn(
                 "Empty captions predicted. You may want to increase beam "
                 "size or ensure your step function is working properly.",
@@ -133,7 +121,9 @@ class AutoRegressiveBeamSearch(object):
         last_logprobs = start_top_logprobs
 
         # shape: (batch_size, beam_size, sequence_length)
-        predictions = torch.cat([predictions, start_predicted_classes.unsqueeze(-1)], dim=-1)
+        predictions = torch.cat(
+            [predictions, start_predicted_classes.unsqueeze(-1)], dim=-1
+        )
 
         # Log probability tensor that mandates that the end token is selected.
         # shape: (batch_size * beam_size, num_classes)
@@ -144,16 +134,16 @@ class AutoRegressiveBeamSearch(object):
 
         for timestep in range(self.max_steps - 1):
             # shape: (batch_size * beam_size,)
-            last_predictions = predictions[:, :, -1].reshape(batch_size * self.beam_size)
+            last_predictions = predictions[:, :, -1].reshape(
+                batch_size * self.beam_size
+            )
 
             # If every predicted token from the last step is `self._eos_index`,
             # then we can stop early.
             if (last_predictions == self._eos_index).all():
                 break
 
-            predictions_so_far = predictions.view(
-                batch_size * self.beam_size, -1
-            )          
+            predictions_so_far = predictions.view(batch_size * self.beam_size, -1)
             # shape: (batch_size * beam_size, num_classes)
             class_logits = step(predictions_so_far)
 
@@ -211,7 +201,9 @@ class AutoRegressiveBeamSearch(object):
                 .repeat(1, self.per_node_beam_size, 1)
                 .reshape(batch_size, self.beam_size * self.per_node_beam_size, -1)
             )
-            reshaped_beam = torch.cat([reshaped_beam, reshaped_predicted_classes.unsqueeze(-1)], dim=-1)
+            reshaped_beam = torch.cat(
+                [reshaped_beam, reshaped_predicted_classes.unsqueeze(-1)], dim=-1
+            )
 
             # Keep only the top `beam_size` beam indices.
             # shape: (batch_size, beam_size), (batch_size, beam_size)
@@ -219,7 +211,10 @@ class AutoRegressiveBeamSearch(object):
                 self.beam_size
             )
             predictions = reshaped_beam.gather(
-                1, restricted_beam_indices.unsqueeze(-1).repeat(1,1,reshaped_beam.shape[-1])
+                1,
+                restricted_beam_indices.unsqueeze(-1).repeat(
+                    1, 1, reshaped_beam.shape[-1]
+                ),
             )
 
             # shape: (batch_size, beam_size)

@@ -12,30 +12,25 @@ class Config(object):
 
     An instantiated object is immutable: modifying any attribute is illegal.
     You must override required parameter values either through ``config_file``
-    or ``override_list`` arguments. For adding more parameters at runtime
-    (based on existing parameters), modify :meth:`add_derived_params`.
+    or ``override_list`` arguments.
 
-    Parameters
-    ----------
-    config_file: str
-        Path to a YAML file containing configuration parameters to override.
-    config_override: List[Any], optional (default = [])
-        A list of sequential attributes and values of parameters to override.
-        This happens after overriding from YAML file.
+    Args:
+        config_file: Path to a YAML file containing config parameters.
+        config_override: A list of sequential attributes and values of parameters.
+            This happens after overriding from YAML file.
 
-    Examples
-    --------
-    Let a YAML file named "config.yaml" specify these parameters to override::
+    Examples:
+        Let a YAML file named "config.yaml" specify these parameters to override::
 
-        OPTIM:
-          BATCH_SIZE: 512
-          LR: 0.01
+            OPTIM:
+            BATCH_SIZE: 512
+            LR: 0.01
 
-    >>> _C = Config("config.yaml", ["OPTIM.BATCH_SIZE", 1024])
-    >>> _C.LR  # default: 0.001
-    0.01
-    >>> _C.OPTIM.BATCH_SIZE  # default: 256, file: 512
-    1024
+        >>> _C = Config("config.yaml", ["OPTIM.BATCH_SIZE", 1024])
+        >>> _C.LR  # default: 0.001
+        0.01
+        >>> _C.OPTIM.BATCH_SIZE  # default: 256, file: 512
+        1024
     """
 
     def __init__(
@@ -220,24 +215,14 @@ class Config(object):
             self._C.merge_from_file(config_file)
         self._C.merge_from_list(override_list)
 
-        self.add_derived_params()
-
         # Make an instantiated object of this class immutable.
         self._C.freeze()
-
-    def add_derived_params(self):
-        r"""Add parameters with values derived from existing parameters."""
-
-        # We don't have any such cases so far.
-        pass
 
     def dump(self, file_path: str):
         r"""Save config at the specified file path.
 
-        Parameters
-        ----------
-        file_path: str
-            (YAML) path to save config at.
+        Args:
+            file_path: Path to save config file (YAML).
         """
         self._C.dump(stream=open(file_path, "w"))
 

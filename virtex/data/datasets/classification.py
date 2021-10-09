@@ -18,27 +18,18 @@ from .coco_captions import CocoCaptionsDataset
 
 class TokenClassificationDataset(Dataset):
     r"""
-    A dataset which provides image-labelset pairs from a serialized LMDB file
-    (COCO Captions in this codebase). the set of caption tokens (unordered)
-    is treated as a labelset. Used for token classification pretraining task.
+    A dataset which provides image-labelset pairs from a COCO Captions annotation
+    file. The set of caption tokens (unordered) is treated as a labelset.
 
-    Parameters
-    ----------
-    data_root: str, optional (default = "datasets/coco")
-        Path to the dataset root directory. This must contain the serialized
-        LMDB files (for COCO ``train2017`` and ``val2017`` splits).
-    split: str, optional (default = "train")
-        Which split (from COCO 2017 version) to read. One of ``{"train", "val"}``.
-    tokenizer: virtex.data.tokenizers.SentencePieceBPETokenizer
-        A tokenizer which has the mapping between word tokens and their
-        integer IDs.
-    image_transform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
-        A list of transformations, from either `albumentations
-        <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
-        to be applied on the image.
-    max_caption_length: int, optional (default = 30)
-        Maximum number of tokens to keep in output caption tokens. Extra tokens
-        will be trimmed from the right end of the token list.
+    Args:
+        data_root: Path to dataset directory containing images and annotations.
+        split: Name of COCO 2017 split to read. One of ``{"train", "val"}``.
+        tokenizer: Tokenizer which maps word tokens to their integer IDs.
+        image_transform: List of image transformations, from either
+            `albumentations <https://albumentations.readthedocs.io/en/latest/>`_
+            or :mod:`virtex.data.transforms`.
+        max_caption_length: Maximum number of tokens to keep in caption tokens.
+            Extra tokens will be trimmed from the right end of the token list.
     """
 
     def __init__(
@@ -109,17 +100,12 @@ class MultiLabelClassificationDataset(Dataset):
     A dataset which provides image-labelset pairs from COCO instance annotation
     files. This is used for multilabel classification pretraining task.
 
-    Parameters
-    ----------
-    data_root: str, optional (default = "datasets/coco")
-        Path to the dataset root directory. This must contain images and
-        annotations (``train2017``, ``val2017`` and ``annotations`` directories).
-    split: str, optional (default = "train")
-        Which split (from COCO 2017 version) to read. One of ``{"train", "val"}``.
-    image_transform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
-        A list of transformations, from either `albumentations
-        <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
-        to be applied on the image.
+    Args:
+        data_root: Path to dataset directory containing images and annotations.
+        split: Name of COCO 2017 split to read. One of ``{"train", "val"}``.
+        image_transform: List of image transformations, from either
+            `albumentations <https://albumentations.readthedocs.io/en/latest/>`_
+            or :mod:`virtex.data.transforms`.
     """
 
     def __init__(

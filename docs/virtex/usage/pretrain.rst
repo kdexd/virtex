@@ -75,26 +75,3 @@ Backbone Ablations
 
     **Pretraining Task Ablations** (1), **Transformer Size Ablations** (3 and 5)
     and **Backbone Ablations** (1) are all the same exact model.
-
-Data Efficiency Experiments
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-These are VirTex models trained on a subset of COCO Captions dataset. For example,
-train a base VirTex model on randomly selected ``50%`` of COCO Captions:
-
-.. code-block::
-
-    python scripts/pretrain_virtex.py \
-        --config configs/_base_bicaptioning_R_50_L1_H1024.yaml \
-        --config-override DATA.USE_PERCENTAGE 50.0 \
-        --num-gpus-per-machine 8 \
-        --cpu-workers 4 \
-        --serialization-dir /tmp/VIRTEX_R_50_L1_H1024_PERCENT_50
-        # Default: --checkpoint-every 2000 --log-every 20
-
-COCO Captions provides five captions per image. To train with one fixed caption
-per image, add ``DATA.USE_SINGLE_CAPTION True`` in ``--config-override``.
-
-The randomly selected subset is deterministic across runs based on random seed
-(``RANDOM_SEED`` in config). When training on less than ``50%`` dataset size, we
-recommend using multiple random seeds (results will have a variance of ``±1%``).

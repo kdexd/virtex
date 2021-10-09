@@ -17,15 +17,12 @@ class TextualHead(nn.Module):
     from :class:`~torch.nn.Module`, however this is kept here for uniform
     type annotations.
 
-    Parameters
-    ----------
-    visual_feature_size: int
-        Size (number of channels) of the input features from the visual backbone.
-    vocab_size: int
-        Number of tokens in the output vocabulary.
-    hidden_size: int
-        Size of the token embedding vectors, or hidden state vector of the
-        language model.
+    Args:
+        visual_feature_size: Size (number of channels) of the input features
+            from the visual backbone.
+        vocab_size: Number of tokens in the output vocabulary.
+        hidden_size: Size of the token embedding vectors, or hidden state vector
+            of the language model.
     """
 
     def __init__(self, visual_feature_size: int, vocab_size: int, hidden_size: int):
@@ -50,12 +47,10 @@ class LinearTextualHead(TextualHead):
     A textual head containing a single linear layer projecting from the visual
     feature size to the output vocabulary size.
 
-    Parameters
-    ----------
-    visual_feature_size: int
-        Size (number of channels) of the input features from the visual backbone.
-    vocab_size: int
-        Number of tokens in the output vocabulary.
+    Args:
+        visual_feature_size: Size (number of channels) of the input features from
+            the visual backbone.
+        vocab_size: Number of tokens in the output vocabulary.
     """
 
     def __init__(self, visual_feature_size: int, vocab_size: int, **kwargs):
@@ -76,21 +71,17 @@ class LinearTextualHead(TextualHead):
         ignores arguments ``caption_tokens`` and ``caption_lengths``, they
         are here for API consistency.
 
-        Parameters
-        ----------
-        visual_features: torch.Tensor
-            A tensor of shape ``(batch_size, channels, height, width)`` containing
-            features from visual backbone.
+        Args:
+            visual_features: A tensor of shape ``(batch_size, channels, height,
+                width)`` containing features from visual backbone.
 
-        Returns
-        -------
-        torch.Tensor
+        Returns:
             A tensor of shape ``(batch_size, vocab_size)`` containing output
             vocabulary logits.
         """
 
         # Convert to NHWC and project visual features to textual feature size.
-        batch_size, channels, height, width = visual_features.size()
+        batch_size, channels, _, _ = visual_features.size()
         visual_features = visual_features.view(batch_size, channels, -1)
         visual_features = visual_features.permute(0, 2, 1)
 
@@ -127,37 +118,27 @@ class TransformerDecoderTextualHead(TextualHead):
         a *single* textual head as a whole, according to the terminology used
         in paper.
 
-    Parameters
-    ----------
-    visual_feature_size: int
-        Size (number of channels) of the input features from the visual backbone.
-    vocab_size: int
-        Number of tokens in the output vocabulary.
-    hidden_size: int
-        Size of the token embedding vectors, or hidden state vector of the
-        language model.
-    num_layers: int
-        Number of layers in the transformer.
-    attention_heads: int
-        Number of attention heads in the transformer.
-    feedforward_size: int
-        Size of feedforward layers in the transformer.
-    dropout: float, optional (default = 0.1)
-        Dropout probability for transformer (applied after layer normalization).
-    norm_type: str, optional (default = "post")
-        Type of transformer layer: pre-normalization (like GPT-2) or
-        post-normalization (like BERT). One of ``{"pre", "post"}``.
-    mask_future_positions: bool, optional (default = True)
-        Whether to mask future positions for self-attention over caption tokens.
-        This must be ``True`` for captioning (and bicaptioning) tasks to prevent
-        the language model from cheating, and ``False`` for masked language
-        modeling, as the self-attention should consider all tokens.
-    max_caption_length: int, optional (default = 30)
-        Maximum length of input captions; this is used to create a fixed
-        positional embedding lookup table.
-    padding_idx: int, optional (default = 0)
-        Token index of ``[PAD]`` token, word embedding for these tokens will
-        be a vector of zeroes (and not trainable).
+    Args:
+        visual_feature_size: Size (number of channels) of the input features from
+            the visual backbone.
+        vocab_size: Number of tokens in the output vocabulary.
+        hidden_size: Size of the token embedding vectors, or hidden state vector of
+            the language model.
+        num_layers: Number of layers in the transformer.
+        attention_heads: Number of attention heads in the transformer.
+        feedforward_size: Size of feedforward layers in the transformer.
+        dropout: Dropout probability for transformer (applied after layernorm).
+        norm_type: Type of transformer layer: pre-normalization (like GPT-2) or
+            post-normalization (like BERT). One of ``{"pre", "post"}``.
+        mask_future_positions: Whether to mask future positions for self-attention
+            over caption tokens. This must be ``True`` for captioning (and
+            bicaptioning) tasks to prevent the language model from cheating, and
+            ``False`` for masked language modeling, as the self-attention should
+            consider all tokens.
+        max_caption_length: Maximum length of input captions; this is used to
+            create a fixed positional embedding lookup table.
+        padding_idx: Token index of ``[PAD]`` token, word embedding for these
+            tokens will be a vector of zeroes (and not trainable).
     """
 
     def __init__(
@@ -237,21 +218,15 @@ class TransformerDecoderTextualHead(TextualHead):
         Given (projected) visual features from visual backbone and caption
         tokens, predict the output logits for next time-step.
 
-        Parameters
-        ----------
-        visual_features: torch.Tensor
-            A tensor of shape ``(batch_size, channels, height, width)`` containing
-            features from visual backbone.
-        caption_tokens: torch.Tensor
-            A tensor of shape ``(batch_size, max_caption_length)`` of caption
-            tokens padded to the right by ``padding_idx``.
-        caption_lengths: torch.Tensor
-            A tensor of shape ``(batch_size, )`` containing lengths of caption
-            tokens in the batch.
+        Args:
+            visual_features: A tensor of shape ``(batch_size, channels, height,
+                width)`` containing features from visual backbone.
+            caption_tokens: A tensor of shape ``(batch_size, max_caption_length)``
+                of caption tokens padded to the right by ``padding_idx``.
+            caption_lengths: A tensor of shape ``(batch_size, )`` containing
+                lengths of caption tokens in the batch.
 
-        Returns
-        -------
-        torch.Tensor
+        Returns:
             A tensor of shape ``(batch_size, max_caption_length, vocab_size)``
             containing output vocabulary logits for each time-step.
         """
@@ -312,10 +287,6 @@ class TransformerDecoderTextualHead(TextualHead):
         r"""
         Generate a mask for "future" positions, useful when using this module
         for language modeling.
-
-        Parameters
-        ----------
-        size: int
         """
         # Default mask is for forward direction. Flip for backward direction.
         mask = torch.triu(

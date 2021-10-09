@@ -1,6 +1,6 @@
 body {
     padding: 40px 0 0 0;
-    font-size: 12pt;
+    font-size: 11pt;
     font-family: Inconsolata !important;
 }
 
@@ -8,7 +8,7 @@ body {
 h1, h2, h3, h4, div.sphinxsidebar h1, div.sphinxsidebar h2,
 div.sphinxsidebar h3, div.sphinxsidebar h4, div.body h1,
 div.body h2, div.body h3, div.body h4, .admonition-title {
-    font-family: monospace !important;
+    font-family: Inconsolata !important;
 }
 
 /* Make main content wider */
@@ -71,7 +71,7 @@ a.headerlink:hover {
 dl.class > dt:first-of-type, dl.function > dt:first-of-type,
 dl.method > dt:first-of-type, dl.classmethod > dt:first-of-type,
 dl.attribute > dt:first-of-type, dl.data > dt:first-of-type {
-    font-size: 14pt;
+    font-size: 12pt;
     background-color: #d8f6e9;
     padding: 10px 20px 10px 10px;
     border: 1px solid #1b5e20;
@@ -103,13 +103,14 @@ dl.field-list {
 /* Increase font size of subsection headings ("Parameters", "Examples" etc.) */
 .rubric, dl.field-list > dt.field-odd, dl.field-list > dt.field-even {
     color: black;
-    font-size: 18pt;
-    font-weight: bold;
+    font-size: 14pt;
+    font-weight: 700;
+    text-decoration: underline;
     padding: 0px;
-    margin: 20px 0px 20px 0px;
+    margin: 20px 0px 10px 0px;
 }
 
 /* Add margins around methods and properties. */
 .py {
-    margin: 20px 0px 20px 0px;
+    margin: 20px 0px 10px 0px;
 }

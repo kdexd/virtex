@@ -95,10 +95,8 @@ class TokenizerFactory(Factory):
         r"""
         Create a tokenizer directly from config.
 
-        Parameters
-        ----------
-        config: virtex.config.Config
-            Config object with all the parameters.
+        Args:
+            config: Config object with all the parameters.
         """
 
         _C = config
@@ -205,12 +203,9 @@ class PretrainingDatasetFactory(Factory):
         names in :class:`PretrainingModelFactory` because both use same config
         parameter ``MODEL.NAME`` to create objects.
 
-        Parameters
-        ----------
-        config: virtex.config.Config
-            Config object with all the parameters.
-        split: str, optional (default = "train")
-            Which split to load for the dataset. One of ``{"train", "val"}``.
+        Args:
+            config: Config object with all the parameters.
+            split: Which dataset split to load. One of ``{"train", "val"}``.
         """
 
         _C = config
@@ -272,13 +267,10 @@ class DownstreamDatasetFactory(Factory):
         of dataset directories (relative to the project directory), because
         config parameter ``DATA.ROOT`` is used to create objects.
 
-        Parameters
-        ----------
-        config: virtex.config.Config
-            Config object with all the parameters.
-        split: str, optional (default = "train")
-            Which split to load for the dataset. One of ``{"trainval", "test"}``
-            for VOC2007, or one of ``{"train", "val"}`` for ImageNet.
+        Args:
+            config: Config object with all the parameters.
+            split: Which dataset split to load. One of ``{"trainval", "test"}``
+                for VOC2007, or one of ``{"train", "val"}`` for ImageNet.
         """
 
         _C = config
@@ -331,10 +323,8 @@ class VisualBackboneFactory(Factory):
         r"""
         Create a visual backbone directly from config.
 
-        Parameters
-        ----------
-        config: virtex.config.Config
-            Config object with all the parameters.
+        Args:
+            config: Config object with all the parameters.
         """
 
         _C = config
@@ -380,10 +370,8 @@ class TextualHeadFactory(Factory):
         r"""
         Create a textual head directly from config.
 
-        Parameters
-        ----------
-        config: virtex.config.Config
-            Config object with all the parameters.
+        Args:
+            config: Config object with all the parameters.
         """
 
         _C = config
@@ -442,10 +430,8 @@ class PretrainingModelFactory(Factory):
         r"""
         Create a model directly from config.
 
-        Parameters
-        ----------
-        config: virtex.config.Config
-            Config object with all the parameters.
+        Args:
+            config: Config object with all the parameters.
         """
 
         _C = config
@@ -497,10 +483,8 @@ class CaptionDecoderFactory(Factory):
         r"""
         Create a model directly from config.
 
-        Parameters
-        ----------
-        config: virtex.config.Config
-            Config object with all the parameters.
+        Args:
+            config: Config object with all the parameters.
         """
 
         _C = config
@@ -528,14 +512,12 @@ class OptimizerFactory(Factory):
         r"""
         Create an optimizer directly from config.
 
-        Parameters
-        ----------
-        config: virtex.config.Config
-            Config object with all the parameters.
-        named_parameters: Iterable
-            Named parameters of model (retrieved by ``model.named_parameters()``)
-            for the optimizer. We use named parameters to set different LR and
-            turn off weight decay for certain parameters based on their names.
+        Args:
+            config: Config object with all the parameters.
+            named_parameters: Named parameters of model (retrieved by
+                ``model.named_parameters()``) for the optimizer. We use named
+                parameters to set different LR and turn off weight decay for
+                certain parameters based on their names.
         """
 
         _C = config
@@ -585,12 +567,9 @@ class LRSchedulerFactory(Factory):
         r"""
         Create an LR scheduler directly from config.
 
-        Parameters
-        ----------
-        config: virtex.config.Config
-            Config object with all the parameters.
-        optimizer: torch.optim.Optimizer
-            Optimizer on which LR scheduling would be performed.
+        Args:
+            config: Config object with all the parameters.
+            optimizer: Optimizer on which LR scheduling would be performed.
         """
 
         _C = config

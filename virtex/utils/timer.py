@@ -7,15 +7,12 @@ class Timer(object):
     A simple timer to record time per iteration and ETA of training. ETA is
     estimated by moving window average with fixed window size.
 
-    Parameters
-    ----------
-    start_from: int, optional (default = 1)
-        Iteration from which counting should be started/resumed.
-    total_iterations: int, optional (default = None)
-        Total number of iterations. ETA will not be tracked (will remain "N/A")
-        if this is not provided.
-    window_size: int, optional (default = 20)
-        Window size for calculating ETA based on average of past few iterations.
+    Args:
+        start_from: Iteration from which counting should be started/resumed.
+    total_iterations: Total number of iterations. ETA will not be tracked (will
+        remain "N/A") if this is not provided.
+    window_size: Window size for calculating ETA based on average of past few
+        iterations.
     """
 
     def __init__(

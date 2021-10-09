@@ -8,7 +8,6 @@ virtex.data
 
 .. toctree::
 
-    data.readers
     data.datasets
     data.tokenizers
     data.transforms

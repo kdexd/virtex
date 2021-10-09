@@ -23,16 +23,12 @@ class TorchvisionVisualBackbone(VisualBackbone):
     <https://pytorch.org/docs/stable/torchvision/models.html>`_. Any model can
     be specified using corresponding method name from the model zoo.
 
-    Parameters
-    ----------
-    name: str, optional (default = "resnet50")
-        Name of the model from Torchvision model zoo.
-    visual_feature_size: int, optional (default = 2048)
-        Size of the channel dimension of output visual features from forward pass.
-    pretrained: bool, optional (default = False)
-        Whether to load ImageNet pretrained weights from Torchvision.
-    frozen: float, optional (default = False)
-        Whether to keep all weights frozen during training.
+    Args:
+        name: Name of the model from Torchvision model zoo.
+        visual_feature_size: Size of the channel dimension of output visual
+            features from forward pass.
+        pretrained: Whether to load ImageNet pretrained weights from Torchvision.
+        frozen: Whether to keep all weights frozen during training.
     """
 
     def __init__(
@@ -60,15 +56,11 @@ class TorchvisionVisualBackbone(VisualBackbone):
         r"""
         Compute visual features for a batch of input images.
 
-        Parameters
-        ----------
-        image: torch.Tensor
-            Batch of input images. A tensor of shape
-            ``(batch_size, 3, height, width)``.
+        Args:
+            image: Batch of input images. A tensor of shape ``(batch_size, 3,
+                height, width)``.
 
-        Returns
-        -------
-        torch.Tensor
+        Returns:
             A tensor of shape ``(batch_size, channels, height, width)``, for
             example it will be ``(batch_size, 2048, 7, 7)`` for ResNet-50.
         """
@@ -89,9 +81,7 @@ class TorchvisionVisualBackbone(VisualBackbone):
         object detection and instance segmentation). This method renames
         certain parameters from Torchvision-style to Detectron2-style.
 
-        Returns
-        -------
-        Dict[str, Any]
+        Returns:
             A dict with three keys: ``{"model", "author", "matching_heuristics"}``.
             These are necessary keys for loading this state dict properly with
             Detectron2.

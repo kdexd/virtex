@@ -119,35 +119,17 @@ iNaturalist 2018
 -------------------------------------------------------------------------------
 
 
-Preprocess Data
----------------
+Build vocabulary
+----------------
 
-1. Build a vocabulary out of COCO Captions ``train2017`` split.
+Build a vocabulary out of COCO Captions ``train2017`` split.
 
     .. code-block:: shell
 
-        python scripts/preprocess/build_vocabulary.py \
+        python scripts/build_vocabulary.py \
             --captions datasets/coco/annotations/captions_train2017.json \
             --vocab-size 10000 \
             --output-prefix datasets/vocab/coco_10k \
             --do-lower-case
-
-
-2. Serialize COCO Captions (``train2017`` and ``val2017`` splits) into LMDB
-   files. These are faster for data reading during pretraining.
-
-    .. code-block:: shell
-
-        python scripts/preprocess/preprocess_coco.py \
-            --data-root datasets/coco \
-            --split train \
-            --output datasets/coco/serialized_train.lmdb
-
-    .. code-block:: shell
-
-        python scripts/preprocess/preprocess_coco.py \
-            --data-root datasets/coco \
-            --split val \
-            --output datasets/coco/serialized_val.lmdb
 
 That's it! You are all set to use this codebase.

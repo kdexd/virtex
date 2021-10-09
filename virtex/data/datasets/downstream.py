@@ -18,17 +18,12 @@ class ImageNetDataset(ImageNet):
     Simple wrapper over torchvision's ImageNet dataset. Image transform is
     handled here instead of passing to super class.
 
-    Parameters
-    ----------
-    data_root: str, optional (default = "datasets/imagenet")
-        Path to the dataset root directory. This must contain directories
-        ``train``, ``val`` with per-category sub-directories.
-    split: str, optional (default = "train")
-        Which split to read from. One of ``{"train", "val"}``.
-    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
-        A list of transformations, from either `albumentations
-        <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
-        to be applied on the image.
+    Args:
+        data_root: Path to the ImageNet dataset directory.
+        split: Which split to read from. One of ``{"train", "val"}``.
+        image_transform: List of image transformations, from either
+            `albumentations <https://albumentations.readthedocs.io/en/latest/>`_
+            or :mod:`virtex.data.transforms`.
     """
 
     def __init__(
@@ -63,17 +58,12 @@ class INaturalist2018Dataset(Dataset):
     r"""
     A dataset which provides image-label pairs from the iNaturalist 2018 dataset.
 
-    Parameters
-    ----------
-    data_root: str, optional (default = "datasets/inaturalist")
-        Path to the dataset root directory. This must contain images and
-        annotations (``train2018``, ``val2018`` and ``annotations`` directories).
-    split: str, optional (default = "train")
-        Which split to read from. One of ``{"train", "val"}``.
-    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
-        A list of transformations, from either `albumentations
-        <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
-        to be applied on the image.
+    Args:
+        data_root: Path to the iNaturalist 2018 dataset directory.
+        split: Which split to read from. One of ``{"train", "val"}``.
+        image_transform: List of image transformations, from either
+            `albumentations <https://albumentations.readthedocs.io/en/latest/>`_
+            or :mod:`virtex.data.transforms`.
     """
 
     def __init__(
@@ -129,17 +119,13 @@ class VOC07ClassificationDataset(Dataset):
     r"""
     A dataset which provides image-label pairs from the PASCAL VOC 2007 dataset.
 
-    Parameters
-    ----------
-    data_root: str, optional (default = "datasets/VOC2007")
-        Path to the dataset root directory. This must contain directories
-        ``Annotations``, ``ImageSets`` and ``JPEGImages``.
-    split: str, optional (default = "trainval")
-        Which split to read from. One of ``{"trainval", "test"}``.
-    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
-        A list of transformations, from either `albumentations
-        <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
-        to be applied on the image.
+    Args:
+        data_root: Path to VOC 2007 directory containing sub-directories named
+            ``Annotations``, ``ImageSets``, and ``JPEGImages``.
+        split: Which split to read from. One of ``{"trainval", "test"}``.
+        image_transform: List of image transformations, from either
+            `albumentations <https://albumentations.readthedocs.io/en/latest/>`_
+            or :mod:`virtex.data.transforms`.
     """
 
     def __init__(
@@ -218,14 +204,11 @@ class ImageDirectoryDataset(Dataset):
     A dataset which reads images from any directory. This class is useful to
     run image captioning inference on our models with any arbitrary images.
 
-    Parameters
-    ----------
-    data_root: str
-        Path to a directory containing images.
-    image_tranform: Callable, optional (default = virtex.data.transforms.DEFAULT_IMAGE_TRANSFORM)
-        A list of transformations, from either `albumentations
-        <https://albumentations.readthedocs.io/en/latest/>`_ or :mod:`virtex.data.transforms`
-        to be applied on the image.
+    Args:
+        data_root: Path to a directory containing images.
+        image_transform: List of image transformations, from either
+            `albumentations <https://albumentations.readthedocs.io/en/latest/>`_
+            or :mod:`virtex.data.transforms`.
     """
 
     def __init__(

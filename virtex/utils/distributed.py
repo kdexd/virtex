@@ -42,23 +42,17 @@ def launch(
         ``CUDA_VISIBLE_DEVICES=5,6``, which restricts to GPU 5 and 6 and
         re-assigns their IDs to 0 and 1 in this job scope).
 
-    Parameters
-    ----------
-    job_fn: Callable
-        A callable object to launch. Pass your main function doing training,
-        validation etc. here.
-    num_machines: int, optional (default = 1)
-        Number of machines used, each with ``num_gpus_per_machine`` GPUs.
-    num_gpus_per_machine: int, optional (default = 1)
-        Number of GPUs per machine, with IDs as ``(0, 1, 2 ...)``.
-    machine_rank: int, optional (default = 0)
-        A manually specified rank of the machine, serves as a unique identifier
-        and useful for assigning global ranks to processes.
-    dist_url: str, optional (default = "tcp://127.0.0.1:23456")
-        Disributed process communication URL as ``tcp://x.x.x.x:port``. Set
-        this as the IP (and a free port) of machine with rank 0.
-    args: Tuple
-        Arguments to be passed to ``job_fn``.
+    Args:
+        job_fn: A callable object to launch. Pass your main function doing
+            training, validation etc. here.
+        num_machines: Number of machines, each with ``num_gpus_per_machine`` GPUs.
+        num_gpus_per_machine: Number of GPUs per machine, with IDs as
+            ``(0, 1, 2 ...)``.
+        machine_rank: A manually specified rank of the machine, serves as a
+            unique identifier and useful for assigning global ranks to processes.
+        dist_url: Disributed process communication URL as ``tcp://x.x.x.x:port``.
+            Set this as the IP (and a free port) of machine with rank 0.
+        args: Arguments to be passed to ``job_fn``.
     """
 
     assert (
@@ -152,10 +146,9 @@ def average_across_processes(t: Union[torch.Tensor, Dict[str, torch.Tensor]]):
 
         Nested dicts of tensors are not supported.
 
-    Parameters
-    ----------
-    t: torch.Tensor or Dict[str, torch.Tensor]
-        A tensor or dict of tensors to average across processes.
+    Args:
+        t: torch.Tensor or Dict[str, torch.Tensor]
+            A tensor or dict of tensors to average across processes.
     """
     if dist.is_initialized():
         if isinstance(t, torch.Tensor):
