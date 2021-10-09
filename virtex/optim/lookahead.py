@@ -72,6 +72,13 @@ class Lookahead(Optimizer):
     def load_state_dict(self, state_dict: Dict[str, Any]):
         self.optimizer.load_state_dict(state_dict)
 
+        # Cache optimizer parameters after loading state dict.
+        for group in self.optimizer.param_groups:
+            for p in group["params"]:
+                param_state = self.state[p]
+                param_state["slow_params"] = torch.zeros_like(p.data)
+                param_state["slow_params"].copy_(p.data)
+
     def step(self, closure: Callable = None):
         r"""
         Perform a single Lookahead optimization step.
