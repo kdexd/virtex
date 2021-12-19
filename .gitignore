@@ -50,5 +50,5 @@ scripts/test_*
 datasets/
 checkpoints/
 virtex/utils/assets/
-!virtex/data/
+!virtex/data/datasets/
 virtex/model_zoo/configs
