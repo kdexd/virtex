@@ -30,12 +30,20 @@ For these steps to install through Anaconda (or Miniconda).
     .. code-block:: shell
 
         cd virtex
-        conda create -n virtex python=3.6
+        conda create -n virtex python=3.8
         conda activate virtex
         pip install -r requirements.txt
 
 
-4. Install this codebase as a package in development version.
+4. Install additional packages from Github.
+
+    .. code-block:: shell
+
+        pip install git+git://github.com/facebookresearch/fvcore.git#egg=fvcore
+        pip install git+git://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI
+
+
+5. Install this codebase as a package in development version.
 
     .. code-block:: shell
 
