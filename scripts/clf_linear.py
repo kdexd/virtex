@@ -165,7 +165,7 @@ def main(_A: argparse.Namespace):
 
     # Cross entropy loss and accuracy meter.
     criterion = nn.CrossEntropyLoss()
-    top1 = TopkAccuracy(top_k=1)
+    top1 = TopkAccuracy(k=1)
 
     optimizer = OptimizerFactory.from_config(_DOWNC, model.named_parameters())
     scheduler = LRSchedulerFactory.from_config(_DOWNC, optimizer)
@@ -244,7 +244,7 @@ def main(_A: argparse.Namespace):
 
                 logits = model(batch["image"])
                 loss = criterion(logits, batch["label"])
-                top1(logits, batch["label"])
+                _ = top1(logits, batch["label"])
                 total_val_loss += loss
 
             # Divide each loss component by number of val batches per GPU.
@@ -252,7 +252,8 @@ def main(_A: argparse.Namespace):
             dist.average_across_processes(total_val_loss)
 
             # Get accumulated Top-1 accuracy for logging across GPUs.
-            acc = top1.get_metric(reset=True)
+            acc = top1.get_result()
+            top1.reset()
             dist.average_across_processes(acc)
 
             torch.set_grad_enabled(True)
@@ -265,16 +266,15 @@ def main(_A: argparse.Namespace):
             if dist.is_master_process():
                 checkpoint_manager.step(iteration)
 
-        if iteration % _A.checkpoint_every == 0 and dist.is_master_process():
-            logger.info(f"Iter: {iteration} | Top-1 accuracy: {acc})")
-            tensorboard_writer.add_scalar(
-                f"{DATASET}/val_loss", total_val_loss, iteration
-            )
-            # This name scoping will result in Tensorboard displaying all metrics
-            # (VOC07, caption, etc.) together.
-            tensorboard_writer.add_scalars(
-                f"metrics/{DATASET}", {"top1": acc}, iteration
-            )
+                logger.info(f"Iter: {iteration} | Top-1 accuracy: {acc})")
+                tensorboard_writer.add_scalar(
+                    f"{DATASET}/val_loss", total_val_loss, iteration
+                )
+                # This name scoping will result in Tensorboard displaying all
+                # metrics (VOC07, caption, etc.) together.
+                tensorboard_writer.add_scalars(
+                    f"metrics/{DATASET}", {"top1": acc}, iteration
+                )
 
         # All processes will wait till master process is done logging.
         dist.synchronize()

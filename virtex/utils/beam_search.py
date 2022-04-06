@@ -22,7 +22,7 @@ import torch
 from torch.nn import functional as F
 
 
-class AutoRegressiveBeamSearch(object):
+class AutoRegressiveBeamSearch:
     r"""
     Implements the beam search algorithm for decoding the most likely captions.
 

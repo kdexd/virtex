@@ -37,7 +37,7 @@ from virtex.utils.beam_search import AutoRegressiveBeamSearch
 from virtex.utils.nucleus_sampling import AutoRegressiveNucleusSampling
 
 
-class Factory(object):
+class Factory:
     r"""
     Base class for all factories. All factories must inherit this base class
     and follow these guidelines for a consistent behavior:

@@ -19,63 +19,60 @@ import numpy as np
 import torch
 
 
-class TopkAccuracy(object):
+class TopkAccuracy:
     r"""
-    An accumulator for Top-K classification accuracy. This accumulates per-batch
-    accuracy during training/validation, which can retrieved at the end. Assumes
-    integer labels and predictions.
+    Top-K classification accuracy. This class can accumulate per-batch accuracy
+    that can be retrieved at the end of evaluation. Targets and predictions are
+    assumed to be integers (long tensors).
 
-    .. note::
-
-        If used in :class:`~torch.nn.parallel.DistributedDataParallel`, results
-        need to be aggregated across GPU processes outside this class.
+    If used in :class:`~torch.nn.parallel.DistributedDataParallel`, results
+    need to be aggregated across GPU processes outside this class.
 
     Args:
-        top_k: ``k`` for computing Top-K accuracy.
+        k: ``k`` for computing Top-K accuracy.
     """
 
-    def __init__(self, top_k: int = 1):
-        self._top_k = top_k
+    def __init__(self, k: int = 1):
+        self._k = k
         self.reset()
 
     def reset(self):
-        r"""Reset counters; to be used at the start of new epoch/validation."""
         self.num_total = 0.0
         self.num_correct = 0.0
 
     def __call__(self, predictions: torch.Tensor, ground_truth: torch.Tensor):
         r"""
-        Update accumulated accuracy using the current batch.
+        Record the accuracy of current batch of predictions and ground-truth.
 
         Args:
-            ground_truth: A tensor of shape ``(batch_size, )``, an integer label
-                per example.
-            predictions : Predicted logits or log-probabilities of shape
-                ``(batch_size, num_classes)``.
+            predictions: Model predictions - logits or probabilities. Tensor of
+                shape ``(num_classes, )`` (not batched) or ``(B, num_classes)``.
+            ground_truth: Ground-truth integer labels. A scalar tensor or a batch
+                tensor of shape ``(B, )`` with values in ``[0, num_classes-1]``.
+
+        Returns:
+            Accuracy (in percentage) so far.
         """
 
-        if self._top_k == 1:
-            top_k = predictions.max(-1)[1].unsqueeze(-1)
+        # Get top-K predictions (based on scores).
+        if self._k == 1:
+            topk_preds = predictions.max(-1)[1].unsqueeze(-1)
         else:
-            top_k = predictions.topk(min(self._top_k, predictions.shape[-1]), -1)[1]
+            topk_preds = predictions.topk(min(self._k, predictions.shape[-1]), -1)[1]
 
-        correct = top_k.eq(ground_truth.unsqueeze(-1)).float()
+        correct = topk_preds.eq(ground_truth.unsqueeze(-1)).float()
 
         self.num_total += ground_truth.numel()
         self.num_correct += correct.sum()
 
-    def get_metric(self, reset: bool = False):
-        r"""Get accumulated accuracy so far (and optionally reset counters)."""
-        if self.num_total > 1e-12:
-            accuracy = float(self.num_correct) / float(self.num_total)
-        else:
-            accuracy = 0.0
-        if reset:
-            self.reset()
-        return accuracy
+        return self.get_result()
+
+    def get_result(self):
+        # Prevent division by zero.
+        return self.num_correct / (self.num_total + 1e-12) * 100
 
 
-class CocoCaptionsEvaluator(object):
+class CocoCaptionsEvaluator:
     r"""A helper class to evaluate caption predictions in COCO format. This uses
     :meth:`cider` and :meth:`spice` which exactly follow original COCO Captions
     evaluation protocol.

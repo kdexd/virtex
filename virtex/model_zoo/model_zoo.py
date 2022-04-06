@@ -27,7 +27,7 @@ from virtex.factories import PretrainingModelFactory
 from virtex.utils.checkpointing import CheckpointManager
 
 
-class _ModelZooUrls(object):
+class _ModelZooUrls:
     r"""Mapping from config names to URL suffixes of pretrained weights."""
 
     URL_PREFIX = "https://www.dropbox.com/s"

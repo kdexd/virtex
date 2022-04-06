@@ -1,4 +1,3 @@
-import random
 from typing import List
 import unicodedata
 
@@ -94,33 +93,6 @@ class TokenizeCaption(CaptionOnlyTransform):
 
     def get_transform_init_args_names(self):
         return ("tokenizer",)
-
-
-class TruncateCaptionTokens(CaptionOnlyTransform):
-    r"""
-    Truncate a list of caption tokens (``List[int]``) to maximum length.
-
-    Args:
-        max_caption_length: Maximum number of tokens to keep in output caption
-            tokens. Extra tokens will be trimmed from the right end of token list.
-
-    Examples:
-        >>> truncate = TruncateCaptionTokens(max_caption_length=5)
-        >>> out = truncate(caption=[2, 35, 41, 67, 98, 50, 3])
-        >>> out["caption"]
-        [2, 35, 41, 67, 98]
-    """
-
-    def __init__(self, max_caption_length: int):
-        # `always_apply = True` because this is essential part of pipeline.
-        super().__init__(always_apply=True)
-        self.max_caption_length = max_caption_length
-
-    def apply_to_caption(self, caption: List[int], **params) -> List[int]:
-        return caption[: self.max_caption_length]
-
-    def get_transform_init_args_names(self):
-        return ("max_caption_length",)
 
 
 class HorizontalFlip(ImageCaptionTransform):

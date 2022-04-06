@@ -3,12 +3,13 @@ import multiprocessing as mp
 import os
 from typing import Any, List
 
-from loguru import logger
 import numpy as np
+import torch
+from loguru import logger
 from sklearn.svm import LinearSVC
 from sklearn.metrics import average_precision_score
 from sklearn.model_selection import cross_val_score
-import torch
+from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -180,16 +181,11 @@ def main(_A: argparse.Namespace):
 
             # Global average pool features. Assume the tensor is in NCHW format.
             if len(features.size()) > 2:
-                features = features.view(features.size(0), features.size(1), -1)
-
                 # shape: (batch_size, visual_feature_size)
-                features = features.mean(dim=-1)
-
-            # shape: (batch_size, visual_feature_size)
-            features = features.view(features.size(0), -1)
+                features = features.mean(dim=(2, 3))
 
             # L2-normalize the global average pooled features.
-            features = features / torch.norm(features, dim=-1).unsqueeze(-1)
+            features = F.normalize(features, dim=-1)
 
             features_train.append(features.cpu())
             targets_train.append(batch["label"])
@@ -199,11 +195,9 @@ def main(_A: argparse.Namespace):
             features = model(batch["image"].to(device))
 
             if len(features.size()) > 2:
-                features = features.view(features.size(0), features.size(1), -1)
-                features = features.mean(dim=-1)
+                features = features.mean(dim=(2, 3))
 
-            features = features.view(features.size(0), -1)
-            features = features / torch.norm(features, dim=-1).unsqueeze(-1)
+            features = F.normalize(features, dim=-1)
 
             features_test.append(features.cpu())
             targets_test.append(batch["label"])

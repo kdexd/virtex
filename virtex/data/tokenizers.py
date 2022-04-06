@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import sentencepiece as sp
 
 
-class SentencePieceBPETokenizer(object):
+class SentencePieceBPETokenizer:
     r"""
     A tokenizer based on `SentencePiece <https://github.com/google/sentencepiece>`_
     with BPE sub-routine. It encodes caption strings into list of tokens.

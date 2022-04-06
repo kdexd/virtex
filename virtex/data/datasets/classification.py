@@ -42,12 +42,9 @@ class TokenClassificationDataset(Dataset):
     ):
         self._dset = CocoCaptionsDataset(data_root, split)
         self.image_transform = image_transform
+        self.max_caption_length = max_caption_length
         self.caption_transform = alb.Compose(
-            [
-                T.NormalizeCaption(),
-                T.TokenizeCaption(tokenizer),
-                T.TruncateCaptionTokens(max_caption_length),
-            ]
+            [T.NormalizeCaption(), T.TokenizeCaption(tokenizer)]
         )
         self.padding_idx = tokenizer.token_to_id("<unk>")
 
@@ -73,6 +70,7 @@ class TokenClassificationDataset(Dataset):
         image = np.transpose(image, (2, 0, 1))
 
         caption_tokens = self.caption_transform(caption=caption)["caption"]
+        caption_tokens = caption_tokens[: self.max_caption_length]
         return {
             "image_id": torch.tensor(image_id, dtype=torch.long),
             "image": torch.tensor(image, dtype=torch.float),

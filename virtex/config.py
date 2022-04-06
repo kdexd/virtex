@@ -3,7 +3,7 @@ from typing import Any, List, Optional
 from fvcore.common.config import CfgNode as CN
 
 
-class Config(object):
+class Config:
     r"""
     This class provides package-wide configuration management. It is a
     nested dict-like structure with nested keys accessible as attributes. It

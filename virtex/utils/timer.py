@@ -2,17 +2,16 @@ import time
 from typing import Optional
 
 
-class Timer(object):
+class Timer:
     r"""
     A simple timer to record time per iteration and ETA of training. ETA is
     estimated by moving window average with fixed window size.
 
     Args:
         start_from: Iteration from which counting should be started/resumed.
-    total_iterations: Total number of iterations. ETA will not be tracked (will
-        remain "N/A") if this is not provided.
-    window_size: Window size for calculating ETA based on average of past few
-        iterations.
+        total_iterations: Total number of iterations. ETA will not be tracked
+            (will remain "N/A") if this is not provided.
+        window_size: Window size to calculate ETA based on past few iterations.
     """
 
     def __init__(
@@ -51,16 +50,8 @@ class Timer(object):
     def eta_hhmm(self) -> str:
         r"""Return ETA in the form of ``hh mm`` string."""
         if self.total_iters:
-            eta_sec = int(self.eta_sec)
+            avg_time = sum(self._times) / len(self._times)
+            eta_sec = int(avg_time * (self.total_iters - self.current_iter))
             return f"{eta_sec // 3600}h {((eta_sec % 3600) // 60):02d}m"
         else:
             return "N/A"
-
-    @property
-    def eta_sec(self) -> float:
-        r"""Return ETA in the form of seconds."""
-        if self.total_iters:
-            avg_time = sum(self._times) / len(self._times)
-            return avg_time * (self.total_iters - self.current_iter)
-        else:
-            return 0.0

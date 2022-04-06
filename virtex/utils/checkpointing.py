@@ -9,7 +9,7 @@ from torch import nn
 import virtex.utils.distributed as dist
 
 
-class CheckpointManager(object):
+class CheckpointManager:
     r"""
     A helper class to periodically serialize models and other checkpointable
     objects (optimizers, LR schedulers etc., which implement ``state_dict``

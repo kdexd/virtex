@@ -22,7 +22,7 @@ import torch
 import torch.nn.functional as F
 
 
-class AutoRegressiveNucleusSampling(object):
+class AutoRegressiveNucleusSampling:
     r"""
     Implements the nucleus sampling for decoding captions. This class only works
     for auto-regressive models (Transformer-like), not recurrent models (LSTM-like).
