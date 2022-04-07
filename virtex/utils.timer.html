@@ -113,30 +113,29 @@
 <h1>virtex.utils.timer<a class="headerlink" href="#virtex-utils-timer" title="Permalink to this headline"></a></h1>
 <hr><span class="target" id="module-virtex.utils.timer"></span><dl class="py class">
 <dt class="sig sig-object py" id="virtex.utils.timer.Timer">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.utils.timer.</span></span><span class="sig-name descname"><span class="pre">Timer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_from</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_iterations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/utils/timer.py#L5-L66"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.utils.timer.Timer" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">virtex.utils.timer.</span></span><span class="sig-name descname"><span class="pre">Timer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_from</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_iterations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/utils/timer.py#L5-L57"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.utils.timer.Timer" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A simple timer to record time per iteration and ETA of training. ETA is
 estimated by moving window average with fixed window size.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>start_from</strong> – Iteration from which counting should be started/resumed.</p>
-</dd>
-</dl>
-<dl class="simple">
-<dt>total_iterations: Total number of iterations. ETA will not be tracked (will</dt><dd><p>remain “N/A”) if this is not provided.</p>
-</dd>
-<dt>window_size: Window size for calculating ETA based on average of past few</dt><dd><p>iterations.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>start_from</strong> – Iteration from which counting should be started/resumed.</p></li>
+<li><p><strong>total_iterations</strong> – Total number of iterations. ETA will not be tracked
+(will remain “N/A”) if this is not provided.</p></li>
+<li><p><strong>window_size</strong> – Window size to calculate ETA based on past few iterations.</p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="virtex.utils.timer.Timer.tic">
-<span class="sig-name descname"><span class="pre">tic</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/utils/timer.py#L32-L34"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.utils.timer.Timer.tic" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tic</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/utils/timer.py#L31-L33"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.utils.timer.Timer.tic" title="Permalink to this definition"></a></dt>
 <dd><p>Start recording time: call at the beginning of iteration.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="virtex.utils.timer.Timer.toc">
-<span class="sig-name descname"><span class="pre">toc</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/utils/timer.py#L36-L40"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.utils.timer.Timer.toc" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">toc</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference external" href="https://github.com/kdexd/virtex/blob/master/virtex/utils/timer.py#L35-L39"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#virtex.utils.timer.Timer.toc" title="Permalink to this definition"></a></dt>
 <dd><p>Stop recording time: call at the end of iteration.</p>
 </dd></dl>
 
@@ -150,12 +149,6 @@ estimated by moving window average with fixed window size.</p>
 <dt class="sig sig-object py" id="virtex.utils.timer.Timer.eta_hhmm">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">eta_hhmm</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#virtex.utils.timer.Timer.eta_hhmm" title="Permalink to this definition"></a></dt>
 <dd><p>Return ETA in the form of <code class="docutils literal notranslate"><span class="pre">hh</span> <span class="pre">mm</span></code> string.</p>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="virtex.utils.timer.Timer.eta_sec">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">eta_sec</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#virtex.utils.timer.Timer.eta_sec" title="Permalink to this definition"></a></dt>
-<dd><p>Return ETA in the form of seconds.</p>
 </dd></dl>
 
 </dd></dl>
