@@ -120,9 +120,7 @@ def main(_A: argparse.Namespace):
     # Wrap model in DDP if using more than one processes.
     if dist.get_world_size() > 1:
         dist.synchronize()
-        model = nn.parallel.DistributedDataParallel(
-            model, device_ids=[device], find_unused_parameters=True
-        )
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[device])
 
     # Keep track of time per iteration and ETA.
     timer = Timer(

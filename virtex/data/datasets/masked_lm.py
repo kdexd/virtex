@@ -19,22 +19,23 @@ class MaskedLmDataset(Dataset):
         split: str,
         tokenizer: SentencePieceBPETokenizer,
         image_transform: Callable = T.DEFAULT_IMAGE_TRANSFORM,
+        max_caption_length: int = 30,
         mask_proportion: float = 0.15,
         mask_probability: float = 0.80,
         replace_probability: float = 0.10,
-        max_caption_length: int = 30,
     ):
         self._dset = CocoCaptionsDataset(data_root, split)
+        self.tokenizer = tokenizer
         self.image_transform = image_transform
         self.max_caption_length = max_caption_length
-        self.caption_transform = alb.Compose(
-            [T.NormalizeCaption(), T.TokenizeCaption(tokenizer)]
-        )
-        self.padding_idx = tokenizer.token_to_id("<unk>")
 
-        # Handles to commonly used variables for word masking.
+        # Short handles for common tokens for convenience:
+        self.padding_idx = tokenizer.token_to_id("<unk>")
+        self.sos_id = tokenizer.token_to_id("[SOS]")
+        self.eos_id = tokenizer.token_to_id("[EOS]")
+        self.mask_id = tokenizer.token_to_id("[MASK]")
+
         self._vocab_size = tokenizer.get_vocab_size()
-        self._mask_index = tokenizer.token_to_id("[MASK]")
         self._mask_proportion = mask_proportion
         self._mask_prob = mask_probability
         self._repl_prob = replace_probability
@@ -60,7 +61,7 @@ class MaskedLmDataset(Dataset):
         image, caption = image_caption["image"], image_caption["caption"]
         image = np.transpose(image, (2, 0, 1))
 
-        caption_tokens = self.caption_transform(caption=caption)["caption"]
+        caption_tokens = [self.sos_id, *self.tokenizer.encode(caption), self.eos_id]
         caption_tokens = caption_tokens[: self.max_caption_length]
         # ---------------------------------------------------------------------
         #  Mask some tokens randomly.
@@ -78,13 +79,13 @@ class MaskedLmDataset(Dataset):
             # If only one token, always [MASK].
             if len(tokens_to_mask) == 1:
                 masked_labels[i] = caption_tokens[i]
-                caption_tokens[i] = self._mask_index
+                caption_tokens[i] = self.mask_id
             else:
                 _flag: float = random.random()
                 if _flag <= self._mask_prob + self._repl_prob:
                     if _flag <= self._mask_prob:
                         masked_labels[i] = caption_tokens[i]
-                        caption_tokens[i] = self._mask_index
+                        caption_tokens[i] = self.mask_id
                     else:
                         caption_tokens[i] = self._random_token_index()
         # ---------------------------------------------------------------------

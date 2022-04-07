@@ -1,101 +1,8 @@
-from typing import List
-import unicodedata
-
 import albumentations as alb
 import cv2
 
-from virtex.data.tokenizers import SentencePieceBPETokenizer
 
-
-class CaptionOnlyTransform(alb.BasicTransform):
-    r"""
-    Base class for custom `albumentations <https://albumentations.readthedocs.io/en/latest/>`_
-    transform, which can transform captions. Captions may be ``str``, or tokens
-    (``List[int]``) as per implementation of :meth:`apply_to_caption`. These
-    transforms will have consistent API as other transforms from albumentations.
-    """
-
-    @property
-    def targets(self):
-        return {"caption": self.apply_to_caption}
-
-    def apply_to_caption(self, caption, **params):
-        raise NotImplementedError
-
-    def update_params(self, params, **kwargs):
-        # Super class adds "width" and "height" but we don't have image here.
-        return params
-
-
-class ImageCaptionTransform(alb.BasicTransform):
-    r"""
-    Similar to :class:`~virtex.data.transforms.CaptionOnlyTransform`, this
-    extends super class to work on ``(image, caption)`` pair together.
-    """
-
-    @property
-    def targets(self):
-        return {"image": self.apply, "caption": self.apply_to_caption}
-
-    def apply_to_caption(self):
-        raise NotImplementedError
-
-
-class NormalizeCaption(CaptionOnlyTransform):
-    r"""
-    Perform common normalization with caption: lowercase, trim leading and
-    trailing whitespaces, NFKD normalization and strip accents.
-
-    Examples:
-        >>> normalize = NormalizeCaption(always_apply=True)
-        >>> out = normalize(caption="Some caption input here.")  # keys: {"caption"}
-    """
-
-    def __init__(self):
-        # `always_apply = True` because this is essential part of pipeline.
-        super().__init__(always_apply=True)
-
-    def apply_to_caption(self, caption: str, **params) -> str:
-        caption = caption.lower()
-        caption = unicodedata.normalize("NFKD", caption)
-        caption = "".join([chr for chr in caption if not unicodedata.combining(chr)])
-        return caption
-
-
-class TokenizeCaption(CaptionOnlyTransform):
-    r"""
-    Tokenize a caption (``str``) to list of tokens (``List[int]``) by the
-    mapping defined in :attr:`tokenizer`.
-
-    Args:
-        tokenizer: A :class:`~virtex.data.tokenizers.SentencePieceBPETokenizer`
-            which encodes a caption into tokens.
-        add_boundaries: Whether to add ``[SOS]``/``[EOS]`` tokens from tokenizer.
-
-    Examples:
-        >>> tokenizer = SentencePieceBPETokenizer("coco.vocab", "coco.model")
-        >>> tokenize = TokenizeCaption(tokenizer, always_apply=True)
-        >>> out = tokenize(caption="Some caption input here.")  # keys: {"caption"}
-    """
-
-    def __init__(self, tokenizer: SentencePieceBPETokenizer):
-        # `always_apply = True` because this is essential part of pipeline.
-        super().__init__(always_apply=True)
-        self.tokenizer = tokenizer
-
-    def apply_to_caption(self, caption: str, **params) -> List[int]:
-        token_indices: List[int] = self.tokenizer.encode(caption)
-
-        # Add boundary tokens.
-        token_indices.insert(0, self.tokenizer.token_to_id("[SOS]"))
-        token_indices.append(self.tokenizer.token_to_id("[EOS]"))
-        return token_indices
-
-    def get_transform_init_args_names(self):
-        return ("tokenizer",)
-
-
-class HorizontalFlip(ImageCaptionTransform):
+class HorizontalFlip(alb.BasicTransform):
     r"""
     Flip the image horizontally randomly (equally likely) and replace the
     word "left" with "right" in the caption.
@@ -113,6 +20,10 @@ class HorizontalFlip(ImageCaptionTransform):
         >>> out2 = flip(image=image)  # keys: {"image"}
 
     """
+
+    @property
+    def targets(self):
+        return {"image": self.apply, "caption": self.apply_to_caption}
 
     def apply(self, img, **params):
         return cv2.flip(img, 1)

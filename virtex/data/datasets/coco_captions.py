@@ -1,6 +1,7 @@
 from collections import defaultdict
 import json
 import os
+import unicodedata
 from typing import Dict, List
 
 import cv2
@@ -27,8 +28,15 @@ class CocoCaptionsDataset(Dataset):
         )
         # Collect list of captions for each image.
         captions_per_image: Dict[int, List[str]] = defaultdict(list)
+
         for ann in captions["annotations"]:
-            captions_per_image[ann["image_id"]].append(ann["caption"])
+            # Perform common normalization (lowercase, trim spaces, NKFC strip
+            # accents and NKFC normalization).
+            caption = ann["caption"].lower()
+            caption = unicodedata.normalize("NFKD", caption)
+            caption = "".join([chr for chr in caption if not unicodedata.combining(chr)])
+
+            captions_per_image[ann["image_id"]].append(caption)
 
         # Collect image file for each image (by its ID).
         image_filepaths: Dict[int, str] = {
