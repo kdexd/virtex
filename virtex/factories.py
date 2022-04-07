@@ -357,10 +357,10 @@ class TextualHeadFactory(Factory):
 
     PRODUCTS: Dict[str, Callable] = {
         "transdec_prenorm": partial(
-            textual_heads.TransformerDecoderTextualHead, norm_type="pre"
+            textual_heads.TransformerDecoderTextualHead, norm_first=True
         ),
         "transdec_postnorm": partial(
-            textual_heads.TransformerDecoderTextualHead, norm_type="post"
+            textual_heads.TransformerDecoderTextualHead, norm_first=False
         ),
         "none": textual_heads.LinearTextualHead,
     }

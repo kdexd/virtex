@@ -3,12 +3,13 @@ A textual head accepts visual features from the visual backbone, and performs
 task specific modeling (captioning, classification etc.) to predict an output
 distribution over vocabulary tokens for one or multiple time-steps in the batch.
 """
+import functools
+
 import torch
 from torch import nn
 from typing import Optional
 
 from virtex.modules.embedding import WordAndPositionalEmbedding
-from virtex.modules.transformer import PreNormTransformerDecoderLayer
 
 
 class TextualHead(nn.Module):
@@ -128,8 +129,9 @@ class TransformerDecoderTextualHead(TextualHead):
         attention_heads: Number of attention heads in the transformer.
         feedforward_size: Size of feedforward layers in the transformer.
         dropout: Dropout probability for transformer (applied after layernorm).
-        norm_type: Type of transformer layer: pre-normalization (like GPT-2) or
-            post-normalization (like BERT). One of ``{"pre", "post"}``.
+        norm_first: Whether to apply normalization before or after attention/FF
+            layers. The former type are called pre-norm variants (like GPT-2) and
+            latter are post-norm variants (like BERT). Default is post-norm.
         mask_future_positions: Whether to mask future positions for self-attention
             over caption tokens. This must be ``True`` for captioning (and
             bicaptioning) tasks to prevent the language model from cheating, and
@@ -150,7 +152,7 @@ class TransformerDecoderTextualHead(TextualHead):
         attention_heads: int,
         feedforward_size: int,
         dropout: float = 0.1,
-        norm_type: str = "post",
+        norm_first: bool = False,
         mask_future_positions: bool = True,
         max_caption_length: int = 30,
         padding_idx: int = 0,
@@ -173,20 +175,23 @@ class TransformerDecoderTextualHead(TextualHead):
             max_caption_length=max_caption_length,
             padding_idx=padding_idx,
         )
-        # Make decoder layer depending on whether it's a Pre-Norm or Post-Norm.
-        LayerClass = (
-            nn.TransformerDecoderLayer
-            if norm_type == "post"
-            else PreNormTransformerDecoderLayer
+
+        # Initialize a transformer with given transformer class (for example
+        # nn.TransformerEncoder and nn.TransformerEncoderLayer).
+        self.transformer = nn.TransformerDecoder(
+            nn.TransformerDecoderLayer(
+                self.textual_feature_size,
+                self.attention_heads,
+                dim_feedforward=self.feedforward_size,
+                dropout=dropout,
+                activation="gelu",
+                batch_first=True,
+                norm_first=norm_first,
+            ),
+            num_layers=self.num_layers,
+            # Add final layer norm for pre-norm transformers.
+            norm=nn.LayerNorm(self.hidden_size) if norm_first else None,
         )
-        _layer = LayerClass(
-            self.textual_feature_size,
-            self.attention_heads,
-            dim_feedforward=self.feedforward_size,
-            dropout=dropout,
-            activation="gelu",
-        )
-        self.transformer = nn.TransformerDecoder(_layer, self.num_layers)
         self.apply(self._init_weights)
 
         # Create an output linear layer and tie the input and output word
@@ -255,42 +260,33 @@ class TransformerDecoderTextualHead(TextualHead):
 
         if self.mask_future_positions:
             # An additive mask for masking the future (one direction).
-            unidirectional_mask = self._generate_future_mask(
+            future_mask = self.make_future_mask(
                 max_caption_length, caption_embeddings.dtype, caption_embeddings.device
             )
         else:
-            unidirectional_mask = None
+            future_mask = None
 
-        # We transpose the first two dimensions of tokens embeddings and visual
-        # features, as required by decoder.
-        caption_embeddings = caption_embeddings.transpose(0, 1)
-        projected_visual_features = projected_visual_features.transpose(0, 1)
-
-        # shape: (max_caption_length, batch_size, hidden_size)
+        # shape: (batch_size, max_caption_length, hidden_size)
         textual_features = self.transformer(
             caption_embeddings,
             projected_visual_features,
-            tgt_mask=unidirectional_mask,
+            tgt_mask=future_mask,
             tgt_key_padding_mask=caption_mask,
         )
-        # Undo the transpose and bring batch to dim 0.
-        # shape: (batch_size, max_caption_length, hidden_size)
-        textual_features = textual_features.transpose(0, 1)
-
         # shape: (batch_size, max_caption_length, vocab_size)
         output_logits = self.output(textual_features)
         return output_logits
 
-    def _generate_future_mask(
-        self, size: int, dtype: torch.dtype, device: torch.device
+    @staticmethod
+    @functools.cache
+    def make_future_mask(
+        size: int, dtype: torch.dtype, device: torch.device
     ) -> torch.Tensor:
-        r"""
-        Generate a mask for "future" positions, useful when using this module
-        for language modeling.
         """
-        # Default mask is for forward direction. Flip for backward direction.
-        mask = torch.triu(
-            torch.ones(size, size, device=device, dtype=dtype), diagonal=1
+        Generate a mask for "future" positions. Masked positions will be negative
+        infinity. This mask is critical for casual language modeling.
+        """
+        return torch.triu(
+            torch.full((size, size), float("-inf"), dtype=dtype, device=device),
+            diagonal=1,
         )
-        mask = mask.masked_fill(mask == 1, float("-inf"))
-        return mask
