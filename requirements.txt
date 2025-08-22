@@ -1,6 +1,6 @@
 albumentations>=1.0
 Cython>=0.25
-future==0.18.0
+future==1.0.0
 loguru>=0.3
 lvis>=0.5
 numpy>=1.17
